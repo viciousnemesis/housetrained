@@ -43,7 +43,12 @@ def _fill(f):
 
 
 def _meal(m):
-    return _("Ate") + (f", {units.show(m.amount, 'mass', m.pet.household)}" if m.amount else "") + (f" · {m.notes[:40]}" if m.notes else "")
+    parts = []
+    if m.food:
+        parts.append(_("Ate") + (f" {units.show(m.amount, 'mass', m.pet.household)}" if m.amount else ""))
+    if m.water:
+        parts.append(_("Drank") + (f" {units.show(m.water_amount, 'volume', m.pet.household)}" if m.water_amount else ""))
+    return ", ".join(parts) + (f" · {m.notes[:40]}" if m.notes else "")
 
 
 def _measurement(m):

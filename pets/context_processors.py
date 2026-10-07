@@ -19,4 +19,11 @@ def baby_mode(request):
         user = request.user
         return user.is_authenticated and can_edit(user, current_household(user))
 
-    return {"baby_mode": SimpleLazyObject(baby_mode_on), "pets_can_edit": SimpleLazyObject(editable)}
+    def help_on():
+        user = request.user
+        if not user.is_authenticated:
+            return True
+        settings_ = getattr(user, "settings", None)
+        return settings_ is None or settings_.show_help
+
+    return {"baby_mode": SimpleLazyObject(baby_mode_on), "help_bubbles": SimpleLazyObject(help_on), "pets_can_edit": SimpleLazyObject(editable)}

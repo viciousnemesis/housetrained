@@ -1,4 +1,5 @@
 from django import template
+from django.utils.translation import gettext as _
 
 from .. import insights, units
 from ..households import current_household
@@ -11,7 +12,7 @@ def _card(name, builder):
     """Register `card_<name>` as an inclusion tag rendering pets/cards/<name>.html for a pet."""
 
     def tag(context, pet):
-        return {"request": context["request"], "pet": pet, **builder(pet)}
+        return {"request": context["request"], "help_bubbles": context.get("help_bubbles"), "pet": pet, **builder(pet)}
 
     tag.__name__ = f"card_{name}"
     register.inclusion_tag(f"pets/cards/{name}.html", takes_context=True)(tag)
@@ -43,6 +44,21 @@ def card_supplies(context, pet=None):
 def amount(context, value, kind):
     """A stored amount in the household's units: {% amount container.amount_per_bowl "mass" %}."""
     return units.show(value, kind, current_household(context["request"].user))
+
+
+@register.simple_tag(takes_context=True)
+def help_bubble(context, text):
+    """An (i) button that explains something, unless the user switched help bubbles off in their settings."""
+    from django.utils.html import format_html
+
+    if not context.get("help_bubbles"):
+        return ""
+    return format_html(
+        '<button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline text-reset opacity-75 help-bubble" '
+        'data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-content="{}" '
+        'aria-label="{}">ⓘ</button>',
+        text, _("Help"),
+    )
 
 
 @register.filter

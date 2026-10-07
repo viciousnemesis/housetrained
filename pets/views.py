@@ -265,6 +265,9 @@ class EntryAdd(EntryView):
                 "Saved, but this bowl isn't calibrated, so the amount is unknown and food tracking will be rough. "
                 "Calibrate it: tare the bowl, fill it as usual, and enter the weight."
             ))
+        elif getattr(form, "meals_logged", None):
+            names = ", ".join(pet.name for pet in form.meals_logged)
+            messages.success(request, _("Bowl filled, and a meal logged for %(names)s.") % {"names": names})
         else:
             messages.success(request, _("%(title)s saved.") % {"title": self.entry.title})
         pets = {pet for entry in saved for pet in entry_pets(entry)}

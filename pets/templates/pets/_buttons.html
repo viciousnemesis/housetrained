@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n pets_tags %}
 <div class="d-flex flex-wrap gap-2 mb-3">
     {% if pets_can_edit %}
         <form class="flex-fill d-flex" method="post" action="{% url 'pets:start' 'walk' %}">
@@ -12,6 +12,7 @@
     {% endif %}
     {% if pets_can_edit %}
         <a class="btn btn-lg btn-primary flex-fill" href="{% url 'pets:add' 'fill' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Fill Bowl" %}</a>
+        <a class="btn btn-lg btn-primary flex-fill" href="{% url 'pets:add' 'meal' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Log Meal" %}</a>
     {% endif %}
     {% if pets_can_edit %}
         <form class="flex-fill d-flex" method="post" action="{% url 'pets:start' 'sleep' %}">
@@ -19,5 +20,8 @@
             {% if pet %}<input type="hidden" name="pet" value="{{ pet.slug }}">{% endif %}
             <button class="btn btn-lg btn-primary flex-fill" type="submit">{% trans "Start Sleep" %}</button>
         </form>
+    {% endif %}
+    {% if pets_can_edit %}
+        <span class="align-self-center">{% help_bubble _("Fill Bowl: food or water went into a bowl or feeder. It counts toward the bag. Log Meal: a pet ate or drank. Meals drive the potty predictions. Feeding a set portion that gets eaten straight away? Tick “Eaten right away” when filling, and both are logged at once.") %}</span>
     {% endif %}
 </div>

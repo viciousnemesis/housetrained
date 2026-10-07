@@ -89,11 +89,12 @@ def food_fills(pet, since):
     return Fill.objects.filter(container__pets=pet, contents=Fill.FOOD, time__gte=since)
 
 
-def feeding_times(pet, since):
-    """When food arrived: fills into the pet's bowls and the pet's meals."""
-    times = list(food_fills(pet, since).values_list("time", flat=True))
-    times += list(Meal.objects.filter(pet=pet, time__gte=since).values_list("time", flat=True))
-    return sorted(times)
+def feeding_times(pet, since, water=False):
+    """When the pet ate (or, with water=True, ate or drank): its meals only. Filling a bowl says nothing about when,
+    or whether, it was eaten."""
+    meals = Meal.objects.filter(pet=pet, time__gte=since)
+    meals = meals.filter(Q(food=True) | Q(water=True)) if water else meals.filter(food=True)
+    return sorted(meals.values_list("time", flat=True))
 
 
 def avg_gap(breaks):
@@ -128,10 +129,16 @@ def statistics_card(pet):
         pees = poops = "–"
     food = food_fills(pet, today).aggregate(s=Sum("amount"))["s"]
     water = Fill.objects.filter(container__pets=pet, contents=Fill.WATER, time__gte=today).aggregate(s=Sum("amount"))["s"]
+    meals = Meal.objects.filter(pet=pet, time__gte=today)
+    eaten = meals.aggregate(s=Sum("amount"))["s"]
+    drunk = meals.aggregate(s=Sum("water_amount"))["s"]
     stats = [
         ("Age", pet_age(pet.birth_date) or "–"),
         ("Today's walk time", fmt_duration(walk_time)),
-        ("Food provided today", units.show(food, "mass", pet.household) if food else "–"),
+        ("Meals today", meals.filter(food=True).count() or "–"),
+        ("Food eaten today", units.show(eaten, "mass", pet.household) if eaten else "–"),
+        ("Food put out today", units.show(food, "mass", pet.household) if food else "–"),
+        ("Water drunk today", units.show(drunk, "volume", pet.household) if drunk else "–"),
         ("Water served today", units.show(water, "volume", pet.household) if water else "–"),
         ("Potty break frequency (past 3 days)", fmt_duration(gap3) if gap3 else "–"),
         ("Potty break frequency (past 2 weeks)", fmt_duration(gap14) if gap14 else "–"),
@@ -146,11 +153,10 @@ def last_potty_card(pet):
 
 
 def last_fed_card(pet):
-    fill = food_fills(pet, window_start(365)).select_related("container").order_by("-time").first()
-    meal = Meal.objects.filter(pet=pet).order_by("-time").first()
-    last = max((x for x in (fill, meal) if x), key=lambda x: x.time, default=None)
+    """The last meal (what the pet ate), not the last bowl fill."""
+    last = Meal.objects.filter(pet=pet, food=True).order_by("-time").first()
     amount = units.show(last.amount, "mass", pet.household) if last and last.amount else None
-    return {"last": last, "is_fill": isinstance(last, Fill), "amount": amount}
+    return {"last": last, "amount": amount}
 
 
 def sleep_card(pet):
@@ -216,16 +222,12 @@ def _place(c, dt):
 def feedings_chart(pet):
     c, dots = chart(), []
     since = window_start()
-    for f in food_fills(pet, since):
-        pos = _place(c, f.time)
-        if pos:
-            r = 2.5 + min((f.amount or 0) / 30, 2.5)
-            dots.append({"x": pos[0], "y": pos[1], "r": r,
-                         "label": fmt_time(f.time) + (f" · {units.show(f.amount, 'mass', pet.household)}" if f.amount else "")})
-    for m in Meal.objects.filter(pet=pet, time__gte=since):
+    for m in Meal.objects.filter(pet=pet, food=True, time__gte=since):
         pos = _place(c, m.time)
         if pos:
-            dots.append({"x": pos[0], "y": pos[1], "r": 2.5, "label": fmt_time(m.time) + " · ate"})
+            r = 2.5 + min((m.amount or 0) / 30, 2.5)
+            dots.append({"x": pos[0], "y": pos[1], "r": r,
+                         "label": fmt_time(m.time) + (f" · {units.show(m.amount, 'mass', pet.household)}" if m.amount else "")})
     return {"chart": c, "dots": dots}
 
 
@@ -369,7 +371,7 @@ def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True):
                 delays.append(after[0] - f)
         delay = median(delays) if len(delays) >= 3 else DEFAULT_MEAL_DELAY[kind]
         meal = meals_since[-1]
-        candidates.append((meal + delay, f"ate at {fmt_time(meal)}, {kind}s ~{fmt_duration(delay)} after meals"))
+        candidates.append((meal + delay, f"meal at {fmt_time(meal)}, {kind}s ~{fmt_duration(delay)} after meals"))
 
     woke = [s for s in wakes if last < s <= now]
     if woke:
@@ -384,7 +386,8 @@ def next_walk_card(pet):
     now = timezone.now()
     since = window_start()
     breaks = potty(pet, since)
-    feedings = feeding_times(pet, since)
+    # What goes in comes out: food drives poops, food and water drive pees.
+    feedings = {"pee": feeding_times(pet, since, water=True), "poop": feeding_times(pet, since)}
     wakes = sorted(pet.sleeps.filter(end__gte=since).values_list("end", flat=True))
     # With little history, lean on the age rule of thumb: a puppy can hold it ~(age in months + 1) hours.
     history = (now - breaks[0].time).days if breaks else 0
@@ -412,7 +415,7 @@ def next_walk_card(pet):
             result = (when, f"after bedtime potty at {fmt_time(times[-1])}; usually up ~{fmt_time(wake)}, "
                             f"first {kind} ~{fmt_time(when)}")
         else:
-            result = _predict(kind, events, feedings, wakes, fallback, now, night, learned=history >= MIN_HISTORY_DAYS)
+            result = _predict(kind, events, feedings[kind], wakes, fallback, now, night, learned=history >= MIN_HISTORY_DAYS)
             # Needs that would fall during the night: pees go on the bedtime walk if it's still ahead,
             # everything else waits for the first walk after waking up.
             if result and night.contains(result[0]) and not night.contains(now):

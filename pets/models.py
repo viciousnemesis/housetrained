@@ -65,6 +65,10 @@ class Pet(models.Model):
     picture = models.ImageField(_("picture"), upload_to="pets/", blank=True)
     active = models.BooleanField(_("active"), default=True, help_text=_("Untick once a pet is rehomed or has passed."))
     notes = models.TextField(_("notes"), blank=True)
+    potty_locations = models.JSONField(
+        _("potty locations"), default=list, blank=True,
+        help_text=_("Where this pet goes. Only these show when logging a potty break."),
+    )
 
     site_settings = PlatformSettings()  # site-wide switches, on the Site Settings page
 
@@ -74,6 +78,15 @@ class Pet(models.Model):
 
     def __str__(self):
         return self.name
+
+    def allowed_potty_locations(self):
+        """The pet's chosen potty locations, or sensible ones for its type."""
+        if self.potty_locations:
+            return list(self.potty_locations)
+        return {
+            self.DOG: [PottyBreak.OUTSIDE, PottyBreak.INSIDE, PottyBreak.PAD],
+            self.CAT: [PottyBreak.LITTER_BOX, PottyBreak.INSIDE],
+        }.get(self.type, [code for code, _label in PottyBreak.LOCATIONS])
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -226,6 +239,7 @@ class Walk(Logged):
 
 class PottyBreak(Logged):
     OUTSIDE, INSIDE, PAD, LITTER_BOX = "outside", "inside", "pad", "litter_box"
+    LOCATIONS = [(OUTSIDE, _("Outside")), (INSIDE, _("Inside")), (PAD, _("Pad")), (LITTER_BOX, _("Litter box"))]
 
     pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name="potty_breaks")
     time = models.DateTimeField(_("time"), default=timezone.now)
@@ -233,7 +247,7 @@ class PottyBreak(Logged):
     poop = models.BooleanField(_("poop"), default=False)
     location = models.CharField(
         _("location"), max_length=20, default=OUTSIDE,
-        choices=[(OUTSIDE, _("Outside")), (INSIDE, _("Inside")), (PAD, _("Pad")), (LITTER_BOX, _("Litter box"))],
+        choices=LOCATIONS,
     )
     walk = models.ForeignKey(Walk, on_delete=models.SET_NULL, null=True, blank=True, related_name="potty_breaks")
     container = models.ForeignKey(
@@ -266,12 +280,20 @@ class Sleep(Logged):
 
 
 class Meal(Logged):
-    """A pet ate. Separate from filling a bowl, which is a Fill."""
+    """A pet ate and/or drank. What it takes in drives potty predictions. Separate from filling a bowl (a Fill),
+    which is what left the bag."""
 
     pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name="meals")
     time = models.DateTimeField(_("time"), default=timezone.now)
+    food = models.BooleanField(_("food"), default=True)
+    water = models.BooleanField(_("water"), default=False)
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     amount = models.FloatField(_("amount eaten (g)"), null=True, blank=True)
+    water_amount = models.FloatField(_("amount drunk (ml)"), null=True, blank=True)
+    fill = models.ForeignKey(
+        "Fill", on_delete=models.CASCADE, null=True, blank=True, related_name="meals",
+        help_text=_("Set when the meal was logged together with filling the bowl; goes away with that fill."),
+    )
 
     class Meta:
         ordering = ["-time"]
