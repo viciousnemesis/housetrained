@@ -23,3 +23,15 @@ class PetCheckboxSelect(CheckboxSelectMultiple):
         if value != "":
             option["picture"] = value.instance.picture
         return option
+
+
+class PillCheckboxSelect(CheckboxSelectMultiple):
+    """Several choices, as toggle pills (the multi-select twin of Baby Buddy's PillRadioSelect)."""
+
+    template_name = "core/pill_radio.html"
+    option_template_name = "core/pill_radio_option.html"
+
+    def build_attrs(self, base_attrs, extra_attrs=None):
+        attrs = super().build_attrs(base_attrs, extra_attrs)
+        attrs["class"] = attrs.get("class", "") + " btn-check d-none"
+        return attrs

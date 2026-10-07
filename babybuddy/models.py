@@ -129,6 +129,11 @@ class Settings(models.Model):
         default=25,
         verbose_name=_("Items Per Page"),
     )
+    show_help = models.BooleanField(
+        default=True,
+        verbose_name=_("Show help bubbles"),
+        help_text=_("Small (i) buttons next to fields and buttons that explain them."),
+    )
     access_expires = models.DateTimeField(
         blank=True,
         null=True,

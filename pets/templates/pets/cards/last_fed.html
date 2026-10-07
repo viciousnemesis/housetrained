@@ -1,22 +1,18 @@
 {% extends "cards/base.html" %}
-{% load duration %}
-{% block header %}Last Fed{% endblock %}
+{% load duration i18n pets_tags %}
+{% block header %}{% trans "Last Meal" %}{% help_bubble _("When the pet last ate, from Log Meal. Filling a bowl doesn't count: it says the food was put out, not that it was eaten.") %}{% endblock %}
 {% block title %}
     {% if last %}
         <div>{{ last.time|deltasince|duration_string:'m' }} ago</div>
         <small>{{ last.time|time }}</small>
     {% else %}
-        None
+        {% trans "None" %}
     {% endif %}
 {% endblock %}
 {% block content %}
-    {% if last and is_fill %}
-        <a class="text-reset" href="{% url 'pets:edit' 'fill' last.pk %}?next={{ request.path|urlencode }}">
-            {{ last.container.name }} filled{% if amount %} with {{ amount }}{% elif last.bowls %} with {{ last.bowls|floatformat:"-1" }} bowl{{ last.bowls|pluralize }}{% endif %}
-        </a>
-    {% elif last %}
+    {% if last %}
         <a class="text-reset" href="{% url 'pets:edit' 'meal' last.pk %}?next={{ request.path|urlencode }}">
-            Ate{% if amount %} {{ amount }}{% endif %}{% if last.notes %} · {{ last.notes|truncatechars:40 }}{% endif %}
+            {% trans "Ate" %}{% if amount %} {{ amount }}{% endif %}{% if last.product %} {{ last.product.name }}{% endif %}{% if last.notes %} · {{ last.notes|truncatechars:40 }}{% endif %}
         </a>
     {% endif %}
 {% endblock %}

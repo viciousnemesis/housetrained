@@ -56,3 +56,8 @@ $link-hover-color: color.adjust($link-color, $lightness: -15%);
 $table-cell-padding-y: 0.75rem;
 $table-cell-padding-x: 0.75rem;
 $table-striped-bg: $dark;
+
+// Help bubbles: stand out from the dark page.
+$popover-bg: $gray-700;
+$popover-border-color: $primary;
+$popover-body-color: $gray-100;

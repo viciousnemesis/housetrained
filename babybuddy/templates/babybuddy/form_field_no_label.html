@@ -25,11 +25,6 @@
         {{ field|add_class:"form-control" }}
     {% endif %}
 {% endif %}
-{% if field.help_text %}
-    <div class="help-block">
-        <small>{{ field.help_text }}</small>
-    </div>
-{% endif %}
 {% if field.errors %}
     <div class="invalid-feedback">{% for error in field.errors %}{{ error }}{% endfor %}</div>
 {% endif %}

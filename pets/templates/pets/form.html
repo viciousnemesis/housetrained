@@ -7,9 +7,9 @@
 {% endblock %}
 {% block content %}
     <h1>{% if object %}{% trans "Edit" %} {{ title|lower }}{% else %}{{ title }}{% endif %}</h1>
-    {% if kind == "fill" %}
+    {% if kind == "fill" and form.has_uncalibrated %}
         <p class="text-body-secondary small">
-            {% trans "Bowls only become amounts once a bowl is calibrated (tare the bowl, fill it as usual, weigh it). Until then, food tracking and bag estimates will be rough." %}
+            {% trans "Bowls marked not calibrated can't turn bowls into grams yet, so bag estimates stay rough. Calibrate in Setup: tare the bowl, fill it as usual, weigh it." %}
         </p>
     {% endif %}
     <div class="container-fluid pb-5">
@@ -42,4 +42,78 @@
             </form>
         {% endif %}
     </div>
+    {% if form.location_map %}{{ form.location_map|json_script:"potty-locations" }}{% endif %}
+    {% if form.container_info %}{{ form.container_info|json_script:"fill-containers" }}{% endif %}
+    <script>
+        (function () {
+            // Fill: litter boxes have no meal; a new fill repeats the last one for that bowl.
+            var info = document.getElementById("fill-containers");
+            if (info) {
+                info = JSON.parse(info.textContent);
+                var eaten = document.getElementById("id_eaten_now");
+                var eatenRow = eaten && eaten.closest(".row.mb-3");
+                var amount = document.getElementById("id_amount"), unit = document.getElementById("id_unit");
+                var auto = amount && !amount.value;
+                if (amount) amount.addEventListener("input", function () { auto = false; });
+                var pick = function () {
+                    var picked = document.querySelector("input[name=container]:checked");
+                    var c = picked && info[picked.value];
+                    if (!c) return;
+                    if (eatenRow) eatenRow.classList.toggle("d-none", c.litter);
+                    if (c.litter && eaten) eaten.checked = false;
+                    if (c.add && c.last && auto) {
+                        amount.value = c.last.amount;
+                        unit.value = c.last.unit;
+                        if (eaten && !c.litter) eaten.checked = c.last.eaten;
+                    }
+                };
+                document.querySelectorAll("input[name=container]").forEach(function (i) {
+                    i.addEventListener("change", pick);
+                });
+                pick();
+            }
+            // Potty: only show the locations the picked pets use.
+            var map = document.getElementById("potty-locations");
+            if (map) {
+                map = JSON.parse(map.textContent);
+                var update = function () {
+                    var picked = Array.from(document.querySelectorAll("input[name=pets]:checked, input[name=pet]:checked"))
+                        .map(function (i) { return i.value; });
+                    if (!picked.length) picked = Object.keys(map);
+                    var allowed = new Set();
+                    picked.forEach(function (pk) { (map[pk] || []).forEach(function (l) { allowed.add(l); }); });
+                    var inputs = Array.from(document.querySelectorAll("input[name=location]"));
+                    inputs.forEach(function (input) {
+                        var label = document.querySelector("label[for='" + input.id + "']");
+                        if (label) label.classList.toggle("d-none", !allowed.has(input.value));
+                    });
+                    var checked = inputs.find(function (i) { return i.checked; });
+                    if (checked && !allowed.has(checked.value)) {
+                        var usual = (map[picked[0]] || [])[0];  // the first pet's usual spot, e.g. litter box for a cat
+                        var first = inputs.find(function (i) { return i.value === usual; }) ||
+                            inputs.find(function (i) { return allowed.has(i.value); });
+                        checked.checked = false;
+                        if (first) first.checked = true;
+                    }
+                };
+                document.querySelectorAll("input[name=pets], input[name=pet]").forEach(function (i) {
+                    i.addEventListener("change", update);
+                });
+                update();
+            }
+            // Walk: the name box only shows for "Other".
+            var name = document.getElementById("id_walker_name");
+            if (name) {
+                var row = name.closest(".row.mb-3");
+                var toggle = function () {
+                    var other = document.querySelector("input[name=walker_choice][value=other]");
+                    row.classList.toggle("d-none", !(other && other.checked));
+                };
+                document.querySelectorAll("input[name=walker_choice]").forEach(function (i) {
+                    i.addEventListener("change", toggle);
+                });
+                toggle();
+            }
+        })();
+    </script>
 {% endblock %}
