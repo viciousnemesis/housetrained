@@ -178,7 +178,7 @@ if REVERSE_PROXY_AUTH:
 
 USE_TZ = True
 
-TIME_ZONE = "UTC"
+TIME_ZONE = os.environ.get("TIME_ZONE") or "UTC"
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/

@@ -345,9 +345,17 @@ class DiaperChangeForm(CoreModelForm, TaggableModelForm):
             "layout": "choices",
             "layout_attrs": {"label": "Contents"},
         },
-        {"fields": ["color", "amount"]},
+        {"fields": ["color"], "layout": "required"},
+        {"fields": ["amount"]},
         {"layout": "advanced", "fields": ["notes", "tags"]},
     ]
+
+    color = forms.ChoiceField(
+        choices=[("outside", _("Outside")), ("inside", _("Inside"))],
+        initial="outside",
+        label=_("Location"),
+        widget=PillRadioSelect(),
+    )
 
     class Meta:
         model = models.DiaperChange
@@ -362,20 +370,34 @@ class DiaperChangeForm(CoreModelForm, TaggableModelForm):
 
 class FeedingForm(CoreModelForm, TaggableModelForm):
     fieldsets = [
-        {"fields": ["child", "start", "end", "type", "method"], "layout": "required"},
-        {"fields": ["amount"]},
+        {"fields": ["child", "start", "type", "amount"], "layout": "required"},
         {"fields": ["notes", "tags"], "layout": "advanced"},
     ]
 
+    type = forms.ChoiceField(
+        choices=[("wet food", _("Wet food")), ("dry food", _("Dry food"))],
+        label=_("Type"),
+        widget=PillRadioSelect(),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if "start" in cleaned_data:
+            self.instance.end = cleaned_data["start"]
+        return cleaned_data
+
+    def save(self, commit=True):
+        self.instance.method = "self fed"
+        self.instance.end = self.instance.start
+        return super().save(commit=commit)
+
     class Meta:
         model = models.Feeding
-        fields = ["child", "start", "end", "type", "method", "amount", "notes", "tags"]
+        fields = ["child", "start", "type", "amount", "notes", "tags"]
+        labels = {"start": _("Time"), "amount": _("Amount (g)")}
         widgets = {
             "child": ChildRadioSelect,
             "start": DateTimeInput(),
-            "end": DateTimeInput(),
-            "type": PillRadioSelect(),
-            "method": PillRadioSelect(),
             "notes": forms.Textarea(attrs={"rows": 5}),
         }
 
@@ -514,6 +536,13 @@ class SleepForm(CoreModelForm, TaggableModelForm):
         {"fields": ["notes", "tags"], "layout": "advanced"},
     ]
 
+    nap = forms.TypedChoiceField(
+        choices=[(True, _("Nap")), (False, _("Sleep"))],
+        coerce=lambda v: v in (True, "True"),
+        label=_("Type"),
+        widget=PillRadioSelect(),
+    )
+
     class Meta:
         model = models.Sleep
         fields = ["child", "start", "end", "nap", "notes", "tags"]
@@ -595,9 +624,15 @@ class TummyTimeForm(CoreModelForm, TaggableModelForm):
         {"fields": ["notes", "tags"], "layout": "advanced"},
     ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.instance.pk and self.user:
+            self.initial.setdefault("milestone", self.user.first_name or self.user.username)
+
     class Meta:
         model = models.TummyTime
         fields = ["child", "start", "end", "milestone", "notes", "tags"]
+        labels = {"milestone": "Walker"}
         widgets = {
             "child": ChildRadioSelect,
             "start": DateTimeInput(),

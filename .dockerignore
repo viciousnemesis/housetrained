@@ -1,0 +1,10 @@
+.git
+.env
+compose.yaml
+Dockerfile
+.dockerignore
+data
+media
+node_modules
+docs
+terraform

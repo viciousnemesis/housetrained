@@ -1,0 +1,40 @@
+{% extends "cards/base.html" %}
+{% block header %}
+    <a href="{% url "core:diaperchange-list" %}">Accident Times</a>
+{% endblock %}
+{% block title %}
+    {% if not dots %}None{% endif %}
+{% endblock %}
+{% block content %}
+    <div class="small mb-1">
+        <span class="me-2"><span class="d-inline-block rounded-circle me-1" style="width:.6rem;height:.6rem;background:#f5d33f"></span>Pee inside</span>
+        <span class="me-2"><span class="d-inline-block rounded-circle me-1" style="width:.6rem;height:.6rem;background:#a72431"></span>Poop inside</span>
+        <span class="me-2"><span class="d-inline-block me-1" style="width:.6rem;height:.6rem;background:#4a90e2"></span>Meal</span>
+        <span><span class="d-inline-block me-1" style="width:.8rem;height:.6rem;background:#8e6cc8;opacity:.6"></span>Sleep</span>
+    </div>
+    <svg viewBox="0 0 {{ chart.width }} {{ chart.total_h }}" class="w-100" role="img" aria-label="Accident times by day">
+        {% for s in sleeps %}
+            <rect x="{{ s.x }}" y="{{ s.y }}" width="{{ s.w }}" height="{{ row_h }}" fill="#8e6cc8" opacity=".35" />
+        {% endfor %}
+        {% include "cards/pet_chart_grid.html" %}
+        {% for m in meals %}
+            <rect x="{{ m.x }}" y="{{ m.y }}" width="6" height="6" fill="#4a90e2" />
+        {% endfor %}
+        {% for dot in dots %}
+            <circle cx="{{ dot.x }}" cy="{{ dot.y }}" r="3.5" fill="{{ dot.color }}"><title>{{ dot.label }}</title></circle>
+        {% endfor %}
+    </svg>
+    {% if dots %}
+        <div class="small mt-2 mb-1">Accidents by hour (past 2 weeks)</div>
+        <svg viewBox="0 0 {{ chart.width }} 40" class="w-100" role="img" aria-label="Accidents by hour of day">
+            {% for bar in hist %}
+                {% if bar.n %}
+                    <rect x="{{ bar.x }}" y="{{ bar.y }}" width="{{ hist_w }}" height="{{ bar.h }}" fill="#a72431"><title>{{ bar.n }} at {{ bar.label }}:00</title></rect>
+                {% endif %}
+                {% if bar.even %}
+                    <text x="{{ bar.x }}" y="38" textLength="{{ hist_w }}" lengthAdjust="spacingAndGlyphs" font-size="9" fill="currentColor" opacity=".7">{{ bar.label }}</text>
+                {% endif %}
+            {% endfor %}
+        </svg>
+    {% endif %}
+{% endblock %}

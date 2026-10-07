@@ -1,0 +1,18 @@
+{% extends "cards/base.html" %}
+{% block header %}
+    <a href="{% url "core:tummytime-list" %}">Walks</a>
+{% endblock %}
+{% block title %}
+    {% if walks %}{{ walks|length }} walks{% else %}None{% endif %}
+{% endblock %}
+{% block listgroup %}
+    <div class="list-group list-group-flush small overflow-auto" style="max-height: 24rem">
+        {% for walk in walks %}
+            <a class="list-group-item list-group-item-action" href="{% url "core:tummytime-update" walk.id %}">
+                {{ walk.start|date:"M j, g:i a" }} —
+                {% if walk.pee %}<span style="filter: hue-rotate(228deg) saturate(1.3) brightness(1.2)">💦</span>{% endif %}{% if walk.poop %}💩{% endif %}{% if not walk.pee and not walk.poop %}–{% endif %}
+                — {{ walk.length }}{% if walk.milestone %} — {{ walk.milestone }}{% endif %}
+            </a>
+        {% endfor %}
+    </div>
+{% endblock %}
