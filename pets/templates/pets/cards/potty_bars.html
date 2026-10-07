@@ -1,0 +1,21 @@
+{% extends "cards/base.html" %}
+{% block header %}Potty Breaks{% endblock %}
+{% block title %}{% if empty %}None{% else %}Past Week{% endif %}{% endblock %}
+{% block content %}
+    <div class="small mb-2">
+        {% for key, color, label in legend %}
+            <span class="me-3"><span class="d-inline-block rounded-1 me-1" style="width:.8rem;height:.8rem;background:{{ color }}"></span>{{ label }}</span>
+        {% endfor %}
+    </div>
+    {% for d in days %}
+        <div class="d-flex align-items-center gap-2 mt-2">
+            <div class="small text-nowrap text-end" style="width: 3.5rem">{{ d.label }}</div>
+            <div class="progress flex-grow-1 bg-transparent" style="height: 1.4rem">
+                {% if d.pee_ok %}<div class="progress-bar" style="width: {{ d.pee_ok_pct|safe }}%; background: #8fd18a; color: #000">{{ d.pee_ok }}</div>{% endif %}
+                {% if d.poop_ok %}<div class="progress-bar" style="width: {{ d.poop_ok_pct|safe }}%; background: #2e7d32; color: #fff">{{ d.poop_ok }}</div>{% endif %}
+                {% if d.pee_in %}<div class="progress-bar" style="width: {{ d.pee_in_pct|safe }}%; background: #f5d33f; color: #000">{{ d.pee_in }}</div>{% endif %}
+                {% if d.poop_in %}<div class="progress-bar" style="width: {{ d.poop_in_pct|safe }}%; background: #a72431; color: #fff">{{ d.poop_in }}</div>{% endif %}
+            </div>
+        </div>
+    {% endfor %}
+{% endblock %}

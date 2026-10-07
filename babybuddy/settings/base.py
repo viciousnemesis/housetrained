@@ -30,6 +30,9 @@ ALLOWED_HOSTS = [x.strip() for x in os.environ.get("ALLOWED_HOSTS", "*").split("
 SECRET_KEY = os.environ.get("SECRET_KEY") or None
 DEBUG = bool(strtobool(os.environ.get("DEBUG") or "False"))
 
+# Housetrained: Baby Buddy's baby-tracking menus and home page only show in baby mode (PUP-49).
+BABY_MODE = bool(strtobool(os.environ.get("BABY_MODE") or "False"))
+
 # Applications
 # https://docs.djangoproject.com/en/5.0/ref/applications/
 
@@ -39,6 +42,7 @@ INSTALLED_APPS = [
     "core.apps.CoreConfig",
     "corsheaders",
     "dashboard",
+    "pets.apps.PetsConfig",
     "reports",
     "axes",
     "django_filters",
@@ -102,6 +106,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "pets.context_processors.baby_mode",
             ],
         },
     },
@@ -280,7 +285,7 @@ if AWS_STORAGE_BUCKET_NAME:
 # https://docs.djangoproject.com/en/5.0/topics/email/
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-EMAIL_SUBJECT_PREFIX = "[Baby Buddy] "
+EMAIL_SUBJECT_PREFIX = "[Housetrained] "
 EMAIL_TIMEOUT = 30
 if os.environ.get("EMAIL_HOST"):
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

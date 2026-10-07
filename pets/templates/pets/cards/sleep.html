@@ -1,0 +1,16 @@
+{% extends "cards/base.html" %}
+{% load duration %}
+{% block header %}Sleep{% endblock %}
+{% block title %}
+    {% if last and not last.end %}
+        <div>Sleeping since {{ last.start|time }}</div>
+    {% elif last %}
+        <div>Last {{ last.get_kind_display|lower }} ended {{ last.end|deltasince|duration_string:'m' }} ago</div>
+        <small>{{ last.start|time }}–{{ last.end|time }}</small>
+    {% else %}
+        None
+    {% endif %}
+{% endblock %}
+{% block content %}
+    Naps today: {{ naps_today }}{% if nap_time %} ({{ nap_time }}){% endif %}
+{% endblock %}

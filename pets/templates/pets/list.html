@@ -1,0 +1,50 @@
+{% extends "babybuddy/page.html" %}
+{% load i18n %}
+{% block title %}{{ title }}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
+{% endblock %}
+{% block content %}
+    <h1>
+        {{ title }}
+        <a href="{% url 'pets:add' kind %}{% if pet %}?pet={{ pet.slug }}{% endif %}" class="btn btn-sm btn-success">+ {% trans "Add" %}</a>
+    </h1>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        {% for k, label in kinds %}
+            <a class="btn btn-sm {% if k == kind %}btn-primary{% else %}btn-outline-light{% endif %}" href="{% url 'pets:list' k %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+    {% if pets|length > 1 %}
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <a class="btn btn-sm {% if not pet %}btn-primary{% else %}btn-outline-light{% endif %}" href="{% url 'pets:list' kind %}">{% trans "All pets" %}</a>
+            {% for p in pets %}
+                <a class="btn btn-sm {% if p == pet %}btn-primary{% else %}btn-outline-light{% endif %}" href="{% url 'pets:list' kind %}?pet={{ p.slug }}">{{ p.name }}</a>
+            {% endfor %}
+        </div>
+    {% endif %}
+    <div class="table-responsive">
+        <table class="table table-borderless table-striped table-hover align-middle">
+            <thead>
+                <tr><th>{% trans "When" %}</th><th>{% trans "Pet" %}</th><th>{% trans "Details" %}</th></tr>
+            </thead>
+            <tbody>
+                {% for r in rows %}
+                    <tr>
+                        <td class="text-nowrap"><a href="{{ r.edit_url }}?next={{ request.get_full_path|urlencode }}">{{ r.time|date:"M j, g:i a" }}</a></td>
+                        <td>{{ r.pets }}</td>
+                        <td>{{ r.summary }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="3">{% trans "Nothing logged yet." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if page.has_other_pages %}
+        <nav class="d-flex gap-2">
+            {% if page.has_previous %}<a class="btn btn-outline-light" href="?{% if pet %}pet={{ pet.slug }}&{% endif %}page={{ page.previous_page_number }}">{% trans "Newer" %}</a>{% endif %}
+            {% if page.has_next %}<a class="btn btn-outline-light" href="?{% if pet %}pet={{ pet.slug }}&{% endif %}page={{ page.next_page_number }}">{% trans "Older" %}</a>{% endif %}
+        </nav>
+    {% endif %}
+{% endblock %}

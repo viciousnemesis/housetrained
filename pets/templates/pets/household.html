@@ -1,0 +1,42 @@
+{% extends "babybuddy/page.html" %}
+{% load i18n imagekit pets_tags static %}
+{% block title %}{% trans "Pets" %}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item fw-bold">{{ household.name }}</li>
+{% endblock %}
+{% block content %}
+    {% include "pets/_buttons.html" %}
+    {% if pets|length > 1 %}
+        <p class="text-body-secondary small">{% trans "These buttons log for every pet. Open a pet to log for just that one." %}</p>
+    {% endif %}
+    <div class="d-flex gap-2 mb-3">
+        <a class="btn btn-sm btn-outline-light" href="{% url 'pets:timeline' %}">{% trans "Timeline" %}</a>
+        <a class="btn btn-sm btn-outline-light" href="{% url 'pets:list' 'potty' %}">{% trans "Logs" %}</a>
+        <a class="btn btn-sm btn-outline-light" href="{% url 'pets:setup' %}">{% trans "Setup" %}</a>
+    </div>
+    <div class="row">
+        <div class="col-lg-4">{% card_supplies %}</div>
+    </div>
+    <div class="row">
+        {% for pet in pets %}
+            <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+                <a class="card text-reset text-decoration-none h-100" href="{% url 'pets:pet' pet.slug %}">
+                    {% if pet.picture %}
+                        {% thumbnail '300x300' pet.picture as thumb %}
+                            <img src="{{ thumb.url }}" class="card-img-top" alt="">
+                        {% else %}
+                            <img src="{% static 'babybuddy/img/core/child-placeholder.png' %}" class="card-img-top" alt="">
+                        {% endif %}
+                        <div class="card-body text-center">
+                            <h4 class="card-title">{{ pet.name }}</h4>
+                            <div class="card-text text-body-secondary">
+                                {{ pet.get_type_display }}{% if pet.birth_date %} · {{ pet.birth_date|pet_age }}{% endif %}
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            {% empty %}
+                <p>{% trans "No pets yet." %} {% if pets_can_edit %}<a href="{% url 'pets:add' 'pet' %}">{% trans "Add your first pet" %}</a>{% endif %}</p>
+            {% endfor %}
+        </div>
+    {% endblock %}

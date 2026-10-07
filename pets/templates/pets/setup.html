@@ -1,0 +1,87 @@
+{% extends "babybuddy/page.html" %}
+{% load i18n pets_tags %}
+{% block title %}{% trans "Setup" %}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Setup" %}</li>
+{% endblock %}
+{% block content %}
+    <h1>
+        {% trans "Setup" %}: {{ household.name }}
+        <a class="btn btn-sm btn-outline-light" href="{% url 'pets:household-edit' %}">{% trans "Household settings" %}</a>
+        <a class="btn btn-sm btn-outline-light" href="{% url 'pets:members' %}">{% trans "Members" %}</a>
+    </h1>
+    <p class="text-body-secondary small">{% trans "Units" %}: {{ household.get_units_display }}</p>
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card card-dashboard">
+                <div class="card-header d-flex justify-content-between">
+                    {% trans "Pets" %} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'pet' %}">+ {% trans "Add" %}</a>{% endif %}
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for p in pets %}
+                        <a class="list-group-item list-group-item-action" href="{% url 'pets:edit' 'pet' p.pk %}">
+                            {{ p.name }} · {{ p.get_type_display }}{% if not p.active %} · <em>{% trans "inactive" %}</em>{% endif %}
+                        </a>
+                    {% empty %}
+                        <div class="list-group-item">{% trans "No pets yet." %}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card card-dashboard">
+                <div class="card-header d-flex justify-content-between">
+                    {% trans "Bowls, feeders and litter boxes" %} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'container' %}">+ {% trans "Add" %}</a>{% endif %}
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for c in containers %}
+                        <a class="list-group-item list-group-item-action" href="{% url 'pets:edit' 'container' c.pk %}">
+                            {{ c.name }} · {{ c.get_kind_display }}
+                            <span class="text-body-secondary small">
+                                · {% for p in c.pets.all %}{{ p.name }}{% if not forloop.last %}, {% endif %}{% empty %}{% trans "no pets" %}{% endfor %}
+                                {% if c.amount_per_bowl %} · 1 bowl = {% if c.holds_water %}{% amount c.amount_per_bowl "volume" %}{% else %}{% amount c.amount_per_bowl "mass" %}{% endif %}
+                                {% elif c.kind == "food_bowl" or c.kind == "water_bowl" %} · <span class="text-warning">{% trans "not calibrated" %}</span>{% endif %}
+                            </span>
+                        </a>
+                    {% empty %}
+                        <div class="list-group-item">{% trans "None yet." %}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card card-dashboard">
+                <div class="card-header d-flex justify-content-between">
+                    {% trans "Products" %} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'product' %}">+ {% trans "Add" %}</a>{% endif %}
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for p in products %}
+                        <a class="list-group-item list-group-item-action" href="{% url 'pets:edit' 'product' p.pk %}">
+                            {{ p }} · {{ p.get_category_display }}
+                        </a>
+                    {% empty %}
+                        <div class="list-group-item">{% trans "None yet." %}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card card-dashboard">
+                <div class="card-header d-flex justify-content-between">
+                    {% trans "Bags and boxes" %} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'supply' %}">+ {% trans "Add" %}</a>{% endif %}
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for s in bags %}
+                        <a class="list-group-item list-group-item-action" href="{% url 'pets:edit' 'supply' s.item.pk %}">
+                            {{ s.item.product }} · {{ s.left }} {% trans "left of" %} {{ s.size }}
+                            <span class="text-body-secondary small">
+                                {% if s.item.finished %}· {% trans "finished" %} {{ s.item.finished|date:"M j" }}
+                                {% elif s.days_left is not None %}· ~{{ s.days_left }} {% trans "days left" %}{% endif %}
+                                {% if s.pets %}· {{ s.pets }}{% endif %}
+                            </span>
+                        </a>
+                    {% empty %}
+                        <div class="list-group-item">{% trans "None yet. Add a bag to start tracking how much is left." %}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "babybuddy/page.html" %}
+{% load i18n %}
+{% block title %}{% trans "Timeline" %}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Timeline" %}</li>
+{% endblock %}
+{% block content %}
+    <div class="d-flex align-items-center justify-content-center gap-3 mb-3">
+        <a class="btn btn-outline-light" href="?date={{ previous.isoformat }}" aria-label="{% trans 'Previous day' %}">‹</a>
+        <h2 class="m-0">{{ date|date:"D, M j, Y" }}</h2>
+        {% if next %}<a class="btn btn-outline-light" href="?date={{ next.isoformat }}" aria-label="{% trans 'Next day' %}">›</a>{% else %}<span class="btn btn-outline-light disabled">›</span>{% endif %}
+    </div>
+    <div class="list-group">
+        {% for r in rows %}
+            <a class="list-group-item list-group-item-action d-flex gap-3" href="{{ r.edit_url }}?next={{ request.get_full_path|urlencode }}">
+                <span class="text-body-secondary text-nowrap" style="width: 5rem">{{ r.time|time }}</span>
+                <span class="text-nowrap" style="min-width: 5rem">{{ r.pets }}</span>
+                <span>{{ r.summary }}</span>
+            </a>
+        {% empty %}
+            <div class="list-group-item">{% trans "Nothing logged this day." %}</div>
+        {% endfor %}
+    </div>
+{% endblock %}

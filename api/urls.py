@@ -67,9 +67,9 @@ router.add_detail_path(
     "schema",
     "openapi-schema",
     get_schema_view(
-        title="Baby Buddy API",
+        title="Housetrained API",
         version=1,
-        description="API documentation for the Baby Buddy application",
+        description="API documentation for the Housetrained application",
     ),
 )
 

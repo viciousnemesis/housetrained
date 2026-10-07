@@ -1,0 +1,53 @@
+{% extends "babybuddy/page.html" %}
+{% load i18n %}
+{% block title %}{% trans "Members" %}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'pets:setup' %}">{% trans "Setup" %}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Members" %}</li>
+{% endblock %}
+{% block content %}
+    <h1>{% trans "Members" %}: {{ household.name }}</h1>
+    <p class="text-body-secondary small">
+        {% trans "Owners and members log entries and change setup. Read-only members can only look. Only owners change household settings and members." %}
+    </p>
+    <div class="card card-dashboard">
+        <div class="list-group list-group-flush">
+            {% for m in members %}
+                <form class="list-group-item d-flex flex-wrap align-items-center gap-2" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="user" value="{{ m.user.pk }}">
+                    <span class="me-auto">{{ m.user.get_full_name|default:m.user.get_username }}{% if m.user == request.user %} <em>({% trans "you" %})</em>{% endif %}</span>
+                    <select class="form-select form-select-sm w-auto" name="role" aria-label="{% trans 'Role' %}">
+                        {% for value, label in roles %}
+                            <option value="{{ value }}"{% if m.role == value %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                        <option value="remove">{% trans "Remove from household" %}</option>
+                    </select>
+                    <button class="btn btn-sm btn-primary" type="submit">{% trans "Save" %}</button>
+                </form>
+            {% endfor %}
+        </div>
+    </div>
+    {% if others %}
+        <h2 class="h5 mt-4">{% trans "Add someone" %}</h2>
+        <form class="d-flex flex-wrap gap-2" method="post">
+            {% csrf_token %}
+            <select class="form-select w-auto" name="user" aria-label="{% trans 'User' %}">
+                {% for u in others %}
+                    <option value="{{ u.pk }}">{{ u.get_full_name|default:u.get_username }}</option>
+                {% endfor %}
+            </select>
+            <select class="form-select w-auto" name="role" aria-label="{% trans 'Role' %}">
+                {% for value, label in roles %}
+                    <option value="{{ value }}"{% if value == "member" %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-success" type="submit">+ {% trans "Add" %}</button>
+        </form>
+    {% endif %}
+    <p class="text-body-secondary small mt-3">
+        {% trans "New people need a user account first." %}
+        {% if request.user.is_superuser %}<a href="{% url 'babybuddy:user-add' %}">{% trans "Add a user" %}</a>{% endif %}
+    </p>
+{% endblock %}
