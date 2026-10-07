@@ -53,7 +53,7 @@ def set_default_site_settings(sender, **kwargs):
 
 class BabyBuddyConfig(AppConfig):
     name = "babybuddy"
-    verbose_name = "Baby Buddy"
+    verbose_name = "Housetrained"
     version = VERSION
     version_string = VERSION
 

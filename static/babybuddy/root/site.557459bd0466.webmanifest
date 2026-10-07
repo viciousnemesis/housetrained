@@ -20,20 +20,20 @@
   "background_color": "#212529",
   "shortcuts": [
     {
-      "name": "Record a potty break",
-      "url": "/changes/add/"
+      "name": "Log a potty break",
+      "url": "/log/potty/add/"
     },
     {
-      "name": "Record a feeding",
-      "url": "/feedings/add/"
+      "name": "Fill a bowl",
+      "url": "/log/fill/add/"
     },
     {
-      "name": "Record a sleep",
-      "url": "/sleep/add/"
+      "name": "Start a walk",
+      "url": "/log/walk/add/"
     },
     {
-      "name": "Record a walk",
-      "url": "/tummy-time/add/"
+      "name": "Log a sleep",
+      "url": "/log/sleep/add/"
     }
   ]
 }

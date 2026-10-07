@@ -1,5 +1,5 @@
 {% extends "babybuddy/base.html" %}
-{% load babybuddy i18n pet static timers %}
+{% load babybuddy i18n pet pets_tags static timers %}
 {% block nav %}
     <nav class="navbar navbar-expand-md navbar bg-dark sticky-top flex-wrap">
         <div class="container-fluid">
@@ -13,6 +13,7 @@
                     <span class="text-primary">House</span>trained
                 </span>
             </a>
+            {% if baby_mode %}
             <div class="d-lg-none d-md-none d-flex me-auto p-0 ms-2">
                 <div>
                     <a class="text-body-secondary"
@@ -89,6 +90,12 @@
                     </div>
                 </div>
             </div>
+            {% else %}
+                <div class="d-lg-none d-md-none d-flex me-auto p-0 ms-2 gap-3">
+                    <a class="text-body-secondary" href="{% url 'pets:household' %}" aria-label="{% trans 'Home' %}"><i class="icon-2x icon-dashboard" aria-hidden="true"></i></a>
+                    <a class="text-body-secondary" href="{% url 'pets:timeline' %}" aria-label="{% trans 'Timeline' %}"><i class="icon-2x icon-timeline" aria-hidden="true"></i></a>
+                </div>
+            {% endif %}
             <button class="navbar-toggler"
                     type="button"
                     data-bs-toggle="collapse"
@@ -100,6 +107,7 @@
             </button>
             <div class="collapse navbar-collapse" id="navbar-app">
                 <ul class="navbar-nav me-auto">
+                    {% if baby_mode %}
                     <li class="nav-item{% if request.path == '/' %} active{% endif %}">
                         <a class="nav-link" href="{% url 'dashboard:dashboard' %}">
                             <i class="icon-dashboard" aria-hidden="true"></i>
@@ -317,6 +325,37 @@
                     {% if perms.core.view_timer %}
                         {% timer_nav %}
                     {% endif %}
+                    {% else %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'pets:household' %}"><i class="icon-dashboard" aria-hidden="true"></i> {% trans "Home" %}</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'pets:timeline' %}"><i class="icon-timeline" aria-hidden="true"></i> {% trans "Timeline" %}</a></li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false">{% trans "Logs" %}</a>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="{% url 'pets:list' 'potty' %}"><i class="icon-diaperchange" aria-hidden="true"></i> {% trans "Potty breaks" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:list' 'walk' %}"><i class="icon-tummytime" aria-hidden="true"></i> {% trans "Walks" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:list' 'fill' %}"><i class="icon-feeding" aria-hidden="true"></i> {% trans "Bowl fills" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:list' 'meal' %}"><i class="icon-feeding" aria-hidden="true"></i> {% trans "Meals" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:list' 'sleep' %}"><i class="icon-sleep" aria-hidden="true"></i> {% trans "Sleep" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:list' 'measurement' %}"><i class="icon-weight" aria-hidden="true"></i> {% trans "Measurements" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:list' 'note' %}"><i class="icon-note" aria-hidden="true"></i> {% trans "Notes" %}</a>
+                            </div>
+                        </li>
+                        {% if pets_can_edit %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false">{% trans "Add" %}</a>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="{% url 'pets:add' 'potty' %}">{% trans "Potty break" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:add' 'walk' %}">{% trans "Walk" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:add' 'fill' %}">{% trans "Bowl fill" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:add' 'meal' %}">{% trans "Meal" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:add' 'sleep' %}">{% trans "Sleep" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:add' 'measurement' %}">{% trans "Measurement" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:add' 'note' %}">{% trans "Note" %}</a>
+                            </div>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'pets:setup' %}">{% trans "Setup" %}</a></li>
+                    {% endif %}
                 </ul>
                 {% if request.user %}
                     <ul class="navbar-nav ms-auto">
@@ -366,6 +405,25 @@
                 {% endif %}
             </div>
         </div>
+        {% running_activities as running_pets %}
+        {% for r in running_pets %}
+            <div class="w-100 d-flex flex-wrap align-items-center gap-2 px-3 py-2{% if forloop.first %} mt-2{% endif %} border-top border-primary">
+                <a class="fs-5 text-reset text-decoration-none me-auto" href="{% url 'pets:edit' r.kind r.id %}" title="{% trans 'Edit start time' %}">
+                    {% if r.kind == "walk" %}🐾{% else %}🌙{% endif %} {{ r.label }} {{ r.names }}
+                    <span class="fw-bold text-primary ms-2 activity-elapsed" data-start="{{ r.start.isoformat }}"></span>
+                    <small class="ms-2 text-body-secondary">since {{ r.start|time }} ✎</small>
+                </a>
+                <form method="post" action="{% url 'pets:stop' r.kind r.id 'cancel' %}"
+                      onsubmit="return confirm('{% trans 'Cancel this? Nothing will be saved.' %}')">
+                    {% csrf_token %}
+                    <button class="btn btn-outline-light btn-lg" type="submit">{% if r.kind == "walk" %}{% trans "Cancel Walk" %}{% else %}{% trans "Cancel Sleep" %}{% endif %}</button>
+                </form>
+                <form method="post" action="{% url 'pets:stop' r.kind r.id 'end' %}">
+                    {% csrf_token %}
+                    <button class="btn btn-primary btn-lg" type="submit">{% if r.kind == "walk" %}{% trans "End Walk" %}{% else %}{% trans "End Sleep" %}{% endif %}</button>
+                </form>
+            </div>
+        {% endfor %}
         {% activity_groups as running %}
         {% for g in running %}
             <div class="w-100 d-flex flex-wrap align-items-center gap-2 px-3 py-2{% if forloop.first %} mt-2{% endif %} border-top border-primary">
@@ -385,7 +443,7 @@
                 </form>
             </div>
         {% endfor %}
-        {% if running %}
+        {% if running or running_pets %}
             <script>
                 (function () {
                     var els = document.querySelectorAll(".activity-elapsed");

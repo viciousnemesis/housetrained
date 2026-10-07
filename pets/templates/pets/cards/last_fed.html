@@ -1,0 +1,22 @@
+{% extends "cards/base.html" %}
+{% load duration %}
+{% block header %}Last Fed{% endblock %}
+{% block title %}
+    {% if last %}
+        <div>{{ last.time|deltasince|duration_string:'m' }} ago</div>
+        <small>{{ last.time|time }}</small>
+    {% else %}
+        None
+    {% endif %}
+{% endblock %}
+{% block content %}
+    {% if last and is_fill %}
+        <a class="text-reset" href="{% url 'pets:edit' 'fill' last.pk %}?next={{ request.path|urlencode }}">
+            {{ last.container.name }} filled{% if amount %} with {{ amount }}{% elif last.bowls %} with {{ last.bowls|floatformat:"-1" }} bowl{{ last.bowls|pluralize }}{% endif %}
+        </a>
+    {% elif last %}
+        <a class="text-reset" href="{% url 'pets:edit' 'meal' last.pk %}?next={{ request.path|urlencode }}">
+            Ate{% if amount %} {{ amount }}{% endif %}{% if last.notes %} · {{ last.notes|truncatechars:40 }}{% endif %}
+        </a>
+    {% endif %}
+{% endblock %}

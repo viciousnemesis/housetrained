@@ -1,0 +1,23 @@
+{% load i18n %}
+<div class="d-flex flex-wrap gap-2 mb-3">
+    {% if pets_can_edit %}
+        <form class="flex-fill d-flex" method="post" action="{% url 'pets:start' 'walk' %}">
+            {% csrf_token %}
+            {% if pet %}<input type="hidden" name="pet" value="{{ pet.slug }}">{% endif %}
+            <button class="btn btn-lg btn-primary flex-fill" type="submit">{% trans "Start Walk" %}</button>
+        </form>
+    {% endif %}
+    {% if pets_can_edit %}
+        <a class="btn btn-lg btn-primary flex-fill" href="{% url 'pets:add' 'potty' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Log Potty" %}</a>
+    {% endif %}
+    {% if pets_can_edit %}
+        <a class="btn btn-lg btn-primary flex-fill" href="{% url 'pets:add' 'fill' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Fill Bowl" %}</a>
+    {% endif %}
+    {% if pets_can_edit %}
+        <form class="flex-fill d-flex" method="post" action="{% url 'pets:start' 'sleep' %}">
+            {% csrf_token %}
+            {% if pet %}<input type="hidden" name="pet" value="{{ pet.slug }}">{% endif %}
+            <button class="btn btn-lg btn-primary flex-fill" type="submit">{% trans "Start Sleep" %}</button>
+        </form>
+    {% endif %}
+</div>

@@ -1,0 +1,28 @@
+{% load i18n %}
+{% if supplies %}
+    <div class="card card-dashboard">
+        <div class="card-header">{% trans "Supplies" %}</div>
+        <ul class="list-group list-group-flush small">
+            {% for s in supplies %}
+                <li class="list-group-item">
+                    <div class="d-flex justify-content-between">
+                        <a class="text-reset" href="{% url 'pets:edit' 'supply' s.item.pk %}?next={{ request.path|urlencode }}">{{ s.item.product }}</a>
+                        <span>{{ s.left }} {% trans "left of" %} {{ s.size }}</span>
+                    </div>
+                    <div class="progress my-1" style="height: .5rem">
+                        <div class="progress-bar {% if s.low %}bg-danger{% endif %}" style="width: {{ s.pct_left }}%"></div>
+                    </div>
+                    <div class="text-body-secondary">
+                        {% if s.days_left is not None %}
+                            {% if s.low %}<strong class="text-danger">{% trans "Buy more soon:" %}</strong>{% endif %}
+                            ~{{ s.days_left }} {% trans "days left" %} ({% trans "runs out around" %} {{ s.runs_out|date:"M j" }}), {{ s.per_day }}/{% trans "day" %}
+                        {% else %}
+                            {% trans "No fills from this bag yet, so no estimate." %}
+                        {% endif %}
+                        {% if s.unknown_fills %}<br>{% blocktrans count n=s.unknown_fills %}{{ n }} fill in uncalibrated bowls isn't counted.{% plural %}{{ n }} fills in uncalibrated bowls aren't counted.{% endblocktrans %}{% endif %}
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}

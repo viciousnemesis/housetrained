@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth import update_session_auth_hash
@@ -39,6 +40,7 @@ from django_filters.views import FilterView
 
 from babybuddy import forms
 from babybuddy.mixins import LoginRequiredMixin, PermissionRequiredMixin, StaffOnlyMixin
+from pets.context_processors import baby_mode_on
 
 
 def csrf_failure(request, reason=""):
@@ -69,7 +71,14 @@ class RootRouter(LoginRequiredMixin, RedirectView):
     """
 
     def get_redirect_url(self, *args, **kwargs):
-        self.url = reverse("dashboard:dashboard")
+        if baby_mode_on():
+            self.url = reverse("dashboard:dashboard")
+        else:
+            from pets.households import current_household
+
+            pets = current_household(self.request.user).pets.filter(active=True)
+            single = pets.first() if pets.count() == 1 else None
+            self.url = reverse("pets:pet", args=[single.slug]) if single else reverse("pets:household")
         return super(RootRouter, self).get_redirect_url(self, *args, **kwargs)
 
 

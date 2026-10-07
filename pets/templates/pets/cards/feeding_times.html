@@ -1,0 +1,13 @@
+{% extends "cards/base.html" %}
+{% block header %}
+    Feeding Times
+{% endblock %}
+{% block content %}
+    <div class="small mb-1">Past 2 weeks · bowl fills and meals · bigger dot = more food</div>
+    <svg viewBox="0 0 {{ chart.width }} {{ chart.total_h }}" class="w-100" role="img" aria-label="Feeding times by day">
+        {% include "cards/pet_chart_grid.html" %}
+        {% for dot in dots %}
+            <circle cx="{{ dot.x }}" cy="{{ dot.y }}" r="{{ dot.r }}" fill="#daa520"><title>{{ dot.label }}</title></circle>
+        {% endfor %}
+    </svg>
+{% endblock %}

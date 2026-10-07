@@ -1,6 +1,6 @@
 {
-  "name": "Baby Buddy",
-  "short_name": "Baby Buddy",
+  "name": "Housetrained",
+  "short_name": "Housetrained",
   "icons": [
     {
       "src": "android-chrome-192x192.png?v=20211218",
@@ -16,32 +16,24 @@
   "lang": "en-US",
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#37abe9",
+  "theme_color": "#daa520",
   "background_color": "#212529",
   "shortcuts": [
     {
-      "name": "Start a timer",
-      "url": "/timers/add/"
+      "name": "Log a potty break",
+      "url": "/log/potty/add/"
     },
     {
-      "name": "Record a change",
-      "url": "/changes/add/"
+      "name": "Fill a bowl",
+      "url": "/log/fill/add/"
     },
     {
-      "name": "Record a feed",
-      "url": "/feedings/add/"
+      "name": "Start a walk",
+      "url": "/log/walk/add/"
     },
     {
-      "name": "Record a pumping",
-      "url": "/pumping/add/"
-    },
-    {
-      "name": "Record a sleep",
-      "url": "/sleep/add/"
-    },
-    {
-      "name": "Record tummy time",
-      "url": "/tummy-time/add/"
+      "name": "Log a sleep",
+      "url": "/log/sleep/add/"
     }
   ]
 }

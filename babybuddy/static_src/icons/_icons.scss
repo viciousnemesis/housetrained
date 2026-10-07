@@ -1,0 +1,30 @@
+// Activity icons drawn with CSS masks so they take the surrounding text color.
+// Sources: Tabler tools-kitchen-2 (MIT), Carbon dog-walker (Apache 2.0),
+// Material Design Icons fire-hydrant (Apache 2.0). Imported after the icon font so these win.
+
+.icon-feeding:before {
+  content: "";
+  height: 1em;
+  vertical-align: -0.125em;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%203v12h-5c-.023-3.681.184-7.406%205-12m0%2012v6h-1v-3M8%204v17M5%204v3a3%203%200%201%200%206%200V4%22/%3E%3C/svg%3E") center/contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%203v12h-5c-.023-3.681.184-7.406%205-12m0%2012v6h-1v-3M8%204v17M5%204v3a3%203%200%201%200%206%200V4%22/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.icon-tummytime:before {
+  content: "";
+  height: 1em;
+  vertical-align: -0.125em;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20d%3D%22M20%2020h2v10h-2zM4%2023h2v7H4zm12%207h-2v-4a1%201%200%200%200-1-1h-2v5H9v-7h4a3.003%203.003%200%200%201%203%203Zm-8.5-8A3.504%203.504%200%200%201%204%2018.5V17H2v-2h4v3.5a1.5%201.5%200%200%200%203%200V15h4v2h-2v1.5A3.504%203.504%200%200%201%207.5%2022%22/%3E%3Cpath%20d%3D%22M27%2010h-5.646a2.99%202.99%200%200%200-2.786%201.886l-1.442%203.605l-3.607%204.51l1.562%201.25l3.7-4.626l1.645-3.996a.995.995%200%200%201%20.928-.629H27a1%201%200%200%201%201%201v7h-3v10h2v-8h1a2%202%200%200%200%202-2v-7a3.003%203.003%200%200%200-3-3m-3-1a4%204%200%201%201%204-4a4.005%204.005%200%200%201-4%204m0-6a2%202%200%201%200%202%202a2%202%200%200%200-2-2%22/%3E%3C/svg%3E") center/contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20d%3D%22M20%2020h2v10h-2zM4%2023h2v7H4zm12%207h-2v-4a1%201%200%200%200-1-1h-2v5H9v-7h4a3.003%203.003%200%200%201%203%203Zm-8.5-8A3.504%203.504%200%200%201%204%2018.5V17H2v-2h4v3.5a1.5%201.5%200%200%200%203%200V15h4v2h-2v1.5A3.504%203.504%200%200%201%207.5%2022%22/%3E%3Cpath%20d%3D%22M27%2010h-5.646a2.99%202.99%200%200%200-2.786%201.886l-1.442%203.605l-3.607%204.51l1.562%201.25l3.7-4.626l1.645-3.996a.995.995%200%200%201%20.928-.629H27a1%201%200%200%201%201%201v7h-3v10h2v-8h1a2%202%200%200%200%202-2v-7a3.003%203.003%200%200%200-3-3m-3-1a4%204%200%201%201%204-4a4.005%204.005%200%200%201-4%204m0-6a2%202%200%201%200%202%202a2%202%200%200%200-2-2%22/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.icon-diaperchange:before {
+  content: "";
+  height: 1em;
+  vertical-align: -0.125em;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M5%2015v-1H4v-2h1v-1h2v4zm14-3v-1h-2v4h2v-1h1v-2zm-1-6h-2.14C15.5%204.6%2014.4%203.5%2013%203.14V2h-2v1.14C9.6%203.5%208.5%204.6%208.14%206H6v2h12zm0%2016H6c0-1.1.9-2%202-2V9h8v11a2%202%200%200%201%202%202m-8-9a2%202%200%201%200%204%200c0-1.11-.89-2-2-2s-2%20.9-2%202%22/%3E%3C/svg%3E") center/contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M5%2015v-1H4v-2h1v-1h2v4zm14-3v-1h-2v4h2v-1h1v-2zm-1-6h-2.14C15.5%204.6%2014.4%203.5%2013%203.14V2h-2v1.14C9.6%203.5%208.5%204.6%208.14%206H6v2h12zm0%2016H6c0-1.1.9-2%202-2V9h8v11a2%202%200%200%201%202%202m-8-9a2%202%200%201%200%204%200c0-1.11-.89-2-2-2s-2%20.9-2%202%22/%3E%3C/svg%3E") center/contain no-repeat;
+}

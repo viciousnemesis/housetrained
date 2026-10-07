@@ -1,0 +1,23 @@
+{% extends "cards/base.html" %}
+{% block header %}Next Walk{% endblock %}
+{% block title %}
+    {% if predictions %}
+        <div class="fs-3">~{{ predictions.0.time|time }}</div>
+        <small>{{ due }} · expect {{ expect }}</small>
+    {% else %}
+        Not enough data
+    {% endif %}
+{% endblock %}
+{% block listgroup %}
+    <ul class="list-group list-group-flush small">
+        {% for p in predictions %}
+            <li class="list-group-item">
+                <strong>{{ p.kind }} ~{{ p.time|time }}</strong> (last {{ p.last|time }}){% if not p.this_walk %} · likely next walk{% endif %}<br>
+                <span class="text-body-secondary">{{ p.reason }}</span>
+            </li>
+        {% endfor %}
+        <li class="list-group-item text-body-secondary">
+            Walks usually last {{ walk_len }}{% if walk_gap %}, every {{ walk_gap }} during the day{% endif %}
+        </li>
+    </ul>
+{% endblock %}

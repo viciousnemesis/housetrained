@@ -1,0 +1,45 @@
+{% extends "babybuddy/page.html" %}
+{% load i18n %}
+{% block title %}{{ title }}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
+{% endblock %}
+{% block content %}
+    <h1>{% if object %}{% trans "Edit" %} {{ title|lower }}{% else %}{{ title }}{% endif %}</h1>
+    {% if kind == "fill" %}
+        <p class="text-body-secondary small">
+            {% trans "Bowls only become amounts once a bowl is calibrated (tare the bowl, fill it as usual, weigh it). Until then, food tracking and bag estimates will be rough." %}
+        </p>
+    {% endif %}
+    <div class="container-fluid pb-5">
+        {{ form.media.js }}
+        <form role="form" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next }}">
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">{{ form.non_field_errors|join:" " }}</div>
+            {% endif %}
+            {% for fieldset in form.hydrated_fielsets %}
+                {% if fieldset.fields %}
+                    {% with "forms/layouts/"|add:fieldset.layout|add:".html" as template %}
+                        {% include template %}
+                    {% endwith %}
+                {% endif %}
+            {% endfor %}
+            <button type="submit" class="submit-primary btn btn-primary btn-lg">{% trans "Submit" %}</button>
+            {% if object and ended %}
+                <button type="submit" form="remove-entry" class="btn btn-outline-light btn-lg ms-2">{% trans "Cancel" %}</button>
+            {% elif object %}
+                <button type="submit" form="remove-entry" class="btn btn-outline-danger btn-lg ms-2">{% trans "Delete" %}</button>
+            {% endif %}
+        </form>
+        {% if object %}
+            <form id="remove-entry" method="post" action="{% url 'pets:delete' kind object.pk %}"
+                  {% if not ended %}onsubmit="return confirm('{% trans "Delete this entry? This cannot be undone." %}')"{% endif %}>
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ next }}">
+            </form>
+        {% endif %}
+    </div>
+{% endblock %}
