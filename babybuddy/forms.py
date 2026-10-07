@@ -138,5 +138,6 @@ class UserSettingsForm(forms.ModelForm):
             "language",
             "timezone",
             "pagination_count",
+            "clock",
             "show_help",
         ]

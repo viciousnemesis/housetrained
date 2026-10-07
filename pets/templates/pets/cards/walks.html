@@ -1,15 +1,16 @@
 {% extends "cards/base.html" %}
+{% load i18n pets_tags %}
 {% block header %}
-    Walks
+    {% trans "Walks" %}
 {% endblock %}
 {% block title %}
-    {% if walks %}{{ walks|length }} walks{% else %}None{% endif %}
+    {% if walks %}{% blocktrans count n=walks|length %}{{ n }} walk{% plural %}{{ n }} walks{% endblocktrans %}{% else %}{% trans "None" %}{% endif %}
 {% endblock %}
 {% block listgroup %}
     <div class="list-group list-group-flush small overflow-auto" style="max-height: 24rem">
         {% for walk in walks %}
             <a class="list-group-item list-group-item-action" href="{% url "pets:edit" "walk" walk.id %}?next={{ request.path|urlencode }}">
-                {{ walk.start|date:"M j, g:i a" }} —
+                {{ walk.start|clock_dt }} —
                 {% if walk.pee %}<span style="filter: hue-rotate(228deg) saturate(1.3) brightness(1.2)">💦</span>{% endif %}{% if walk.poop %}💩{% endif %}{% if not walk.pee and not walk.poop %}–{% endif %}
                 — {{ walk.length }}{% if walk.walker_label %} — {{ walk.walker_label }}{% endif %}
             </a>

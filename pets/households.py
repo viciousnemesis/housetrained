@@ -11,9 +11,20 @@ def current_household(user):
     membership = user.memberships.select_related("household").order_by("pk").first()
     if membership:
         return membership.household
-    household = Household.objects.create(name="Home")
+    settings_ = getattr(user, "settings", None)
+    household = Household.objects.create(name="Home", time_zone=getattr(settings_, "timezone", "") or "")
     Membership.objects.create(household=household, user=user, role=Membership.OWNER)
     return household
+
+
+def adopt_time_zone(household, user):
+    """Someone joining a household starts in its time zone, unless they already picked their own."""
+    from django.utils import timezone
+
+    settings_ = getattr(user, "settings", None)
+    if settings_ and household.time_zone and settings_.timezone == timezone.get_default_timezone_name():
+        settings_.timezone = household.time_zone
+        settings_.save(update_fields=["timezone"])
 
 
 def role(user, household):
@@ -39,3 +50,4 @@ def add_member(household, user, role_name):
         if other.memberships.count() == 1 and not other.pets.exists():
             other.delete()
     Membership.objects.update_or_create(household=household, user=user, defaults={"role": role_name})
+    adopt_time_zone(household, user)

@@ -29,7 +29,7 @@
                     {% for item in recent %}
                         <a class="list-group-item list-group-item-action d-flex justify-content-between gap-2" href="{{ item.edit_url }}?next={{ request.path|urlencode }}">
                             <span>{{ item.summary }}</span>
-                            <span class="text-body-secondary text-nowrap">{{ item.time|date:"M j, g:i a" }}</span>
+                            <span class="text-body-secondary text-nowrap">{{ item.time|clock_dt }}</span>
                         </a>
                     {% empty %}
                         <div class="list-group-item">{% trans "Nothing logged yet." %}</div>
