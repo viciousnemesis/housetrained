@@ -1,0 +1,39 @@
+{
+  "name": "Housetrained",
+  "short_name": "Housetrained",
+  "icons": [
+    {
+      "src": "android-chrome-192x192.png?v=20211218",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "android-chrome-512x512.png?v=20211218",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "lang": "en-US",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#daa520",
+  "background_color": "#212529",
+  "shortcuts": [
+    {
+      "name": "Record a potty break",
+      "url": "/changes/add/"
+    },
+    {
+      "name": "Record a feeding",
+      "url": "/feedings/add/"
+    },
+    {
+      "name": "Record a sleep",
+      "url": "/sleep/add/"
+    },
+    {
+      "name": "Record a walk",
+      "url": "/tummy-time/add/"
+    }
+  ]
+}

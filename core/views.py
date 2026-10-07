@@ -14,7 +14,7 @@ from django.views.generic.edit import CreateView, UpdateView, DeleteView, FormVi
 
 from babybuddy.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from babybuddy.views import BabyBuddyFilterView, BabyBuddyPaginatedView
-from core import filters, forms, models, timeline
+from core import filters, forms, models, pet_views, timeline
 
 
 def _prepare_timeline_context_data(context, date, child=None, user=None):
@@ -182,6 +182,9 @@ class DiaperChangeAdd(CoreAddView):
     permission_required = ("core.add_diaperchange",)
     form_class = forms.DiaperChangeForm
     success_url = reverse_lazy("core:diaperchange-list")
+
+    def get_initial(self):
+        return {**super().get_initial(), "wet": True}
 
 
 class DiaperChangeUpdate(CoreUpdateView):
@@ -388,6 +391,9 @@ class SleepAdd(CoreAddView):
     form_class = forms.SleepForm
     success_url = reverse_lazy("core:sleep-list")
 
+    def get_initial(self):
+        return {**super().get_initial(), "nap": True}
+
 
 class SleepUpdate(CoreUpdateView):
     model = models.Sleep
@@ -551,8 +557,18 @@ class TimerUpdate(CoreUpdateView):
         kwargs.update({"user": self.request.user})
         return kwargs
 
+    def form_valid(self, form):
+        # Editing the start of a walk/sleep started for several pets moves all of them.
+        old = models.Timer.objects.get(pk=self.object.pk)
+        if old.name in pet_views.ACTIVITIES.values():
+            models.Timer.objects.filter(name=old.name, start=old.start).exclude(pk=old.pk).update(
+                start=form.cleaned_data["start"])
+        return super().form_valid(form)
+
     def get_success_url(self):
         instance = self.get_object()
+        if instance.name in pet_views.ACTIVITIES.values():
+            return pet_views.home_url(t.child for t in pet_views.timer_group(instance))
         return reverse("core:timer-detail", kwargs={"pk": instance.pk})
 
 

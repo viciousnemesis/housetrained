@@ -1,0 +1,8 @@
+{% for row in chart.rows %}
+    <text x="{{ chart.label_x }}" y="{{ row.mid }}" dy="3.5" text-anchor="end" font-size="10" fill="currentColor" opacity=".7">{{ row.label }}</text>
+    <line x1="{{ chart.plot_x }}" x2="{{ chart.width }}" y1="{{ row.mid }}" y2="{{ row.mid }}" stroke="currentColor" opacity=".08" />
+{% endfor %}
+{% for tick in chart.ticks %}
+    <line x1="{{ tick.x }}" x2="{{ tick.x }}" y1="0" y2="{{ chart.height }}" stroke="currentColor" opacity=".2" />
+    <text x="{{ tick.x }}" y="{{ chart.total_h }}" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">{{ tick.label }}</text>
+{% endfor %}

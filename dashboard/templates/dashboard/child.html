@@ -1,5 +1,5 @@
 {% extends "babybuddy/page.html" %}
-{% load breadcrumb cards i18n %}
+{% load breadcrumb cards i18n pet %}
 {% block title %}
     {% trans "Dashboard" %} - {{ object }}
 {% endblock %}
@@ -11,49 +11,52 @@
     <li class="breadcrumb-item active" aria-current="page">{% trans "Dashboard" %}</li>
 {% endblock %}
 {% block content %}
-    <div id="dashboard-child"
-         class="row"
-         data-masonry='{"percentPosition": true }'>
-        {% if perms.core.view_timer %}
-            <div class="col-sm-6 col-lg-4">{% card_timer_list object %}</div>
+    {% active_timer "Walk" object as walk %}
+    {% active_timer "Sleep" object as sleep %}
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        {% if perms.core.add_timer and not walk %}
+            <form class="flex-fill d-flex" method="post" action="{% url 'core:activity-start' 'walk' object.slug %}">
+                {% csrf_token %}
+                <button class="btn btn-lg btn-primary flex-fill" type="submit">Start Walk</button>
+            </form>
         {% endif %}
-        {% if perms.core.view_feeding %}
-            <div class="col-sm-6 col-lg-4">{% card_feeding_last object %}</div>
+        {% if perms.core.add_diaperchange %}
+            <a class="btn btn-lg btn-primary flex-fill" href="{% url 'core:diaperchange-add' %}?child={{ object.slug }}">Log Potty</a>
         {% endif %}
-        {% if perms.core.view_note %}
-            <div class="col-sm-6 col-lg-4">{% card_notes_recent object %}</div>
+        {% if perms.core.add_feeding %}
+            <a class="btn btn-lg btn-primary flex-fill" href="{% url 'core:feeding-add' %}?child={{ object.slug }}">Log Bowl of Food</a>
         {% endif %}
-        {% if perms.core.view_diaperchange %}
-            <div class="col-sm-6 col-lg-4">{% card_diaperchange_last object %}</div>
+        {% if perms.core.add_timer and not sleep %}
+            <form class="flex-fill d-flex" method="post" action="{% url 'core:activity-start' 'sleep' object.slug %}">
+                {% csrf_token %}
+                <button class="btn btn-lg btn-primary flex-fill" type="submit">Start Sleep</button>
+            </form>
         {% endif %}
-        {% if perms.core.view_pumping %}
-            <div class="col-sm-6 col-lg-4">{% card_pumping_last object %}</div>
-            <div class="col-sm-6 col-lg-4">{% card_pumping_recent object %}</div>
-        {% endif %}
-        {% if perms.core.view_sleep %}
-            <div class="col-sm-6 col-lg-4">{% card_sleep_last object %}</div>
-        {% endif %}
-        {% if perms.core.view_medication %}
-            <div class="col-sm-6 col-lg-4">{% card_medication_last object %}</div>
-        {% endif %}
-        {% if perms.core.view_feeding %}
-            <div class="col-sm-6 col-lg-4">{% card_feeding_last_method object %}</div>
-            <div class="col-sm-6 col-lg-4">{% card_feeding_recent object %}</div>
-        {% endif %}
-        <div class="col-sm-6 col-lg-4">{% card_statistics object %}</div>
-        {% if perms.core.view_sleep %}
-            <div class="col-sm-6 col-lg-4">{% card_sleep_recent object %}</div>
-            <div class="col-sm-6 col-lg-4">{% card_sleep_naps_day object %}</div>
-        {% endif %}
-        {% if perms.core.view_tummytime %}
-            <div class="col-sm-6 col-lg-4">{% card_tummytime_day object %}</div>
-        {% endif %}
-        {% if perms.core.view_diaperchange %}
-            <div class="col-sm-6 col-lg-4">{% card_diaperchange_types object %}</div>
-        {% endif %}
-        {% if perms.core.view_feeding %}
-            <div class="col-sm-6 col-lg-4">{% card_breastfeeding object %}</div>
-        {% endif %}
+    </div>
+    <div id="dashboard-child" class="row">
+        <div class="col-lg-4">
+            {% if perms.core.view_diaperchange %}{% card_pet_next_potty object %}{% endif %}
+            {% card_pet_statistics object %}
+            {% if perms.core.view_tummytime %}{% card_pet_walks object %}{% endif %}
+        </div>
+        <div class="col-lg-4">
+            {% if perms.core.view_diaperchange %}
+                {% card_diaperchange_last object %}
+                {% card_diaperchange_types object %}
+                {% card_pet_accidents object %}
+            {% endif %}
+        </div>
+        <div class="col-lg-4">
+            {% if perms.core.view_feeding %}
+                {% card_feeding_last object %}
+                {% card_pet_feedings object %}
+            {% endif %}
+            {% if perms.core.view_sleep %}
+                {% card_sleep_last object %}
+                {% card_sleep_naps_day object %}
+                {% card_sleep_recent object %}
+            {% endif %}
+        </div>
     </div>
 {% endblock %}
 {% block javascript %}

@@ -3,6 +3,8 @@ from datetime import timedelta
 
 from django.urls import reverse
 from django.utils import timezone, timesince
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _
 
 from core.models import (
@@ -166,7 +168,7 @@ def _add_feedings(min_date, max_date, events, child=None):
         prev_start = instance.start
         edit_link = reverse("core:feeding-update", args=[instance.id])
         if instance.amount:
-            details.append(_("Amount") + ": " + str(instance.amount))
+            details.append(_("Amount") + ": " + f"{instance.amount:g}g")
 
         base_object = {
             "time": timezone.localtime(instance.start),
@@ -218,17 +220,17 @@ def _add_diaper_changes(min_date, max_date, events, child):
     for instance in instances:
         contents = []
         if instance.wet:
-            contents.append("💧")
+            contents.append('<span style="filter: hue-rotate(228deg) saturate(1.3) brightness(1.2)">💦</span>')
         if instance.solid:
             contents.append("💩")
         events.append(
             {
                 "time": timezone.localtime(instance.time),
-                "event": _("%(child)s had a %(type)s diaper change.")
-                % {
-                    "child": instance.child.first_name,
-                    "type": "".join(contents),
-                },
+                "event": format_html(
+                    _("%(child)s had a %(type)s diaper change.") % {"child": "{}", "type": "{}"},
+                    instance.child.first_name,
+                    mark_safe("".join(contents)),
+                ),
                 "edit_link": reverse("core:diaperchange-update", args=[instance.id]),
                 "model_name": instance.model_name,
                 "tags": instance.tags.all(),

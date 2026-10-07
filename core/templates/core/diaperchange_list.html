@@ -27,7 +27,7 @@
                         <th>{% trans "Child" %}</th>
                     {% endif %}
                     <th class="text-center">{% trans "Contents" %}</th>
-                    <th>{% trans "Color" %}</th>
+                    <th>{% trans "Location" %}</th>
                     <th>{% trans "Amount" %}</th>
                     <th>{% trans "Previous" %}</th>
                     <th>{% trans "Tags" %}</th>
@@ -63,7 +63,7 @@
                             {% endif %}
                             <td class="text-center">
                                 {% if change.wet %}
-                                    <span title="{% trans "Wet" %}">💦</span>
+                                    <span title="{% trans "Wet" %}" style="filter: hue-rotate(228deg) saturate(1.3) brightness(1.2)">💦</span>
                                 {% endif %}
                                 {% if change.solid %}
                                     <span title="{% trans "Solid" %}">💩</span>

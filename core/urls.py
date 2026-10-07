@@ -5,7 +5,17 @@ from . import views
 
 app_name = "core"
 
+from . import pet_views
+
 urlpatterns = [
+    path("activity/<str:kind>/start/", pet_views.ActivityStart.as_view(), name="activity-start-all"),
+    path("activity/<str:kind>/start/<str:slug>/", pet_views.ActivityStart.as_view(), name="activity-start"),
+    path("activity/<int:pk>/end/", pet_views.ActivityEnd.as_view(), name="activity-end"),
+    path("activity/<int:pk>/cancel/", pet_views.ActivityCancel.as_view(), name="activity-cancel"),
+    path("activity/<str:kind>/<int:pk>/discard/", pet_views.ActivityDiscard.as_view(), name="activity-discard"),
+    path("activity/<str:kind>/group/", pet_views.GroupEdit.as_view(), name="activity-group-edit"),
+    path("activity/<str:kind>/group/discard/", pet_views.ActivityDiscard.as_view(), name="activity-group-discard"),
+    path("all/<str:kind>/add/", pet_views.AllAdd.as_view(), name="all-add"),
     path("pumping/", views.PumpingList.as_view(), name="pumping-list"),
     path("pumping/add/", views.PumpingAdd.as_view(), name="pumping-add"),
     path(

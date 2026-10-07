@@ -13,10 +13,6 @@
             <a href="{% url 'core:feeding-add' %}" class="btn btn-sm btn-success">
                 <i class="icon-feeding" aria-hidden="true"></i> {% trans "Add Feeding" %}
             </a>
-            <a href="{% url 'core:bottle-feeding-add' %}"
-               class="btn btn-sm btn-success">
-                <i class="icon-feeding" aria-hidden="true"></i> {% trans "Add Bottle Feeding" %}
-            </a>
         {% endif %}
     </h1>
     {% include "babybuddy/filter.html" %}
@@ -29,11 +25,9 @@
                     {% if not unique_child %}
                         <th>{% trans "Child" %}</th>
                     {% endif %}
-                    <th>{% trans "Method" %}</th>
                     <th>{% trans "Type" %}</th>
                     {% comment %}Abbreviation of "Amount"{% endcomment %}
-                    <th>{% trans "Amt." %}</th>
-                    <th>{% trans "Duration" %}</th>
+                    <th>{% trans "Amount" %}</th>
                     <th>{% trans "Previous" %}</th>
                     <th>{% trans "Tags" %}</th>
                 </tr>
@@ -66,10 +60,8 @@
                                     <a href="{% url 'core:child' feeding.child.slug %}">{{ feeding.child }}</a>
                                 </td>
                             {% endif %}
-                            <td>{{ feeding.get_method_display }}</td>
                             <td>{{ feeding.get_type_display }}</td>
-                            <td>{% if feeding.amount %}{{ feeding.amount }}{% endif %}</td>
-                            <td>{{ feeding.duration|duration_string }}</td>
+                            <td>{% if feeding.amount %}{{ feeding.amount|floatformat:"-1" }}g{% endif %}</td>
                             <td>
                                 {% if prev_feeding %}
                                     {% feeding_time_diff_base prev_feeding as diff_base %}

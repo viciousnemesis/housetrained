@@ -11,38 +11,16 @@
     {% endif %}
 {% endblock %}
 {% block content %}
+    <div class="small mb-2"><span class="me-3"><span class="d-inline-block rounded-1 me-1" style="width:.8rem;height:.8rem;background:#8fd18a"></span>Pee outside</span><span class="me-3"><span class="d-inline-block rounded-1 me-1" style="width:.8rem;height:.8rem;background:#2e7d32"></span>Poop outside</span><span class="me-3"><span class="d-inline-block rounded-1 me-1" style="width:.8rem;height:.8rem;background:#f5d33f"></span>Pee inside</span><span class="me-3"><span class="d-inline-block rounded-1 me-1" style="width:.8rem;height:.8rem;background:#a72431"></span>Poop inside</span></div>
     {% for key, info in stats.items %}
-        {% if info.wet > 0 or info.solid > 0 or info.empty > 0 %}
-            <div class="progress mt-3" role="progressbar">
-                {% if info.wet_pct > 0 %}
-                    <div class="progress-bar bg-primary lead"
-                         style="width: {{ info.wet_pct|safe }}%">
-                        {{ info.wet|floatformat:'0' }}&nbsp;{% trans "wet" %}
-                    </div>
-                {% endif %}
-                {% if info.solid_pct > 0 %}
-                    <div class="progress-bar bg-secondary lead"
-                         style="width: {{ info.solid_pct|safe }}%">
-                        {{ info.solid|floatformat:'0' }}&nbsp;{% trans "solid" %}
-                    </div>
-                {% endif %}
-                {% if info.empty_pct > 0 %}
-                    <div class="progress-bar bg-transparent lead"
-                         style="width: {{ info.empty_pct|safe }}%">{{ info.empty|floatformat:'0' }}</div>
-                {% endif %}
+        <div class="d-flex align-items-center gap-2 mt-2">
+            <div class="small text-nowrap text-end" style="width: 3.5rem">{{ info.label }}</div>
+            <div class="progress flex-grow-1 bg-transparent" style="height: 1.4rem">
+                {% if info.pee_out %}<div class="progress-bar" style="width: {{ info.pee_out_pct|safe }}%; background: #8fd18a; color: #000">{{ info.pee_out }}</div>{% endif %}
+                {% if info.poop_out %}<div class="progress-bar" style="width: {{ info.poop_out_pct|safe }}%; background: #2e7d32; color: #fff">{{ info.poop_out }}</div>{% endif %}
+                {% if info.pee_in %}<div class="progress-bar" style="width: {{ info.pee_in_pct|safe }}%; background: #f5d33f; color: #000">{{ info.pee_in }}</div>{% endif %}
+                {% if info.poop_in %}<div class="progress-bar" style="width: {{ info.poop_in_pct|safe }}%; background: #a72431; color: #fff">{{ info.poop_in }}</div>{% endif %}
             </div>
-            <div class="text-center text-light small">
-                {% if key == 0 %}
-                    {% trans "today" %}
-                {% elif key == 1 %}
-                    {% trans "yesterday" %}
-                {% else %}
-                    {% blocktrans with days_ago=key %}{{ days_ago }} days ago{% endblocktrans %}
-                {% endif %}
-                {% if info.changes > 0 %}
-                    ({{ info.changes|floatformat:'0' }} {% trans "changes" %})
-                {% endif %}
-            </div>
-        {% endif %}
+        </div>
     {% endfor %}
 {% endblock %}

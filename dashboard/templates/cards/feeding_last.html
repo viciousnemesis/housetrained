@@ -19,7 +19,7 @@
 {% endblock %}
 {% block content %}
     {% if feeding %}
-        {{ feeding.get_type_display }}, {{ feeding.get_method_display }}
-        {% if feeding.amount %}({{ feeding.amount }}){% endif %}
+        {{ feeding.get_type_display }}
+        {% if feeding.amount %}({{ feeding.amount|floatformat:"-1" }}g){% endif %}
     {% endif %}
 {% endblock %}
