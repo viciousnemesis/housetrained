@@ -2,6 +2,7 @@ from django import template
 from django.utils.translation import gettext as _
 
 from .. import insights, units
+from ..clock import show_datetime, show_time
 from ..households import current_household
 from ..models import Sleep, Walk
 
@@ -59,6 +60,18 @@ def help_bubble(context, text):
         'aria-label="{}">ⓘ</button>',
         text, _("Help"),
     )
+
+
+@register.filter
+def clock(dt):
+    """A time in the user's 12- or 24-hour format."""
+    return show_time(dt)
+
+
+@register.filter
+def clock_dt(dt):
+    """Month, day and time in the user's 12- or 24-hour format."""
+    return show_datetime(dt)
 
 
 @register.filter

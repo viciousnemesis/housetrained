@@ -57,6 +57,27 @@
         <script src="{% static "babybuddy/js/vendor.js" %}"></script>
         <script src="{% static "babybuddy/js/app.js" %}"></script>
         {% if user.is_authenticated %}<script>BabyBuddy.PullToRefresh.init()</script>{% endif %}
+        {% if user.is_authenticated and user.settings.timezone %}
+            <div id="tz-mismatch" class="alert alert-info alert-dismissible d-none m-2" role="alert">
+                {% blocktrans with tz=user.settings.timezone %}Times show in <strong>{{ tz }}</strong>, but this device is in <strong class="tz-device"></strong>.{% endblocktrans %}
+                <a class="alert-link" href="{% url 'babybuddy:user-settings' %}">{% trans "Change in settings" %}</a>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{% trans 'Close' %}"></button>
+            </div>
+            <script>
+                (function () {
+                    // Offer to fix the time zone when the device is somewhere else (dismissed per device and zone).
+                    var device, mine = "{{ user.settings.timezone|escapejs }}";
+                    try { device = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return; }
+                    var key = "tz-dismissed:" + mine + ":" + device, box = document.getElementById("tz-mismatch");
+                    var same = new Date().toLocaleString("en-US", {timeZone: device}) === new Date().toLocaleString("en-US", {timeZone: mine});
+                    try { if (!device || same || localStorage.getItem(key)) return; } catch (e) { if (!device || same) return; }
+                    box.querySelector(".tz-device").textContent = device;
+                    document.querySelector("main, .container-fluid, body").prepend(box);
+                    box.classList.remove("d-none");
+                    box.addEventListener("closed.bs.alert", function () { try { localStorage.setItem(key, "1"); } catch (e) {} });
+                })();
+            </script>
+        {% endif %}
         <script>
             document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function (el) {
                 new bootstrap.Popover(el);

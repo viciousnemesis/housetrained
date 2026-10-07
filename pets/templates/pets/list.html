@@ -1,5 +1,5 @@
 {% extends "babybuddy/page.html" %}
-{% load i18n %}
+{% load i18n pets_tags %}
 {% block title %}{{ title }}{% endblock %}
 {% block breadcrumbs %}
     <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
@@ -31,7 +31,7 @@
             <tbody>
                 {% for r in rows %}
                     <tr>
-                        <td class="text-nowrap"><a href="{{ r.edit_url }}?next={{ request.get_full_path|urlencode }}">{{ r.time|date:"M j, g:i a" }}</a></td>
+                        <td class="text-nowrap"><a href="{{ r.edit_url }}?next={{ request.get_full_path|urlencode }}">{{ r.time|clock_dt }}</a></td>
                         <td>{{ r.pets }}</td>
                         <td>{{ r.summary }}</td>
                     </tr>

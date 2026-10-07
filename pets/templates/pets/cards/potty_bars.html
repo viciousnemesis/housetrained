@@ -1,6 +1,7 @@
 {% extends "cards/base.html" %}
-{% block header %}Potty Breaks{% endblock %}
-{% block title %}{% if empty %}None{% else %}Past Week{% endif %}{% endblock %}
+{% load i18n %}
+{% block header %}{% trans "Potty Breaks" %}{% endblock %}
+{% block title %}{% if empty %}{% trans "None" %}{% else %}{% trans "Past Week" %}{% endif %}{% endblock %}
 {% block content %}
     <div class="small mb-2">
         {% for key, color, label in legend %}

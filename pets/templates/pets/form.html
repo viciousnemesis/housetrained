@@ -7,6 +7,12 @@
 {% endblock %}
 {% block content %}
     <h1>{% if object %}{% trans "Edit" %} {{ title|lower }}{% else %}{{ title }}{% endif %}</h1>
+    {% if kind == "walk" and not request.user.first_name %}
+        <p class="text-body-secondary small">
+            {% trans "Walks show who walked by first name. You haven't set yours, so your username shows instead." %}
+            <a href="{% url 'babybuddy:user-settings' %}">{% trans "Set your name" %}</a>
+        </p>
+    {% endif %}
     {% if kind == "fill" and form.has_uncalibrated %}
         <p class="text-body-secondary small">
             {% trans "Bowls marked not calibrated can't turn bowls into grams yet, so bag estimates stay rough. Calibrate in Setup: tare the bowl, fill it as usual, weigh it." %}
@@ -14,7 +20,7 @@
     {% endif %}
     <div class="container-fluid pb-5">
         {{ form.media.js }}
-        <form role="form" method="post" enctype="multipart/form-data">
+        <form id="entry-form" role="form" method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ next }}">
             {% if form.non_field_errors %}
@@ -44,14 +50,70 @@
     </div>
     {% if form.location_map %}{{ form.location_map|json_script:"potty-locations" }}{% endif %}
     {% if form.container_info %}{{ form.container_info|json_script:"fill-containers" }}{% endif %}
+    {% if form.show_when_json %}{{ form.show_when_json|json_script:"show-when" }}{% endif %}
+    {% if form.unit_pairs_json %}{{ form.unit_pairs_json|json_script:"unit-pairs" }}{% endif %}
     <script>
         (function () {
+            // Units sit inside their amount box: [ 60 | oz ].
+            var pairs = document.getElementById("unit-pairs");
+            if (pairs) {
+                pairs = JSON.parse(pairs.textContent);
+                Object.keys(pairs).forEach(function (amountName) {
+                    var amount = document.getElementById("id_" + amountName);
+                    if (!amount) return;
+                    var group = document.createElement("div");
+                    group.className = "input-group";
+                    amount.parentNode.insertBefore(group, amount);
+                    group.appendChild(amount);
+                    pairs[amountName].forEach(function (unitName) {
+                        var unit = document.getElementById("id_" + unitName);
+                        if (!unit) return;
+                        var row = unit.closest(".row.mb-3");
+                        unit.classList.add("flex-grow-0", "w-auto");
+                        unit.dataset.paired = "1";
+                        group.appendChild(unit);
+                        if (row) row.remove();
+                    });
+                });
+            }
+            // Fields that only apply after a choice: hidden ones are disabled (kept, but not sent).
+            var rules = document.getElementById("show-when");
+            if (rules) {
+                rules = JSON.parse(rules.textContent);
+                var valueOf = function (name) {
+                    var els = document.querySelectorAll("[name='" + name + "']");
+                    if (!els.length) return null;
+                    var first = els[0];
+                    if (first.type === "checkbox" && els.length === 1) return String(first.checked);
+                    if (first.type === "radio" || first.type === "checkbox") {
+                        var picked = Array.from(els).filter(function (e) { return e.checked; }).map(function (e) { return e.value; });
+                        return first.type === "radio" ? (picked[0] || "") : picked;
+                    }
+                    return first.value;
+                };
+                var apply = function () {
+                    Object.keys(rules).forEach(function (name) {
+                        var field = document.getElementById("id_" + name);
+                        if (!field) return;
+                        var value = valueOf(rules[name][0]), allowed = rules[name][1];
+                        var show = allowed === "*" ? !!value && value !== "false" && value.length !== 0
+                            : Array.isArray(value) ? value.some(function (v) { return allowed.indexOf(v) >= 0; })
+                            : allowed.indexOf(value) >= 0;
+                        var row = field.dataset.paired ? field : (field.closest(".row.mb-3") || field);
+                        row.classList.toggle("d-none", !show);
+                        row.querySelectorAll("input, select, textarea").forEach(function (i) { i.disabled = !show; });
+                    });
+                };
+                var form = document.getElementById("entry-form");
+                form.addEventListener("change", apply);
+                form.addEventListener("input", apply);
+                apply();
+            }
             // Fill: litter boxes have no meal; a new fill repeats the last one for that bowl.
             var info = document.getElementById("fill-containers");
             if (info) {
                 info = JSON.parse(info.textContent);
                 var eaten = document.getElementById("id_eaten_now");
-                var eatenRow = eaten && eaten.closest(".row.mb-3");
                 var amount = document.getElementById("id_amount"), unit = document.getElementById("id_unit");
                 var auto = amount && !amount.value;
                 if (amount) amount.addEventListener("input", function () { auto = false; });
@@ -59,8 +121,6 @@
                     var picked = document.querySelector("input[name=container]:checked");
                     var c = picked && info[picked.value];
                     if (!c) return;
-                    if (eatenRow) eatenRow.classList.toggle("d-none", c.litter);
-                    if (c.litter && eaten) eaten.checked = false;
                     if (c.add && c.last && auto) {
                         amount.value = c.last.amount;
                         unit.value = c.last.unit;
@@ -100,19 +160,6 @@
                     i.addEventListener("change", update);
                 });
                 update();
-            }
-            // Walk: the name box only shows for "Other".
-            var name = document.getElementById("id_walker_name");
-            if (name) {
-                var row = name.closest(".row.mb-3");
-                var toggle = function () {
-                    var other = document.querySelector("input[name=walker_choice][value=other]");
-                    row.classList.toggle("d-none", !(other && other.checked));
-                };
-                document.querySelectorAll("input[name=walker_choice]").forEach(function (i) {
-                    i.addEventListener("change", toggle);
-                });
-                toggle();
             }
         })();
     </script>

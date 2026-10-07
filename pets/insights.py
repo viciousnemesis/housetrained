@@ -5,9 +5,11 @@ import math
 from statistics import median
 
 from django.db.models import Q, Sum
-from django.utils import timezone
+from django.utils import formats, timezone
+from django.utils.translation import gettext as _, gettext_lazy, ngettext
 
 from . import units
+from .clock import show_time, uses_24h
 from .models import Fill, Meal, PottyBreak, Sleep, Walk
 
 WINDOW_DAYS = 14
@@ -32,17 +34,34 @@ LABEL_W, PLOT_W, ROW_H, AXIS_H = 46, 254, 14, 16
 
 # --- Formatting --------------------------------------------------------------------------
 def fmt_time(dt):
-    return timezone.localtime(dt).strftime("%I:%M %p").lstrip("0")
+    return show_time(dt)
 
 
 def fmt_duration(td):
     minutes = int(td.total_seconds() // 60)
     hours, minutes = divmod(minutes, 60)
-    return f"{hours}h {minutes}m" if hours else f"{minutes}m"
+    if hours:
+        return _("%(hours)dh %(minutes)dm") % {"hours": hours, "minutes": minutes}
+    return _("%(minutes)dm") % {"minutes": minutes}
 
 
 def _plural(n, unit):
-    return f"{n} {unit}{'' if n == 1 else 's'}"
+    forms = {
+        "year": ngettext("%(n)d year", "%(n)d years", n),
+        "month": ngettext("%(n)d month", "%(n)d months", n),
+        "week": ngettext("%(n)d week", "%(n)d weeks", n),
+    }
+    return forms[unit] % {"n": n}
+
+
+def day_label(date):
+    return formats.date_format(date, "D j")
+
+
+# Prediction wording: (name, plural) for each kind, and the parts of the day.
+KINDS = {"pee": (gettext_lazy("Pee"), gettext_lazy("pees")), "poop": (gettext_lazy("Poop"), gettext_lazy("poops"))}
+BUCKETS = {"overnight": gettext_lazy("overnight"), "morning": gettext_lazy("morning"),
+           "afternoon": gettext_lazy("afternoon"), "evening": gettext_lazy("evening")}
 
 
 def pet_age(birth):
@@ -58,7 +77,7 @@ def pet_age(birth):
         return _plural(months // 12, "year")
     if months >= 12:
         rest = months - 12
-        return "1 year" + (f", {_plural(rest, 'month')}" if rest else "")
+        return _plural(1, "year") + (f", {_plural(rest, 'month')}" if rest else "")
     if months >= 6:
         return _plural(months, "month")
     year, month = divmod(birth.month - 1 + months, 12)
@@ -109,7 +128,7 @@ def walks_card(pet):
         breaks = [b for b in walk.potty_breaks.all() if b.pet_id == pet.pk]
         walk.pee = any(b.pee for b in breaks)
         walk.poop = any(b.poop for b in breaks)
-        walk.length = fmt_duration(walk.end - walk.start) if walk.end else "in progress"
+        walk.length = fmt_duration(walk.end - walk.start) if walk.end else _("in progress")
         walk.walker_label = (walk.walker.first_name or walk.walker.username) if walk.walker else walk.walker_name
     return {"walks": walks}
 
@@ -133,17 +152,17 @@ def statistics_card(pet):
     eaten = meals.aggregate(s=Sum("amount"))["s"]
     drunk = meals.aggregate(s=Sum("water_amount"))["s"]
     stats = [
-        ("Age", pet_age(pet.birth_date) or "–"),
-        ("Today's walk time", fmt_duration(walk_time)),
-        ("Meals today", meals.filter(food=True).count() or "–"),
-        ("Food eaten today", units.show(eaten, "mass", pet.household) if eaten else "–"),
-        ("Food put out today", units.show(food, "mass", pet.household) if food else "–"),
-        ("Water drunk today", units.show(drunk, "volume", pet.household) if drunk else "–"),
-        ("Water served today", units.show(water, "volume", pet.household) if water else "–"),
-        ("Potty break frequency (past 3 days)", fmt_duration(gap3) if gap3 else "–"),
-        ("Potty break frequency (past 2 weeks)", fmt_duration(gap14) if gap14 else "–"),
-        ("Average pees per day (past 2 weeks)", pees),
-        ("Average poops per day (past 2 weeks)", poops),
+        (_("Age"), pet_age(pet.birth_date) or "–"),
+        (_("Today's walk time"), fmt_duration(walk_time)),
+        (_("Meals today"), meals.filter(food=True).count() or "–"),
+        (_("Food eaten today"), units.show(eaten, "mass", pet.household) if eaten else "–"),
+        (_("Food put out today"), units.show(food, "mass", pet.household) if food else "–"),
+        (_("Water drunk today"), units.show(drunk, "volume", pet.household) if drunk else "–"),
+        (_("Water served today"), units.show(water, "volume", pet.household) if water else "–"),
+        (_("Potty break frequency (past 3 days)"), fmt_duration(gap3) if gap3 else "–"),
+        (_("Potty break frequency (past 2 weeks)"), fmt_duration(gap14) if gap14 else "–"),
+        (_("Average pees per day (past 2 weeks)"), pees),
+        (_("Average poops per day (past 2 weeks)"), poops),
     ]
     return {"stats": stats}
 
@@ -179,7 +198,7 @@ def potty_bars_card(pet):
         date = today - datetime.timedelta(days=i)
         day = [b for b in breaks if timezone.localtime(b.time).date() == date]
         days.append({
-            "label": f"{date:%a} {date.day}",
+            "label": day_label(date),
             "pee_ok": sum(b.pee and not is_accident(b) for b in day),
             "poop_ok": sum(b.poop and not is_accident(b) for b in day),
             "pee_in": sum(b.pee and is_accident(b) for b in day),
@@ -190,9 +209,10 @@ def potty_bars_card(pet):
     for d in days:
         for s in segments:
             d[s + "_pct"] = d[s] / peak * 100
-    outside = " outside" if pet.type == pet.DOG else ""
-    legend = [("pee_ok", "#8fd18a", f"Pee{outside}"), ("poop_ok", "#2e7d32", f"Poop{outside}"),
-              ("pee_in", "#f5d33f", "Pee accident"), ("poop_in", "#a72431", "Poop accident")]
+    dog = pet.type == pet.DOG
+    legend = [("pee_ok", "#8fd18a", _("Pee outside") if dog else _("Pee")),
+              ("poop_ok", "#2e7d32", _("Poop outside") if dog else _("Poop")),
+              ("pee_in", "#f5d33f", _("Pee accident")), ("poop_in", "#a72431", _("Poop accident"))]
     return {"days": days, "legend": legend, "empty": not breaks}
 
 
@@ -207,9 +227,9 @@ def chart(days=WINDOW_DAYS):
     rows = []
     for i in range(days):
         date = today - datetime.timedelta(days=i)
-        rows.append({"date": date, "y": i * ROW_H, "mid": i * ROW_H + ROW_H / 2, "label": f"{date:%a} {date.day}"})
+        rows.append({"date": date, "y": i * ROW_H, "mid": i * ROW_H + ROW_H / 2, "label": day_label(date)})
     height = days * ROW_H
-    ticks = [{"x": LABEL_W + h / 24 * PLOT_W, "label": ("12a", "6a", "12p", "6p", "12a")[h // 6]} for h in range(0, 25, 6)]
+    ticks = [{"x": LABEL_W + h / 24 * PLOT_W, "label": (("00", "06", "12", "18", "24") if uses_24h() else ("12a", "6a", "12p", "6p", "12a"))[h // 6]} for h in range(0, 25, 6)]
     return {"rows": rows, "by_date": {r["date"]: r for r in rows}, "height": height, "total_h": height + AXIS_H,
             "width": LABEL_W + PLOT_W, "plot_x": LABEL_W, "label_x": LABEL_W - 6, "plot_w": PLOT_W, "ticks": ticks}
 
@@ -240,9 +260,9 @@ def accidents_chart(pet):
         if not pos:
             continue
         hours[timezone.localtime(b.time).hour] += 1
-        kind = "Pee + poop" if b.pee and b.poop else ("Poop" if b.poop else "Pee")
+        kind = _("Pee + poop") if b.pee and b.poop else (_("Poop") if b.poop else _("Pee"))
         dots.append({"x": pos[0], "y": pos[1], "color": "#a72431" if b.poop else "#f5d33f",
-                     "label": f"{kind} inside {fmt_time(b.time)}"})
+                     "label": _("%(kind)s inside %(time)s") % {"kind": kind, "time": fmt_time(b.time)}})
     for t in feeding_times(pet, since):
         pos = _place(c, t)
         if pos:
@@ -307,9 +327,9 @@ class Night:
         self.nights = _nights(times)
         if len(self.nights) >= 2:
             # Recent nights count more, so a drifting routine pulls the estimate along.
-            weights = [0.5 ** ((now - b).total_seconds() / 86400 / NIGHT_HALF_LIFE_DAYS) for _, b in self.nights]
+            weights = [0.5 ** ((now - b).total_seconds() / 86400 / NIGHT_HALF_LIFE_DAYS) for _bed, b in self.nights]
             self.bed = _circular_median([_minute(a) for a, _ in self.nights], weights)
-            self.wake = _circular_median([_minute(b) for _, b in self.nights], weights)
+            self.wake = _circular_median([_minute(b) for _bed, b in self.nights], weights)
         else:
             self.bed, self.wake = DEFAULT_NIGHT
         self.length = (self.wake - self.bed) % DAY
@@ -338,7 +358,7 @@ class Night:
     def first_after_wake(self, events):
         """Usual delay from waking to the first of these events."""
         delays = []
-        for _, woke in self.nights:
+        for _bed, woke in self.nights:
             after = [e for e in events if woke <= e < woke + MAX_GAP]
             if after:
                 delays.append(after[0] - woke)
@@ -357,7 +377,7 @@ def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True):
     same = [g for g, name in gaps if name == bucket]
     if learned and len(same) >= 3:
         gap = median(same)
-        candidates.append((last + gap, f"{bucket} {kind}s usually {fmt_duration(gap)} apart"))
+        candidates.append((last + gap, _("%(part)s %(kinds)s usually %(gap)s apart") % {"part": BUCKETS[bucket], "kinds": KINDS[kind][1], "gap": fmt_duration(gap)}))
     elif fallback:
         gap, reason = fallback
         candidates.append((last + gap, reason))
@@ -371,11 +391,11 @@ def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True):
                 delays.append(after[0] - f)
         delay = median(delays) if len(delays) >= 3 else DEFAULT_MEAL_DELAY[kind]
         meal = meals_since[-1]
-        candidates.append((meal + delay, f"meal at {fmt_time(meal)}, {kind}s ~{fmt_duration(delay)} after meals"))
+        candidates.append((meal + delay, _("meal at %(time)s, %(kinds)s ~%(delay)s after meals") % {"time": fmt_time(meal), "kinds": KINDS[kind][1], "delay": fmt_duration(delay)}))
 
     woke = [s for s in wakes if last < s <= now]
     if woke:
-        candidates.append((woke[-1], f"woke up at {fmt_time(woke[-1])}"))
+        candidates.append((woke[-1], _("woke up at %(time)s") % {"time": fmt_time(woke[-1])}))
 
     # A trigger that passed long ago without a potty break gives way to the next estimate.
     fresh = [c for c in candidates if c[0] >= now - STALE_AFTER] or candidates
@@ -395,10 +415,13 @@ def next_walk_card(pet):
     age_gap = datetime.timedelta(hours=min(MAX_HOLD_HOURS, months + 1))
     gap3 = avg_gap(potty(pet, now - datetime.timedelta(days=3)))
     if history < AGE_RULE_UNTIL_DAYS or not gap3:
-        age = f"{months * 30.44 / 7:.0f}-week-old" if months < 4 else f"{months:.0f}-month-old"
-        fallback = (age_gap, f"a {age} can usually hold it ~{fmt_duration(age_gap)}")
+        if months < 4:
+            reason = _("a %(n).0f-week-old can usually hold it ~%(gap)s") % {"n": months * 30.44 / 7, "gap": fmt_duration(age_gap)}
+        else:
+            reason = _("a %(n).0f-month-old can usually hold it ~%(gap)s") % {"n": months, "gap": fmt_duration(age_gap)}
+        fallback = (age_gap, reason)
     else:
-        fallback = (gap3, f"average potty gap (3 days) is {fmt_duration(gap3)}")
+        fallback = (gap3, _("average potty gap (3 days) is %(gap)s") % {"gap": fmt_duration(gap3)})
 
     # After the usual bedtime potty break, the next one comes after waking up.
     times = [b.time for b in breaks]
@@ -412,8 +435,9 @@ def next_walk_card(pet):
         events = [b.time for b in breaks if getattr(b, kind)]
         if wake and events:
             when = wake + night.first_after_wake(events)
-            result = (when, f"after bedtime potty at {fmt_time(times[-1])}; usually up ~{fmt_time(wake)}, "
-                            f"first {kind} ~{fmt_time(when)}")
+            result = (when, _("after bedtime potty at %(bed)s; usually up ~%(wake)s, first %(kind)s ~%(when)s") % {
+                "bed": fmt_time(times[-1]), "wake": fmt_time(wake), "kind": str(KINDS[kind][0]).lower(),
+                "when": fmt_time(when)})
         else:
             result = _predict(kind, events, feedings[kind], wakes, fallback, now, night, learned=history >= MIN_HISTORY_DAYS)
             # Needs that would fall during the night: pees go on the bedtime walk if it's still ahead,
@@ -421,12 +445,12 @@ def next_walk_card(pet):
             if result and night.contains(result[0]) and not night.contains(now):
                 bedtime = night.next_bed(now)
                 if kind == "pee" and bedtime <= result[0]:
-                    result = (bedtime, f"bedtime walk, usually ~{fmt_time(bedtime)}")
+                    result = (bedtime, _("bedtime walk, usually ~%(time)s") % {"time": fmt_time(bedtime)})
                 else:
-                    result = (night.next_wake(result[0]), result[1] + ", so after waking up")
+                    result = (night.next_wake(result[0]), result[1] + _(", so after waking up"))
         if result:
             when, reason = result
-            predictions.append({"kind": kind.capitalize(), "time": when, "reason": reason, "last": events[-1]})
+            predictions.append({"kind": str(KINDS[kind][0]), "time": when, "reason": reason, "last": events[-1]})
     predictions.sort(key=lambda p: p["time"])
 
     # Pees and poops happen on walks: anything due before the next walk would end belongs to it.
@@ -445,6 +469,11 @@ def next_walk_card(pet):
         expect = " + ".join(p["kind"].lower() for p in predictions if p["this_walk"])
         delta = walk_at - now
         mins = int(delta.total_seconds() // 60)
-        due = "now" if abs(mins) < 5 else (f"in {fmt_duration(delta)}" if mins > 0 else f"{fmt_duration(-delta)} overdue")
+        if abs(mins) < 5:
+            due = _("now")
+        elif mins > 0:
+            due = _("in %(time)s") % {"time": fmt_duration(delta)}
+        else:
+            due = _("%(time)s overdue") % {"time": fmt_duration(-delta)}
     return {"predictions": predictions, "due": due, "expect": expect,
             "walk_len": fmt_duration(walk_len), "walk_gap": fmt_duration(walk_gap) if walk_gap else None}

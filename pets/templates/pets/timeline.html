@@ -1,5 +1,5 @@
 {% extends "babybuddy/page.html" %}
-{% load i18n %}
+{% load i18n pets_tags %}
 {% block title %}{% trans "Timeline" %}{% endblock %}
 {% block breadcrumbs %}
     <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
@@ -14,7 +14,7 @@
     <div class="list-group">
         {% for r in rows %}
             <a class="list-group-item list-group-item-action d-flex gap-3" href="{{ r.edit_url }}?next={{ request.get_full_path|urlencode }}">
-                <span class="text-body-secondary text-nowrap" style="width: 5rem">{{ r.time|time }}</span>
+                <span class="text-body-secondary text-nowrap" style="width: 5rem">{{ r.time|clock }}</span>
                 <span class="text-nowrap" style="min-width: 5rem">{{ r.pets }}</span>
                 <span>{{ r.summary }}</span>
             </a>

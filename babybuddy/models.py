@@ -129,6 +129,13 @@ class Settings(models.Model):
         default=25,
         verbose_name=_("Items Per Page"),
     )
+    clock = models.CharField(
+        max_length=2,
+        blank=True,
+        default="",
+        choices=[("", _("Automatic (from language)")), ("12", _("12-hour")), ("24", _("24-hour"))],
+        verbose_name=_("Time format"),
+    )
     show_help = models.BooleanField(
         default=True,
         verbose_name=_("Show help bubbles"),

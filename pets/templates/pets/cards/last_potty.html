@@ -1,18 +1,18 @@
 {% extends "cards/base.html" %}
-{% load duration %}
-{% block header %}Last Potty Break{% endblock %}
+{% load i18n duration pets_tags %}
+{% block header %}{% trans "Last Potty Break" %}{% endblock %}
 {% block title %}
     {% if last %}
-        <div>{{ last.time|deltasince|duration_string:'m' }} ago</div>
-        <small>{{ last.time|time }}</small>
+        <div>{% blocktrans with ago=last.time|deltasince|duration_string:'m' %}{{ ago }} ago{% endblocktrans %}</div>
+        <small>{{ last.time|clock }}</small>
     {% else %}
-        None
+        {% trans "None" %}
     {% endif %}
 {% endblock %}
 {% block content %}
     {% if last %}
         <a class="text-reset" href="{% url 'pets:edit' 'potty' last.pk %}?next={{ request.path|urlencode }}">
-            {% if last.pee %}Pee{% endif %}{% if last.pee and last.poop %}, {% endif %}{% if last.poop %}Poop{% endif %}, {{ last.get_location_display }}
+            {% if last.pee %}{% trans "Pee" %}{% endif %}{% if last.pee and last.poop %}, {% endif %}{% if last.poop %}{% trans "Poop" %}{% endif %}, {{ last.get_location_display }}
         </a>
     {% endif %}
 {% endblock %}

@@ -1,5 +1,6 @@
 {% extends "cards/base.html" %}
-{% block header %}Statistics{% endblock %}
+{% load i18n %}
+{% block header %}{% trans "Statistics" %}{% endblock %}
 {% block content %}
     <table class="table table-sm table-borderless mb-0">
         {% for label, value in stats %}

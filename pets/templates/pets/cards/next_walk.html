@@ -1,23 +1,24 @@
 {% extends "cards/base.html" %}
-{% block header %}Next Walk{% endblock %}
+{% load i18n pets_tags %}
+{% block header %}{% trans "Next Walk" %}{% help_bubble _("A guess from this pet's own potty history: usual gaps by time of day, how long after meals and waking up, and its learned bedtime. With little history it uses the age rule of thumb (a puppy can hold it about its age in months plus one hour). Not veterinary advice.") %}{% endblock %}
 {% block title %}
     {% if predictions %}
-        <div class="fs-3">~{{ predictions.0.time|time }}</div>
-        <small>{{ due }} · expect {{ expect }}</small>
+        <div class="fs-3">~{{ predictions.0.time|clock }}</div>
+        <small>{{ due }} · {% trans "expect" %} {{ expect }}</small>
     {% else %}
-        Not enough data
+        {% trans "Not enough data" %}
     {% endif %}
 {% endblock %}
 {% block listgroup %}
     <ul class="list-group list-group-flush small">
         {% for p in predictions %}
             <li class="list-group-item">
-                <strong>{{ p.kind }} ~{{ p.time|time }}</strong> (last {{ p.last|time }}){% if not p.this_walk %} · likely next walk{% endif %}<br>
+                <strong>{{ p.kind }} ~{{ p.time|clock }}</strong> ({% trans "last" %} {{ p.last|clock }}){% if not p.this_walk %} · {% trans "likely next walk" %}{% endif %}<br>
                 <span class="text-body-secondary">{{ p.reason }}</span>
             </li>
         {% endfor %}
         <li class="list-group-item text-body-secondary">
-            Walks usually last {{ walk_len }}{% if walk_gap %}, every {{ walk_gap }} during the day{% endif %}
+            {% if walk_gap %}{% blocktrans %}Walks usually last {{ walk_len }}, every {{ walk_gap }} during the day{% endblocktrans %}{% else %}{% blocktrans %}Walks usually last {{ walk_len }}{% endblocktrans %}{% endif %}
         </li>
     </ul>
 {% endblock %}

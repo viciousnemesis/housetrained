@@ -16,10 +16,16 @@ class PetsForm(forms.ModelForm):
     """Scopes choices to the household and renders with Baby Buddy's fieldset layouts."""
 
     fieldsets = []
+    # Fields that only apply after a choice: {field: (controlling field, values that show it)}. ANY means "has a
+    # value". In the page a hidden field is disabled, so it keeps what was typed if it comes back but isn't sent;
+    # clean() also empties it, so it's never saved.
+    show_when = {}
+    ANY = "*"
 
     def __init__(self, *args, household, user, **kwargs):
         self.household, self.user = household, user
         super().__init__(*args, **kwargs)
+        self.show_when = dict(self.show_when)
         for field in self.fields.values():
             model = getattr(getattr(field, "queryset", None), "model", None)
             if model is Pet:
@@ -50,6 +56,65 @@ class PetsForm(forms.ModelForm):
 
     def default_unit(self, kind):
         return units.DEFAULTS[self.household.units][kind]
+
+    @staticmethod
+    def _as_text(value):
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        return str(getattr(value, "pk", value))
+
+    def _shown(self, name, data):
+        control, values = self.show_when[name]
+        value = data.get(control)
+        if values == self.ANY:
+            return value not in (None, "", [], False)
+        return self._as_text(value) in {self._as_text(v) for v in values}
+
+    def active_show_when(self):
+        return {name: (control, values) for name, (control, values) in self.show_when.items()
+                if name in self.fields and control in self.fields}
+
+    # Unit pickers that sit inside their amount box instead of on a row of their own.
+    UNIT_OF = {"unit": "amount", "water_unit": "water_amount", "distance_unit": "distance", "weight_unit": "value",
+               "length_unit": "value", "bowl_unit": "amount_per_bowl"}
+
+    @property
+    def unit_pairs_json(self):
+        pairs = {}
+        for unit, amount in self.UNIT_OF.items():
+            if unit in self.fields and amount in self.fields:
+                pairs.setdefault(amount, []).append(unit)
+        for name in ("package_size", "size"):
+            if name in self.fields and "size_unit" in self.fields:
+                pairs.setdefault(name, []).append("size_unit")
+        return pairs
+
+    @property
+    def show_when_json(self):
+        return {name: [control, values if values == self.ANY else [self._as_text(v) for v in values]]
+                for name, (control, values) in self.active_show_when().items()}
+
+    def full_clean(self):
+        for name in self.active_show_when():
+            self.fields[name].required = False
+        super().full_clean()
+
+    def clean(self):
+        data = super().clean()
+        for name in self.active_show_when():
+            if not self._shown(name, data):
+                field = self.fields[name]
+                if isinstance(field, (forms.ModelMultipleChoiceField, forms.MultipleChoiceField)):
+                    data[name] = []
+                elif isinstance(field, forms.ModelChoiceField):
+                    data[name] = None
+                elif isinstance(field, forms.BooleanField):
+                    data[name] = False
+                elif isinstance(field, forms.ChoiceField):
+                    data[name] = ""
+                else:
+                    data[name] = getattr(field, "empty_value", None)
+        return data
 
 
 class PerPetForm(PetsForm):
@@ -84,6 +149,7 @@ class PerPetForm(PetsForm):
 
 
 class PottyBreakForm(PerPetForm):
+    show_when = {"container": ("location", [PottyBreak.LITTER_BOX])}
     fieldsets = [
         {"fields": ["pets", "pet", "time"], "layout": "required"},
         {"fields": ["pee", "poop"], "layout": "choices", "layout_attrs": {"label": _("Contents")}},
@@ -154,6 +220,7 @@ OTHER_WALKER = "other"
 
 class WalkForm(PetsForm):
     walker_choice = forms.ChoiceField(label=_("Walker"), widget=PillRadioSelect(), required=False)
+    show_when = {"walker_name": ("walker_choice", [OTHER_WALKER]), "distance_unit": ("distance", "*")}
     distance_unit = forms.ChoiceField(label=_("Distance unit"), choices=units.choices(units.DISTANCE))
 
     fieldsets = [
@@ -281,6 +348,10 @@ class FillForm(PetsForm):
         super().__init__(*args, **kwargs)
         self.fields["container"].label_from_instance = container_label
         self.fields["amount"].required = True
+        containers = list(self.fields["container"].queryset)
+        litter = (Container.LITTER_BOX, Container.AUTO_LITTER_BOX)
+        self.show_when["eaten_now"] = ("container", [c for c in containers if c.kind not in litter])
+        self.show_when["supply_item"] = ("container", [c for c in containers if not c.holds_water])
         self.fields["unit"].initial = self.default_unit("mass")
         fill = self.instance
         if fill.pk and fill.bowls is not None:
@@ -391,6 +462,10 @@ def container_label(container):
 class MealForm(PerPetForm):
     unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.MASS), required=False)
     water_unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.VOLUME), required=False)
+    show_when = {
+        "amount": ("food", [True]), "unit": ("food", [True]), "product": ("food", [True]),
+        "water_amount": ("water", [True]), "water_unit": ("water", [True]),
+    }
 
     fieldsets = [
         {"fields": ["pets", "pet", "time"], "layout": "required"},
@@ -444,11 +519,16 @@ class MealForm(PerPetForm):
 
 
 class MeasurementForm(PerPetForm):
-    unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.WEIGHT) + units.choices(units.LENGTH))
+    weight_unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.WEIGHT))
+    length_unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.LENGTH))
+    show_when = {
+        "weight_unit": ("kind", [Measurement.WEIGHT]),
+        "length_unit": ("kind", [Measurement.HEIGHT, Measurement.LENGTH]),
+    }
 
     fieldsets = [
-        {"fields": ["pets", "pet", "date", "kind", "value", "unit"], "layout": "required"},
-        {"fields": ["notes"], "layout": "advanced"},
+        {"fields": ["pets", "pet", "date", "kind", "value", "weight_unit", "length_unit"], "layout": "required"},
+        {"fields": ["notes"]},
     ]
 
     class Meta:
@@ -463,23 +543,24 @@ class MeasurementForm(PerPetForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["unit"].initial = self.default_unit("weight")
+        self.fields["weight_unit"].initial = self.default_unit("weight")
+        self.fields["length_unit"].initial = self.default_unit("length")
+        if not self.instance.pk:
+            self.initial.setdefault("kind", Measurement.WEIGHT)
         if self.instance.pk:
             weight = self.instance.kind == Measurement.WEIGHT
             unit = self.default_unit("weight" if weight else "length")
-            self.initial["unit"] = unit
             self.initial["value"] = round(
                 units.from_stored(self.instance.value, unit, units.WEIGHT if weight else units.LENGTH), 2
             )
 
     def clean(self):
         data = super().clean()
-        kind, value, unit = data.get("kind"), data.get("value"), data.get("unit")
+        kind, value = data.get("kind"), data.get("value")
         if kind and value is not None:
-            table = units.WEIGHT if kind == Measurement.WEIGHT else units.LENGTH
-            if unit not in table:
-                raise forms.ValidationError(_("Use %(units)s for this measurement.") % {"units": ", ".join(table)})
-            data["value"] = units.to_stored(value, unit, table)
+            weight = kind == Measurement.WEIGHT
+            unit = data.get("weight_unit" if weight else "length_unit") or self.default_unit("weight" if weight else "length")
+            data["value"] = units.to_stored(value, unit, units.WEIGHT if weight else units.LENGTH)
         return data
 
     def save(self, commit=True):
@@ -542,6 +623,7 @@ class PetForm(HouseholdOwnedForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.show_when = {"birth_date_estimated": ("birth_date", self.ANY)}
         if self.instance.pk:
             self.initial["potty_locations"] = self.instance.allowed_potty_locations()
 
@@ -564,6 +646,12 @@ class ContainerForm(HouseholdOwnedForm):
         super().__init__(*args, **kwargs)
         order = ["name", "kind", "pets", "amount_per_bowl", "bowl_unit", "default_supply", "active"]
         self.fieldsets = [{"fields": order, "layout": "default"}]
+        bowls = [Container.FOOD_BOWL, Container.WATER_BOWL]
+        self.show_when = {
+            "amount_per_bowl": ("kind", bowls), "bowl_unit": ("kind", bowls),
+            "default_supply": ("kind", [Container.FOOD_BOWL, Container.FEEDER, Container.LITTER_BOX,
+                                        Container.AUTO_LITTER_BOX]),
+        }
         self.fields["bowl_unit"].initial = self.default_unit("mass")
         if self.instance.pk and self.instance.amount_per_bowl:
             water = self.instance.kind in (Container.WATER_BOWL, Container.FOUNTAIN)

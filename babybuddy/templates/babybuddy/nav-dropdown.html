@@ -411,7 +411,7 @@
                 <a class="fs-5 text-reset text-decoration-none me-auto" href="{% url 'pets:edit' r.kind r.id %}" title="{% trans 'Edit start time' %}">
                     {% if r.kind == "walk" %}🐾{% else %}🌙{% endif %} {{ r.label }} {{ r.names }}
                     <span class="fw-bold text-primary ms-2 activity-elapsed" data-start="{{ r.start.isoformat }}"></span>
-                    <small class="ms-2 text-body-secondary">since {{ r.start|time }} ✎</small>
+                    <small class="ms-2 text-body-secondary">since {{ r.start|clock }} ✎</small>
                 </a>
                 <form method="post" action="{% url 'pets:stop' r.kind r.id 'cancel' %}"
                       onsubmit="return confirm('{% trans 'Cancel this? Nothing will be saved.' %}')">
