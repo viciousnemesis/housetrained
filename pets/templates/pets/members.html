@@ -47,7 +47,10 @@
         </form>
     {% endif %}
     <p class="text-body-secondary small mt-3">
-        {% trans "New people need a user account first." %}
-        {% if request.user.is_superuser %}<a href="{% url 'babybuddy:user-add' %}">{% trans "Add a user" %}</a>{% endif %}
+        {% if request.user.is_superuser %}
+            {% trans "New people need a user account first." %} <a href="{% url 'babybuddy:user-add' %}">{% trans "Add a user" %}</a>
+        {% else %}
+            {% trans "To add someone, ask the site admin: they create accounts and add people to households." %}
+        {% endif %}
     </p>
 {% endblock %}
