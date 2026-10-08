@@ -272,6 +272,7 @@ class Notifications(HouseholdMixin, View):
             prefs, _created = NotificationPreference.objects.get_or_create(user=request.user)
             prefs.walk_due = bool(request.POST.get("walk_due"))
             prefs.low_supply = bool(request.POST.get("low_supply"))
+            prefs.weekly_progress = bool(request.POST.get("weekly_progress"))
             prefs.save()
             messages.success(request, _("Saved."))
         return HttpResponseRedirect(reverse("pets:notifications"))
@@ -285,6 +286,18 @@ def service_worker(request):
     response["Service-Worker-Allowed"] = "/"
     response["Cache-Control"] = "no-cache"
     return response
+
+
+class Progress(HouseholdMixin, TemplateView):
+    """Is house-training getting better? (PUP-73)"""
+
+    template_name = "pets/progress.html"
+
+    def get_context_data(self, **kwargs):
+        from . import progress
+
+        pet = get_object_or_404(Pet, household=self.household, slug=self.kwargs["slug"])
+        return super().get_context_data(pet=pet, **progress.page(pet), **kwargs)
 
 
 class Setup(HouseholdMixin, TemplateView):

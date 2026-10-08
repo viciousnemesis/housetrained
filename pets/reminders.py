@@ -97,6 +97,29 @@ def supply_reminders(household, now):
     return sent
 
 
+def weekly_reminders(household, now):
+    """Monday from 9 am (household time): each pet's week in one line."""
+    from . import push
+    from .progress import summary
+
+    local = timezone.localtime(now)
+    if local.weekday() != 0 or local.hour < 9:
+        return 0
+    people = _people(household, "weekly_progress")
+    if not people:
+        return 0
+    sent = 0
+    year, week, _day = local.isocalendar()
+    for pet in household.pets.filter(active=True):
+        text = summary(pet, now)
+        if not text or not _claim(f"weekly:{pet.pk}:{year}-{week}"):
+            continue
+        title = _("%(pet)s's week") % {"pet": pet.name}
+        for user in people:
+            sent += push.send(user, title, text, url=f"/pets/{pet.slug}/progress/", tag=f"weekly-{pet.pk}")
+    return sent
+
+
 def check(now=None):
     """Send whatever is due, for every household with someone signed up. Returns how many were delivered."""
     from . import push
@@ -113,6 +136,7 @@ def check(now=None):
                 try:
                     sent += walk_reminders(household, now)
                     sent += supply_reminders(household, now)
+                    sent += weekly_reminders(household, now)
                 except Exception:
                     log.exception("Reminders for %s failed", household)
     ReminderLog.objects.filter(created__lt=now - datetime.timedelta(days=30)).delete()

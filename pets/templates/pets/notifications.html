@@ -50,6 +50,11 @@
                 <label class="form-check-label" for="low_supply">{% trans "When it's time to buy more" %}
                     <span class="d-block small text-body-secondary">{% trans "When a bag is down to its reorder days; at most once a day." %}</span></label>
             </div>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="weekly_progress" id="weekly_progress" {% if prefs.weekly_progress %}checked{% endif %}>
+                <label class="form-check-label" for="weekly_progress">{% trans "Weekly progress" %}
+                    <span class="d-block small text-body-secondary">{% trans "Monday morning: accidents this week against the week before." %}</span></label>
+            </div>
             <button class="btn btn-primary" type="submit">{% trans "Save" %}</button>
         </form>
     </div>

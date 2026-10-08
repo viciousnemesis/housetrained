@@ -1,0 +1,59 @@
+{% extends "babybuddy/page.html" %}
+{% load i18n %}
+{% block title %}{% blocktrans with name=pet.name %}{{ name }}: progress{% endblocktrans %}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{% url 'pets:pet' pet.slug %}">{{ pet.name }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Progress" %}</li>
+{% endblock %}
+{% block content %}
+    <h1>{% blocktrans with name=pet.name %}{{ name }}'s progress{% endblocktrans %}</h1>
+    {% if not streak %}
+        <p class="text-body-secondary">{% trans "No potty breaks logged yet." %}</p>
+    {% else %}
+        <p class="fs-4 mb-1">{{ streak.title }}</p>
+        <p class="text-body-secondary">
+            {% if streak.is_best and streak.accidents_ever %}{% trans "Best stretch so far!" %}
+            {% else %}{% blocktrans with best=streak.best_text %}Best so far: {{ best }}.{% endblocktrans %}{% endif %}
+        </p>
+
+        {% if chart %}
+            <h2 class="h6 text-body-secondary mt-4">{% trans "In the right place, week by week" %}</h2>
+            <svg viewBox="0 -12 {{ chart.width }} {{ chart.height|add:12 }}" class="w-100" style="max-width: 32rem"
+                 role="img" aria-label="{% trans 'Share of potty breaks in the right place, per week' %}">
+                <line x1="0" x2="{{ chart.width }}" y1="{{ chart.plot_h }}" y2="{{ chart.plot_h }}" stroke="currentColor" opacity=".25"></line>
+                {% for b in chart.bars %}
+                    <rect x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}" rx="2" fill="#daa520"><title>{{ b.pct }}%</title></rect>
+                    <text x="{{ b.mid }}" y="{{ b.y|add:-3 }}" text-anchor="middle" font-size="9" fill="currentColor">{{ b.pct }}%</text>
+                    <text x="{{ b.mid }}" y="{{ chart.label_y }}" text-anchor="middle" font-size="8" fill="currentColor" opacity=".7">{{ b.label|date:"M j" }}</text>
+                {% endfor %}
+            </svg>
+        {% endif %}
+
+        <div class="table-responsive mt-3" style="max-width: 32rem">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>{% trans "Week to" %}</th>
+                        <th class="text-end">{% trans "Accidents" %}</th>
+                        <th class="text-end">{% trans "Right place" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for w in weeks %}
+                        {% if w.breaks %}
+                            <tr>
+                                <td>{{ w.end|date:"M j" }}</td>
+                                <td class="text-end" style="font-variant-numeric: tabular-nums">{{ w.accidents }}</td>
+                                <td class="text-end" style="font-variant-numeric: tabular-nums">{{ w.right_place }}%</td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-body-secondary">
+            {% if pet.type == "dog" %}{% trans "Right place: outside or on a pad. Accidents: inside." %}
+            {% else %}{% trans "Right place: anywhere but inside. Accidents: inside." %}{% endif %}
+        </p>
+    {% endif %}
+{% endblock %}

@@ -448,6 +448,8 @@ class NotificationPreference(models.Model):
                                    help_text=_("When a pet's next walk is due, from the Next Walk prediction."))
     low_supply = models.BooleanField(_("Buy more"), default=True,
                                      help_text=_("When a bag is down to its reorder days (once a day)."))
+    weekly_progress = models.BooleanField(_("Weekly progress"), default=False,
+                                          help_text=_("Monday morning: accidents this week against the week before."))
 
 
 class ReminderLog(models.Model):

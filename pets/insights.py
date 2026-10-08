@@ -274,7 +274,9 @@ def potty_bars_card(pet):
     legend = [("pee_ok", "#8fd18a", _("Pee outside") if dog else _("Pee")),
               ("poop_ok", "#2e7d32", _("Poop outside") if dog else _("Poop")),
               ("pee_in", "#f5d33f", _("Pee accident")), ("poop_in", "#a72431", _("Poop accident"))]
-    return {"days": days, "legend": legend, "empty": not breaks, "show_walks": bool(walks)}
+    from .progress import streak
+
+    return {"days": days, "legend": legend, "empty": not breaks, "show_walks": bool(walks), "streak": streak(pet)}
 
 
 # --- Day x hour charts ---------------------------------------------------------------------
