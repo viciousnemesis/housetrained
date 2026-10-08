@@ -241,10 +241,16 @@ def potty_bars_card(pet):
     today = timezone.localdate()
     days = []
     breaks = potty(pet, window_start(7))
+    # Walks per day sit beside each bar, so a day with fewer walks and more accidents shows on one row.
+    walks = list(pet.walks.filter(start__gte=window_start(7)).exclude(end=None))
     for i in range(7):
         date = today - datetime.timedelta(days=i)
         day = [b for b in breaks if timezone.localtime(b.time).date() == date]
+        day_walks = [w for w in walks if timezone.localtime(w.start).date() == date]
+        walk_time = sum((w.end - w.start for w in day_walks), datetime.timedelta())
         days.append({
+            "walks": len(day_walks),
+            "walk_time": fmt_duration(walk_time) if day_walks else "",
             "label": day_label(date),
             "pee_ok": sum(b.pee and not is_accident(b) for b in day),
             "poop_ok": sum(b.poop and not is_accident(b) for b in day),
@@ -260,7 +266,7 @@ def potty_bars_card(pet):
     legend = [("pee_ok", "#8fd18a", _("Pee outside") if dog else _("Pee")),
               ("poop_ok", "#2e7d32", _("Poop outside") if dog else _("Poop")),
               ("pee_in", "#f5d33f", _("Pee accident")), ("poop_in", "#a72431", _("Poop accident"))]
-    return {"days": days, "legend": legend, "empty": not breaks}
+    return {"days": days, "legend": legend, "empty": not breaks, "show_walks": bool(walks)}
 
 
 # --- Day x hour charts ---------------------------------------------------------------------

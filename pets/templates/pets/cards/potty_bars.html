@@ -7,6 +7,7 @@
         {% for key, color, label in legend %}
             <span class="me-3"><span class="d-inline-block rounded-1 me-1" style="width:.8rem;height:.8rem;background:{{ color }}"></span>{{ label }}</span>
         {% endfor %}
+        {% if show_walks %}<span class="text-nowrap"><i class="icon-tummytime" aria-hidden="true"></i> {% trans "walks that day" %}</span>{% endif %}
     </div>
     {% for d in days %}
         <div class="d-flex align-items-center gap-2 mt-2">
@@ -17,6 +18,11 @@
                 {% if d.pee_in %}<div class="progress-bar" style="width: {{ d.pee_in_pct|safe }}%; background: #f5d33f; color: #000">{{ d.pee_in }}</div>{% endif %}
                 {% if d.poop_in %}<div class="progress-bar" style="width: {{ d.poop_in_pct|safe }}%; background: #a72431; color: #fff">{{ d.poop_in }}</div>{% endif %}
             </div>
+            {% if show_walks %}
+                <div class="small text-nowrap text-end" style="width: 4.5rem" title="{{ d.walk_time }}">
+                    <i class="icon-tummytime" aria-hidden="true"></i> {{ d.walks }}{% if d.walk_time %} <span class="text-body-secondary">{{ d.walk_time }}</span>{% endif %}
+                </div>
+            {% endif %}
         </div>
     {% endfor %}
 {% endblock %}
