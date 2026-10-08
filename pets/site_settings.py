@@ -22,6 +22,17 @@ class PlatformSettings(dbsettings.Group):
         ),
         widget=CheckboxInput,
     )
+    push_notifications = BabyModeValue(
+        required=False,
+        default=False,
+        description=_("Allow push notifications"),
+        help_text=_(
+            "Off: nothing ever leaves this server. On: each person can turn on reminders for their own devices "
+            "(user menu > Notifications). Browsers deliver them through their maker's push service (Apple, Google "
+            "or Mozilla): the messages are encrypted, but that service sees that one was sent to a device, and when."
+        ),
+        widget=CheckboxInput,
+    )
 
 
 class _Blankable:

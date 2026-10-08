@@ -26,8 +26,8 @@ Baby Buddy's baby tracking (feedings, diapers, sleep, pumping, growth) under the
 - **Sleep, weight, height, notes**, charts of the past two weeks, a day-by-day timeline.
 - **Households**: everyone in the home logs together; owners, members and read-only people.
 - **Phones first**: big buttons, forms that only show what applies, light and dark themes, metric or imperial.
-- **Reminders** as phone or browser notifications: when a walk is due, when it's time to buy more food or
-  litter (user menu > Notifications; on iPhone, add the site to the home screen first).
+- **Reminders** as phone or browser notifications, if you allow them: when a walk is due, when it's time to
+  buy more food or litter (see [Private by design](#private-by-design)).
 - **CSV import** for past records and a [REST API](docs/housetrained/api.md).
 
 <br clear="right">
@@ -103,8 +103,9 @@ A test (`pets/tests/test_privacy.py`) fails if a page ever loads something from 
 The one exception is optional: **notifications**. Browsers deliver push notifications through their maker's
 push service (Apple, Google or Mozilla), so turning them on for a device means your server hands encrypted
 messages to that service. They can't read the content, but they do see that a message was sent to that device,
-and when. Nothing is sent unless someone turns notifications on (user menu > Notifications), and
-`REMINDERS=False` switches them off for the whole server. Email (password resets) is only sent if you set up a
+and when. They're off until a site admin allows them (Site Settings > Allow push notifications), and even
+then each person turns them on for their own devices (user menu > Notifications). `REMINDERS=False` keeps them
+off regardless. Email (password resets) is only sent if you set up a
 mail server.
 
 ## Not veterinary advice

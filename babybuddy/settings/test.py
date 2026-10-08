@@ -41,4 +41,4 @@ DEFAULT_ADMIN_PASSWORD = "admin"
 
 BABY_HOUSEHOLDS = False
 
-HOUSETRAINED_REMINDERS = False  # no background reminder thread in tests
+HOUSETRAINED_REMINDER_THREAD = False  # no background reminder thread in tests

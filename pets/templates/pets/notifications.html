@@ -6,6 +6,24 @@
 {% endblock %}
 {% block content %}
     <h1>{% trans "Notifications" %}</h1>
+    {% if disabled %}
+        <div class="card card-dashboard">
+            <div class="card-body">
+                <p>{% trans "Notifications are turned off for this site, so nothing leaves this server." %}</p>
+                {% if request.user.is_superuser %}
+                    <p class="mb-0">
+                        {% trans "As site admin you can allow them in Site Settings. Browsers deliver them through their maker's push service (Apple, Google or Mozilla): the messages are encrypted, but that service sees that one was sent to a device, and when. Each person still turns them on for their own devices." %}
+                        <a href="{% url 'babybuddy:site_settings' %}">{% trans "Site Settings" %}</a>
+                    </p>
+                {% else %}
+                    <p class="mb-0 text-body-secondary">{% trans "A site admin can allow them in Site Settings." %}</p>
+                {% endif %}
+            </div>
+        </div>
+    {% else %}
+    <p class="text-body-secondary small">
+        {% trans "Reminders reach your devices through the browser maker's push service (Apple, Google or Mozilla). The messages are encrypted; that service only sees that one was sent, and when." %}
+    </p>
     <div class="card card-dashboard">
         <div class="card-header">{% trans "This device" %}</div>
         <div class="card-body">
@@ -115,4 +133,5 @@
             }).catch(function () { say(text.unsupported); });
         })();
     </script>
+    {% endif %}
 {% endblock %}

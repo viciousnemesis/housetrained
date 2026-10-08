@@ -98,8 +98,12 @@ def supply_reminders(household, now):
 
 def check(now=None):
     """Send whatever is due, for every household with someone signed up. Returns how many were delivered."""
+    from . import push
+
     now = now or timezone.now()
     sent = 0
+    if not push.allowed():
+        return 0
     households = Household.objects.filter(memberships__user__push_subscriptions__isnull=False).distinct()
     with translation.override(settings.LANGUAGE_CODE):
         for household in households:
@@ -124,7 +128,7 @@ def _loop():
         try:
             close_old_connections()
             if PushSubscription.objects.exists():
-                check()
+                check()  # does nothing unless an admin allowed push notifications
         except Exception:
             log.exception("Reminder check failed")
         finally:
@@ -140,7 +144,7 @@ class ReminderMiddleware:
 
     def __call__(self, request):
         global _started
-        if not _started and settings.HOUSETRAINED_REMINDERS:
+        if not _started and settings.HOUSETRAINED_REMINDER_THREAD:
             with _lock:
                 if not _started:
                     threading.Thread(target=_loop, name="housetrained-reminders", daemon=True).start()
