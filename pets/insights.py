@@ -302,18 +302,6 @@ def _place(c, dt):
     return (round(_x(dt), 1), row["mid"]) if row else None
 
 
-def feedings_chart(pet):
-    c, dots = chart(), []
-    since = window_start()
-    for m in Meal.objects.filter(pet=pet, food=True, time__gte=since):
-        pos = _place(c, m.time)
-        if pos:
-            r = 2.5 + min((m.amount or 0) / 30, 2.5)
-            dots.append({"x": pos[0], "y": pos[1], "r": r,
-                         "label": fmt_time(m.time) + (f" · {units.show(m.amount, 'mass', pet.household)}" if m.amount else "")})
-    return {"chart": c, "dots": dots, "empty": not dots, "hide_empty": True}
-
-
 def accidents_chart(pet):
     c, since = chart(), window_start()
     dots, meals, sleeps = [], [], []

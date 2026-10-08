@@ -233,27 +233,26 @@ class CardTests(PetTestCase):
         self.assertEqual((card["days"][0]["walks"], card["days"][0]["walk_time"]), (2, "45m"))
         self.assertFalse(insights.potty_bars_card(self.tom)["show_walks"])  # no walks, no column
 
-    def test_charts_use_meals_and_accidents(self):
+    def test_accident_chart_shows_accidents_and_meals(self):
         now = timezone.now()
         Meal.objects.create(pet=self.ruby, time=now, amount=60)
         Meal.objects.create(pet=self.ruby, time=now, food=False, water=True)  # water isn't a meal dot
         PottyBreak.objects.create(pet=self.ruby, time=now, pee=True, location=PottyBreak.INSIDE)
         PottyBreak.objects.create(pet=self.ruby, time=now, pee=True, location=PottyBreak.OUTSIDE)
-        self.assertEqual(len(insights.feedings_chart(self.ruby)["dots"]), 1)
-        self.assertEqual(len(insights.accidents_chart(self.ruby)["dots"]), 1)
+        card = insights.accidents_chart(self.ruby)
+        self.assertEqual((len(card["dots"]), len(card["meals"])), (1, 1))
 
     def test_pet_page_cards_render(self):
         PottyBreak.objects.create(pet=self.ruby, time=timezone.now(), pee=True)
         page = self.client.get("/pets/ruby/")
         for title in ("Now", "Today", "Potty Breaks", "Recent activity", "Not veterinary advice"):
             self.assertContains(page, title)
-        for gone in ("Statistics", "Last Potty Break", "Last Meal", "+ Measurement"):
+        for gone in ("Statistics", "Last Potty Break", "Last Meal", "+ Measurement", "Meal Times"):
             self.assertNotContains(page, gone)
 
     def test_empty_cards_hide(self):
         page = self.client.get("/pets/rex/")  # nothing logged for Rex
         self.assertNotContains(page, "Accident Times")
-        self.assertNotContains(page, "Meal Times")
         self.assertNotContains(page, "Running low")
 
     def test_today_tiles(self):
