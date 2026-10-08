@@ -47,6 +47,17 @@ wake-up **06:30**.
 Daylight saving: bedtime and wake-up are learned in local clock time, gaps in real time, so a 25-hour or
 23-hour day doesn't shift either.
 
+## Learning from accidents
+
+When an accident (inside) is logged, the app stores what Next Walk expected just before it, using only what was
+logged up to that moment. The Accident Times card lists recent accidents as "35m before the walk was due" or
+"20m after the walk was due", with a summary.
+
+If at least two accidents in the past two weeks came before the prediction, predictions move earlier by the
+median of how early they were, up to **90 minutes** (not into the night, and not before the last potty break).
+The reason says so: "~14m earlier: recent accidents came before the prediction". It learns from the unadjusted
+predictions, so the adjustment doesn't feed on itself. Switch it off with *Learn from accidents*.
+
 ## One walk for several needs
 
 The earliest prediction sets the walk time. Any other need due before that walk would end (the pet's median
@@ -70,3 +81,5 @@ Otherwise it shows as "likely next walk".
 | Night fade | 3 days | An older night counts half as much every this many days |
 | Bedtime potty window | 45 minutes | A potty this long before bedtime counts as the bedtime one |
 | Starting bedtime / wake-up | 23:00 / 06:30 | Until two nights are logged |
+| Learn from accidents | on | Move predictions earlier when accidents keep coming before them |
+| Largest accident adjustment | 90 minutes | The most predictions are moved earlier |

@@ -289,6 +289,11 @@ class PottyBreak(Logged):
         choices=LOCATIONS,
     )
     walk = models.ForeignKey(Walk, on_delete=models.SET_NULL, null=True, blank=True, related_name="potty_breaks")
+    # For accidents (inside): the Next Walk prediction just before it happened. `expected_at` is what the app
+    # showed; `expected_raw_at` is the prediction before any accident adjustment, which is what it learns from.
+    expected_at = models.DateTimeField(null=True, blank=True, editable=False)
+    expected_raw_at = models.DateTimeField(null=True, blank=True, editable=False)
+    expected_reason = models.CharField(max_length=255, blank=True, editable=False)
     container = models.ForeignKey(
         Container, on_delete=models.SET_NULL, null=True, blank=True, related_name="potty_breaks",
         help_text=_("Which litter box, e.g. the litter robot."),

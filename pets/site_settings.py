@@ -85,6 +85,13 @@ class PredictionSettings(dbsettings.Group):
         "prediction, and the next estimate takes over."))
     merge_slack = _number(30, _("Needs grouping buffer"), _(
         "Minutes. A pee or poop due this long after a walk would normally end is expected on that walk."))
+    learn_from_accidents = BabyModeValue(
+        required=False, default=True, widget=CheckboxInput,
+        description=_("Learn from accidents"),
+        help_text=_("When at least two recent accidents came before the predicted walk, predict that much earlier."),
+    )
+    accident_max_shift = _number(90, _("Largest accident adjustment"), _(
+        "Minutes. The most Next Walk is moved earlier because of accidents."))
     default_walk = _number(15, _("Usual walk length"), _(
         "Minutes a walk takes, used until walks are logged."))
     min_night_hours = _number(4, _("Shortest night"), _(
