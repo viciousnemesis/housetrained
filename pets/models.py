@@ -366,3 +366,44 @@ class BabyHousehold(models.Model):
 
     def __str__(self):
         return f"{self.child} in {self.household}"
+
+
+# --- Notifications (PUP-58) ----------------------------------------------------------------
+class PushKey(models.Model):
+    """The server's VAPID key pair for browser push, made on first use."""
+
+    public_key = models.TextField()
+    private_key = models.TextField()
+    created = models.DateTimeField(auto_now_add=True)
+
+
+class PushSubscription(models.Model):
+    """One browser or phone that receives a user's notifications."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="push_subscriptions")
+    endpoint = models.URLField(max_length=1000, unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    device = models.CharField(_("device"), max_length=255, blank=True)
+    created = models.DateTimeField(auto_now_add=True)
+    last_used = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.user} on {self.device or 'a device'}"
+
+
+class NotificationPreference(models.Model):
+    """Which reminders a person wants."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notification_prefs")
+    walk_due = models.BooleanField(_("Walk due"), default=True,
+                                   help_text=_("When a pet's next walk is due, from the Next Walk prediction."))
+    low_supply = models.BooleanField(_("Buy more"), default=True,
+                                     help_text=_("When a bag is down to its reorder days (once a day)."))
+
+
+class ReminderLog(models.Model):
+    """Reminders already sent, so each goes out once even with several server processes checking."""
+
+    key = models.CharField(max_length=255, unique=True)
+    created = models.DateTimeField(auto_now_add=True)

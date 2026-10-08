@@ -40,3 +40,5 @@ DEFAULT_ADMIN_PASSWORD = "admin"
 # Baby Buddy's own tests create babies outside any household; pet tests switch household scoping back on.
 
 BABY_HOUSEHOLDS = False
+
+HOUSETRAINED_REMINDERS = False  # no background reminder thread in tests

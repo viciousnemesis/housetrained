@@ -34,6 +34,10 @@ DEBUG = bool(strtobool(os.environ.get("DEBUG") or "False"))
 BABY_MODE = bool(strtobool(os.environ.get("BABY_MODE") or "False"))
 # Babies belong to households: Baby Buddy's pages and API only show the signed-in user's household's babies.
 BABY_HOUSEHOLDS = True
+# Reminders (browser push): checked by the web server every few minutes. PUSH_CONTACT goes in each push
+# message so push services can reach the operator (a mailto: or https: address).
+HOUSETRAINED_REMINDERS = bool(strtobool(os.environ.get("REMINDERS") or "True"))
+HOUSETRAINED_PUSH_CONTACT = os.environ.get("PUSH_CONTACT") or "mailto:noreply@example.com"
 # Where people can find Housetrained's source (shown in the user menu when set).
 HOUSETRAINED_SOURCE_URL = os.environ.get("HOUSETRAINED_SOURCE_URL", "")
 
@@ -84,6 +88,7 @@ MIDDLEWARE = [
     "babybuddy.middleware.UserLanguageMiddleware",
     "pets.clock.ClockMiddleware",
     "pets.middleware.BabyApiGate",
+    "pets.reminders.ReminderMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",

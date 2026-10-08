@@ -26,6 +26,8 @@ Baby Buddy's baby tracking (feedings, diapers, sleep, pumping, growth) under the
 - **Sleep, weight, height, notes**, charts of the past two weeks, a day-by-day timeline.
 - **Households**: everyone in the home logs together; owners, members and read-only people.
 - **Phones first**: big buttons, forms that only show what applies, light and dark themes, metric or imperial.
+- **Reminders** as phone or browser notifications: when a walk is due, when it's time to buy more food or
+  litter (user menu > Notifications; on iPhone, add the site to the home screen first).
 - **CSV import** for past records and a [REST API](docs/housetrained/api.md).
 
 <br clear="right">
@@ -75,6 +77,8 @@ docker compose exec -w /app/www/public housetrained /lsiopy/bin/python3 manage.p
 | `SECURE_PROXY_SSL_HEADER` | `True` behind a reverse proxy that handles HTTPS |
 | `ADMIN_PASSWORD` | Password for the first admin (otherwise random, shown once in the log) |
 | `BABY_MODE` | `True` to track babies alongside pets (also a switch in Site Settings) |
+| `PUSH_CONTACT` | Your `mailto:` address, sent with notifications so push services can reach you |
+| `REMINDERS` | `False` to stop the server sending reminders |
 | `HOUSETRAINED_SOURCE_URL` | Link shown as "Source Code" in the user menu |
 
 Baby Buddy's other settings (database, email, sign-in options) still work; see
