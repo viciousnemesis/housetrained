@@ -305,6 +305,20 @@ class Progress(HouseholdMixin, TemplateView):
 RETRY_AFTER = datetime.timedelta(minutes=15)
 
 
+class Disregard(HouseholdMixin, View):
+    """The meal or wake-up driving Next Walk didn't lead to a potty break: stop counting it (and any before it)."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, slug):
+        self.require("add", PottyBreak)
+        pet = get_object_or_404(self.household.pets, slug=slug)
+        pet.triggers_cleared_at = timezone.now()
+        pet.save(update_fields=["triggers_cleared_at"])
+        messages.info(request, _("Disregarded. %(name)s is back on the usual gap.") % {"name": pet.name})
+        return HttpResponseRedirect(self.back_url([pet]))
+
+
 class QuickPotty(HouseholdMixin, View):
     """One-tap potty logging from the top of the page (PUP-74): pee, poop, both or nothing, now."""
 

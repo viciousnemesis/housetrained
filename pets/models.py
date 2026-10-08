@@ -83,6 +83,10 @@ class Pet(models.Model):
         null=True, blank=True, editable=False,
         help_text="Taken out but nothing happened: when to try again (cleared by the next potty break).",
     )
+    triggers_cleared_at = models.DateTimeField(
+        null=True, blank=True, editable=False,
+        help_text="Disregard on the Now card: meals and wake-ups up to this time no longer drive Next Walk.",
+    )
     potty_locations = models.JSONField(
         _("potty locations"), default=list, blank=True,
         help_text=_("Where this pet goes. Only these show when logging a potty break."),

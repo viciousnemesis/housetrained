@@ -3,8 +3,8 @@
 The rules:
 1. Logging a meal or a drink never makes the estimate later (it can only bring it forward).
 2. Logging a wake-up never makes it later.
-3. With nothing new logged, time passing never makes it later, except when a meal or wake-up trigger is
-   missed (30 minutes), and then only back to the pet's usual gap, never past it.
+3. With nothing new logged, time passing never makes it later. A meal or wake-up stays due until a potty
+   break is logged or someone taps Disregard on the Now card (then: back to the usual gap).
 4. Once the usual gap has passed, the pet stays overdue until a potty break is logged.
 5. Learning from accidents only ever brings the estimate forward.
 6. Logging a pee is what moves the next pee later.
@@ -50,18 +50,22 @@ class PredictionScenarioTests(TestCase):
     def meal(self, pet, when, food=True, water=False):
         return Meal.objects.create(pet=pet, time=when, food=food, water=water)
 
-    def history(self, pet, days=5, wake=7, bed=23, gap=3, rng=None):
+    def history(self, pet, days=5, wake=7, bed=23, gap=3, rng=None, meals=True):
         """A regular routine for the past `days` days: up at `wake`, a pee every `gap` hours, a poop on every
         other one, breakfast and dinner, bedtime pee at `bed`. `rng` jitters each time by up to 20 minutes."""
         jitter = (lambda: datetime.timedelta(minutes=rng.randint(-20, 20))) if rng else (lambda: datetime.timedelta())
         for d in range(days, 0, -1):
             for i, hour in enumerate(list(range(wake, bed, gap)) + [bed]):
                 self.potty(pet, self.at(hour, days=d) + jitter(), poop=i % 2 == 0)
-            self.meal(pet, self.at(wake, 15, days=d) + jitter())
-            self.meal(pet, self.at(17, 30, days=d) + jitter())
+            if meals:
+                self.meal(pet, self.at(wake, 15, days=d) + jitter())
+                self.meal(pet, self.at(17, 30, days=d) + jitter())
 
     def head_out(self, pet, now, **kwargs):
         return next_walk_card(pet, now=now, rules=self.rules, **kwargs)["head_out"]
+
+    def pee(self, pet, now):
+        return next(p for p in next_walk_card(pet, now=now, rules=self.rules)["predictions"] if p["key"] == "pee")
 
     def times(self, pet, now, **kwargs):
         return {p["key"]: p["time"] for p in next_walk_card(pet, now=now, rules=self.rules, **kwargs)["predictions"]}
@@ -150,20 +154,35 @@ class PredictionScenarioTests(TestCase):
                 self.assertEqual(self.head_out(pet, now), due)
             now += datetime.timedelta(minutes=10)
 
-    def test_missed_meal_gives_way_only_to_the_usual_gap(self):
+    def test_missed_meal_stays_due_until_disregarded(self):
         pet = self.pet()
         self.history(pet)
         self.potty(pet, self.at(11))
         usual = self.times(pet, self.at(11, 1))["pee"]  # before the meal: the usual gap
         self.meal(pet, self.at(11, 5))
-        trigger = self.times(pet, self.at(11, 10))["pee"]
-        late = self.times(pet, trigger + self.rules.stale_after + 5 * MIN)["pee"]
-        self.assertGreater(late, trigger)  # the meal didn't produce a pee, so it gives way...
-        self.assertLessEqual(late, usual)  # ...but only back to the usual gap
+        pee = self.pee(pet, self.at(11, 10))
+        trigger = pee["time"]
+        self.assertEqual(pee["source"], "meal")
+        self.assertEqual(self.times(pet, trigger + datetime.timedelta(hours=1))["pee"], trigger)  # still due
+        pet.triggers_cleared_at = trigger + datetime.timedelta(minutes=40)
+        pet.save()
+        self.assertEqual(self.times(pet, trigger + datetime.timedelta(hours=1))["pee"], usual)  # disregarded
+        self.assertEqual(self.times(pet, trigger)["pee"], trigger)  # earlier views of the day are unchanged
+
+    def test_disregard_only_covers_triggers_before_it(self):
+        pet = self.pet()
+        self.history(pet, meals=False)  # default 20 minutes from a drink to a pee
+        self.potty(pet, self.at(11))
+        self.meal(pet, self.at(11, 5))
+        pet.triggers_cleared_at = self.at(11, 40)
+        pet.save()
+        self.meal(pet, self.at(12), food=False, water=True)
+        pee = self.pee(pet, self.at(12, 5))
+        self.assertEqual(pee["source"], "meal")
+        self.assertIn("12:00", pee["reason"])
 
     def test_time_passing_never_postpones_randomised(self):
-        """With nothing new logged, the estimate never slips later than it was, except back to the usual
-        gap after a missed meal."""
+        """With nothing new logged, the estimate never slips later than it was."""
         rng = random.Random(82)
         for case in range(40):
             Pet.objects.all().delete()
@@ -171,8 +190,6 @@ class PredictionScenarioTests(TestCase):
             self.history(pet, gap=rng.choice([2, 3]), rng=rng)
             last = self.at(rng.randint(8, 17), rng.randint(0, 59))
             self.potty(pet, last, poop=rng.random() < 0.5)
-            # The pet's usual gap: the most a missed meal may fall back to.
-            usual = self.head_out(pet, last + MIN)
             if rng.random() < 0.5:
                 self.meal(pet, last + datetime.timedelta(minutes=rng.randint(2, 60)))
             start = last + datetime.timedelta(minutes=61)
@@ -182,7 +199,7 @@ class PredictionScenarioTests(TestCase):
                 now += datetime.timedelta(minutes=10)
                 current = self.head_out(pet, now)
                 with self.subTest(case=case, now=now):
-                    self.assertLessEqual(current, max(previous, usual))
+                    self.assertLessEqual(current, previous)
                 previous = current
 
     # --- rule 5: accidents only bring it forward -------------------------------------------------------

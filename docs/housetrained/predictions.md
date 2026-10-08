@@ -30,9 +30,10 @@ For each of pee and poop, the app collects candidate times and picks the earlies
 Every meal or drink since the last potty break is a trigger; the earliest one wins, so logging another meal
 or drink can only bring the estimate forward, never push it later.
 
-A trigger (meal, wake-up) that passed more than **30 minutes** ago without a potty break gives way to the next
-estimate. The pet's usual gap (steps 1 and 2) never gives way: once it has passed, the pet stays overdue until
-a potty break is logged.
+Nothing gives way on its own: a meal or wake-up stays due until a potty break is logged. If you went out and
+nothing happened, tap **Disregard meal** (or **Disregard wake-up**) on the Now card; meals and wake-ups up to
+that moment stop counting and the estimate goes back to the usual gap. The usual gap (steps 1 and 2) has no
+such button: once it has passed, the pet stays overdue until a potty break is logged.
 
 ### Guarantees
 
@@ -40,8 +41,7 @@ These are checked by `pets/tests/test_prediction_scenarios.py`, including random
 
 1. Logging a meal or a drink never makes the estimate later.
 2. Logging a wake-up never makes it later.
-3. With nothing new logged, time passing never makes it later, except a missed trigger giving way, and then
-   only back to the usual gap.
+3. With nothing new logged, time passing never makes it later. Only a potty break or Disregard does.
 4. Once the usual gap has passed, the pet stays overdue until a potty break is logged.
 5. Learning from accidents only ever brings the estimate forward.
 6. Logging a pee is what moves the next pee later.
@@ -97,7 +97,6 @@ Otherwise it shows as "likely next walk".
 | Longest real gap | 12 hours | Longer gaps are ignored |
 | After-meal window | 3 hours | Potty breaks this soon after a meal count as caused by it |
 | Pee / poop after a meal | 20 / 30 minutes | Until the pet's own delay is learned |
-| Missed trigger timeout | 30 minutes | A passed meal or wake-up stops driving the prediction |
 | Needs grouping buffer | 30 minutes | A need due this long after a walk would normally end is expected on that walk |
 | Usual walk length | 15 minutes | Until walks are logged |
 | Shortest night | 4 hours | Shortest stretch that counts as the night |
