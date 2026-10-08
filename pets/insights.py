@@ -553,13 +553,16 @@ def next_walk_card(pet, now=None, rules=None, learn=True):
             if not night.contains(a.start) and b.start - a.start <= rules.max_gap]
     walk_gap = median(gaps) if gaps else None
 
-    due = expect = None
+    due = expect = head_out = None
+    to_outside = datetime.timedelta(minutes=pet.household.minutes_to_outside)
     if predictions:
         walk_at = predictions[0]["time"]
         for p in predictions:
             p["this_walk"] = p["time"] <= walk_at + walk_len + rules.merge_slack
+        # The pet needs to go at walk_at; you need to be out the door before that.
+        head_out = walk_at - to_outside
         expect = " + ".join(p["kind"].lower() for p in predictions if p["this_walk"])
-        delta = walk_at - now
+        delta = head_out - now
         mins = int(delta.total_seconds() // 60)
         if abs(mins) < 5:
             due = _("now")
@@ -567,7 +570,8 @@ def next_walk_card(pet, now=None, rules=None, learn=True):
             due = _("in %(time)s") % {"time": fmt_duration(delta)}
         else:
             due = _("%(time)s overdue") % {"time": fmt_duration(-delta)}
-    return {"predictions": predictions, "due": due, "expect": expect,
+    return {"predictions": predictions, "due": due, "expect": expect, "head_out": head_out,
+            "to_outside": fmt_duration(to_outside) if to_outside else None,
             "walk_len": fmt_duration(walk_len), "walk_gap": fmt_duration(walk_gap) if walk_gap else None}
 
 
@@ -607,17 +611,17 @@ def accident_review(pet):
         lead = a.expected_at - a.time
         if lead > datetime.timedelta():
             leads.append(lead)
-            relation = _("%(time)s before the walk was due") % {"time": fmt_duration(lead)}
+            relation = _("%(time)s earlier than expected") % {"time": fmt_duration(lead)}
         else:
-            relation = _("%(time)s after the walk was due") % {"time": fmt_duration(-lead)}
+            relation = _("%(time)s later than expected") % {"time": fmt_duration(-lead)}
         kind = _("Pee + poop") if a.pee and a.poop else (_("Poop") if a.poop else _("Pee"))
         rows.append({"time": a.time, "kind": kind, "relation": relation, "early": lead > datetime.timedelta(),
                      "expected": a.expected_at, "pk": a.pk})
     summary = None
     if leads:
         summary = ngettext(
-            "%(n)d of %(total)d accidents came before the walk was due, typically %(lead)s early.",
-            "%(n)d of %(total)d accidents came before the walk was due, typically %(lead)s early.", len(rows),
+            "%(n)d of %(total)d accidents came earlier than expected, typically by %(lead)s.",
+            "%(n)d of %(total)d accidents came earlier than expected, typically by %(lead)s.", len(rows),
         ) % {"n": len(leads), "total": len(rows), "lead": fmt_duration(median(leads))}
     shift, _count = accident_shift(pet, timezone.now(), rules)
     adjusted = fmt_duration(shift) if shift >= datetime.timedelta(minutes=5) else None

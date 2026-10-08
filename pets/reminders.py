@@ -60,7 +60,7 @@ def walk_reminders(household, now):
         card = next_walk_card(pet, now=now)
         if not card["predictions"]:
             continue
-        due = card["predictions"][0]["time"]
+        due = card["head_out"]  # when to leave, which is a little before the pet needs to go
         if not (now - WALK_LATE_LIMIT <= due <= now):
             continue
         # One reminder per predicted walk: the key changes once a potty break moves the prediction on.
@@ -69,7 +69,8 @@ def walk_reminders(household, now):
         for user in people:
             with _in_user_zone(user):
                 body = _("%(what)s expected ~%(time)s") % {
-                    "what": (card["expect"] or _("potty")).capitalize(), "time": show_time(due)}
+                    "what": (card["expect"] or _("potty")).capitalize(),
+                    "time": show_time(card["predictions"][0]["time"])}
             title = _("%(pet)s: time for a walk") % {"pet": pet.name}
             sent += push.send(user, title, body, url=f"/pets/{pet.slug}/", tag=f"walk-{pet.pk}")
     return sent

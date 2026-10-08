@@ -83,7 +83,7 @@ class NotificationTests(TestCase):
     def test_walk_due_once(self, webpush):
         self.subscribe()
         noon = timezone.make_aware(datetime.datetime.combine(timezone.localdate(), datetime.time(12)))
-        last = noon - datetime.timedelta(hours=4)  # a 12-week-old holds ~3h: due an hour before noon
+        last = noon - datetime.timedelta(hours=4, minutes=30)  # a 12-week-old holds ~3h45m: due before noon
         PottyBreak.objects.create(pet=self.pet, time=last, pee=True)
         reminders.check(now=noon)
         reminders.check(now=noon)

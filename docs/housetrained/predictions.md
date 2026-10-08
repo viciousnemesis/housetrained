@@ -47,11 +47,18 @@ wake-up **06:30**.
 Daylight saving: bedtime and wake-up are learned in local clock time, gaps in real time, so a 25-hour or
 23-hour day doesn't shift either.
 
+## Head out
+
+The card's main time is when to **head out**: the earliest expected need minus the household's *time to get
+outside* (Setup > Household settings, default 10 minutes: leash, shoes, stairs or elevator). "Due" and
+"overdue", and the walk reminder notification, count from that time; the individual needs below it keep their
+own times.
+
 ## Learning from accidents
 
 When an accident (inside) is logged, the app stores what Next Walk expected just before it, using only what was
-logged up to that moment. The Accident Times card lists recent accidents as "35m before the walk was due" or
-"20m after the walk was due", with a summary.
+logged up to that moment. The Accident Times card lists recent accidents as "35m earlier than expected" or
+"20m later than expected" (compared with when the need was expected, not the head-out time), with a summary.
 
 If at least two accidents in the past two weeks came before the prediction, predictions move earlier by the
 median of how early they were, up to **90 minutes** (not into the night, and not before the last potty break).
