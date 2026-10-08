@@ -13,7 +13,8 @@ def _card(name, builder):
     """Register `card_<name>` as an inclusion tag rendering pets/cards/<name>.html for a pet."""
 
     def tag(context, pet):
-        return {"request": context["request"], "help_bubbles": context.get("help_bubbles"), "pet": pet, **builder(pet)}
+        return {"request": context["request"], "help_bubbles": context.get("help_bubbles"),
+                "pets_can_edit": context.get("pets_can_edit"), "pet": pet, **builder(pet)}
 
     tag.__name__ = f"card_{name}"
     register.inclusion_tag(f"pets/cards/{name}.html", takes_context=True)(tag)

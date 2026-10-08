@@ -403,6 +403,21 @@ class QuickPottyTests(PetTestCase):
         with open(os.path.join(settings.STATIC_ROOT, "babybuddy", "js", "app.js"), encoding="utf-8") as f:
             self.assertIn('type:"hidden",name:n.name,value:n.value', f.read())
 
+    def test_disregard_button_clears_the_trigger(self):
+        now = timezone.now()
+        PottyBreak.objects.create(pet=self.ruby, time=now - datetime.timedelta(hours=2), pee=True)
+        Meal.objects.create(pet=self.ruby, time=now - datetime.timedelta(minutes=90))
+        page = self.client.get("/pets/ruby/")
+        self.assertContains(page, "Disregard meal")
+        response = self.client.post("/pets/ruby/disregard/", {"next": "/pets/ruby/"})
+        self.assertEqual(response.url, "/pets/ruby/")
+        self.ruby.refresh_from_db()
+        self.assertIsNotNone(self.ruby.triggers_cleared_at)
+        self.assertNotContains(self.client.get("/pets/ruby/"), "Disregard meal")
+
+    def test_disregard_needs_a_pet_in_this_household(self):
+        self.assertEqual(self.client.post("/pets/nobody/disregard/").status_code, 404)
+
     def test_several_pets(self):
         self.quick("pee", pets=("ruby", "rex"))
         self.assertEqual(PottyBreak.objects.count(), 2)

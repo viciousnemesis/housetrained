@@ -14,6 +14,15 @@
         {% for label, time, url in latest %}<a class="text-reset text-decoration-none" href="{{ url }}?next={{ request.path|urlencode }}">{% if forloop.first %}{% trans "Last" %} {% endif %}{{ label }} {{ time|clock }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}
         {% if asleep %} · 🌙 {% blocktrans with time=asleep.start|clock %}asleep since {{ time }}{% endblocktrans %}{% endif %}
     </div>
+    {% if source and pets_can_edit %}
+        {# A meal or wake-up drives the time; it stays due until a potty break, or until this says it passed. #}
+        <form class="mt-2 d-flex align-items-center gap-2" method="post" action="{% url 'pets:disregard' pet.slug %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="btn btn-sm btn-outline-light" type="submit">{% if source == "meal" %}{% trans "Disregard meal" %}{% else %}{% trans "Disregard wake-up" %}{% endif %}</button>
+            {% if help_bubbles %}<span class="small text-body-secondary">{% trans "Went out and nothing happened? Go back to the usual gap." %}</span>{% endif %}
+        </form>
+    {% endif %}
     {% if predictions %}
         <details class="small mt-2">
             <summary class="text-body-secondary">{% trans "Why?" %}</summary>

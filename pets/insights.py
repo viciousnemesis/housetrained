@@ -44,7 +44,6 @@ class Rules:
 
     max_gap: datetime.timedelta = datetime.timedelta(hours=12)  # longer gaps are missed entries, not holds
     meal_window: datetime.timedelta = datetime.timedelta(hours=3)  # a potty within this counts as after a meal
-    stale_after: datetime.timedelta = datetime.timedelta(minutes=30)  # missed triggers give way after this
     min_night: datetime.timedelta = datetime.timedelta(hours=4)  # a day's longest potty-free stretch, to be a night
     default_bed: int = 23 * 60  # minutes of day, until enough nights are logged
     default_wake: int = 6 * 60 + 30
@@ -66,7 +65,7 @@ class Rules:
         minutes, hours = (lambda n: datetime.timedelta(minutes=n)), (lambda n: datetime.timedelta(hours=n))
         return cls(
             max_gap=hours(s.max_gap_hours), meal_window=hours(s.meal_window_hours),
-            stale_after=minutes(s.stale_after), min_night=hours(s.min_night_hours),
+            min_night=hours(s.min_night_hours),
             default_bed=s.default_bedtime.hour * 60 + s.default_bedtime.minute,
             default_wake=s.default_wake.hour * 60 + s.default_wake.minute,
             bedtime_slack=s.bedtime_slack, night_half_life_days=max(s.night_half_life_days, 1),
@@ -422,8 +421,9 @@ class Night:
         return median(delays) if len(delays) >= 2 else datetime.timedelta()
 
 
-def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True, rules=None):
-    """Predict the next pee or poop. Returns (time, reason) or None."""
+def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True, rules=None, cleared=None):
+    """Predict the next pee or poop. Returns (time, reason, source) or None; source is "meal" or "wake" when a
+    trigger drives it. Triggers at or before `cleared` (Disregard on the Now card) don't count."""
     rules = rules or Rules()
     if not events:
         return None
@@ -435,12 +435,13 @@ def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True, 
     same = [g for g, name in gaps if name == bucket]
     if learned and len(same) >= 3:
         gap = median(same)
-        candidates.append((last + gap, _("%(part)s %(kinds)s usually %(gap)s apart") % {"part": BUCKETS[bucket], "kinds": KINDS[kind][1], "gap": fmt_duration(gap)}, False))
+        candidates.append((last + gap, _("%(part)s %(kinds)s usually %(gap)s apart") % {"part": BUCKETS[bucket], "kinds": KINDS[kind][1], "gap": fmt_duration(gap)}, None))
     elif fallback:
         gap, reason = fallback
-        candidates.append((last + gap, reason, False))
+        candidates.append((last + gap, reason, None))
 
-    meals_since = [f for f in feedings if f > last]
+    since = max(last, cleared) if cleared else last
+    meals_since = [f for f in feedings if f > since]
     if meals_since:
         delays = []
         for f in feedings:
@@ -450,15 +451,14 @@ def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True, 
         delay = median(delays) if len(delays) >= 3 else rules.meal_delay[kind]
         # Every meal or drink since is a trigger; a later one never postpones an earlier one (min below).
         for meal in meals_since:
-            candidates.append((meal + delay, _("meal at %(time)s, %(kinds)s ~%(delay)s after meals") % {"time": fmt_time(meal), "kinds": KINDS[kind][1], "delay": fmt_duration(delay)}, True))
+            candidates.append((meal + delay, _("meal at %(time)s, %(kinds)s ~%(delay)s after meals") % {"time": fmt_time(meal), "kinds": KINDS[kind][1], "delay": fmt_duration(delay)}, "meal"))
 
-    for woke in (s for s in wakes if last < s <= now):
-        candidates.append((woke, _("woke up at %(time)s") % {"time": fmt_time(woke)}, True))
+    for woke in (s for s in wakes if since < s <= now):
+        candidates.append((woke, _("woke up at %(time)s") % {"time": fmt_time(woke)}, "wake"))
 
-    # A trigger (meal, wake-up) that passed long ago without a potty break gives way to the next estimate.
-    # The pet's usual gap never does: once that's passed, the pet stays overdue until a potty break is logged.
-    fresh = [c for c in candidates if not c[2] or c[0] >= now - rules.stale_after] or candidates
-    return min(fresh, key=lambda c: c[0])[:2] if fresh else None
+    # Nothing gives way on its own: a passed trigger stays due until a potty break is logged or it's disregarded,
+    # so the estimate never quietly moves later.
+    return min(candidates, key=lambda c: c[0]) if candidates else None
 
 
 def accident_shift(pet, now, rules):
@@ -487,6 +487,7 @@ def next_walk_card(pet, now=None, rules=None, learn=True):
     # What goes in comes out: food drives poops, food and water drive pees.
     feedings = {"pee": feeding_times(pet, since, water=True, until=now), "poop": feeding_times(pet, since, until=now)}
     wakes = sorted(pet.sleeps.filter(end__gte=since, end__lt=now).values_list("end", flat=True))
+    cleared = pet.triggers_cleared_at if pet.triggers_cleared_at and pet.triggers_cleared_at <= now else None
     # With little history, lean on the age rule of thumb: a puppy can hold it ~(age in months + 1) hours.
     history = (now - breaks[0].time).days if breaks else 0
     months = (timezone.localdate(now) - pet.birth_date).days / 30.44 if pet.birth_date else 12
@@ -520,7 +521,8 @@ def next_walk_card(pet, now=None, rules=None, learn=True):
                 "bed": fmt_time(times[-1]), "wake": fmt_time(wake), "kind": str(KINDS[kind][0]).lower(),
                 "when": fmt_time(when)})
         else:
-            result = _predict(kind, events, feedings[kind], wakes, fallback, now, night, learned=history >= rules.min_history_days, rules=rules)
+            result = _predict(kind, events, feedings[kind], wakes, fallback, now, night,
+                              learned=history >= rules.min_history_days, rules=rules, cleared=cleared)
             # Needs that would fall during the night: pees go on the bedtime walk if it's still ahead,
             # everything else waits for the first walk after waking up.
             if result and night.contains(result[0]) and not night.contains(now):
@@ -530,9 +532,9 @@ def next_walk_card(pet, now=None, rules=None, learn=True):
                 else:
                     result = (night.next_wake(result[0]), result[1] + _(", so after waking up"))
         if result:
-            when, reason = result
+            when, reason, *source = result
             predictions.append({"kind": str(KINDS[kind][0]), "key": kind, "time": when, "raw_time": when,
-                                "reason": reason, "last": events[-1]})
+                                "reason": reason, "last": events[-1], "source": source[0] if source else None})
 
     # Accidents that keep coming before the prediction pull it earlier (not into the night, not before the last
     # potty break).
@@ -571,7 +573,8 @@ def next_walk_card(pet, now=None, rules=None, learn=True):
             due = _("in %(time)s") % {"time": fmt_duration(delta)}
         else:
             due = _("%(time)s overdue") % {"time": fmt_duration(-delta)}
-    return {"predictions": predictions, "due": due, "expect": expect, "head_out": head_out,
+    source = predictions[0]["source"] if predictions else None
+    return {"predictions": predictions, "due": due, "expect": expect, "head_out": head_out, "source": source,
             "to_outside": fmt_duration(to_outside) if to_outside else None,
             "walk_len": fmt_duration(walk_len), "walk_gap": fmt_duration(walk_gap) if walk_gap else None}
 
