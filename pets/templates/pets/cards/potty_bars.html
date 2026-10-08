@@ -1,7 +1,10 @@
 {% extends "pets/cards/_base.html" %}
 {% load i18n %}
 {% block header %}{% trans "Potty Breaks" %}{% endblock %}
-{% block title %}{% if empty %}{% trans "None" %}{% else %}{% trans "Past Week" %}{% endif %}{% endblock %}
+{% block title %}
+    {% if streak %}{{ streak.title }}{% else %}{% trans "None" %}{% endif %}
+    <small class="d-block fs-6 fw-normal"><a href="{% url 'pets:progress' pet.slug %}">{% trans "Progress" %}</a></small>
+{% endblock %}
 {% block content %}
     <div class="small mb-2">
         {% for key, color, label in legend %}

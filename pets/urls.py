@@ -14,6 +14,7 @@ urlpatterns = [
     path("pets/notifications/", views.Notifications.as_view(), name="notifications"),
     path("sw.js", views.service_worker, name="service-worker"),
     path("pets/<slug:slug>/", views.PetDashboard.as_view(), name="pet"),
+    path("pets/<slug:slug>/progress/", views.Progress.as_view(), name="progress"),
     path("log/<str:kind>/", views.EntryList.as_view(), name="list"),
     path("log/<str:kind>/add/", views.EntryAdd.as_view(), name="add"),
     path("log/<str:kind>/<int:pk>/", views.EntryEdit.as_view(), name="edit"),
