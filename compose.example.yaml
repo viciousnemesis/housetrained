@@ -4,7 +4,7 @@ name: housetrained
 services:
   housetrained:
     container_name: housetrained
-    build: .                        # until a published image exists
+    build: .                        # or, once published: image: ghcr.io/OWNER/housetrained:latest
     environment:
       - PUID=1000                   # user and group that own ./config
       - PGID=1000
