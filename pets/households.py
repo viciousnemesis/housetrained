@@ -43,11 +43,13 @@ def is_owner(user, household):
 
 
 def add_member(household, user, role_name):
-    """Add a user to a household. A household made automatically on their first visit goes away if it is still
-    empty, so they land in the shared one."""
+    """Add a user to a household. A household made automatically on their first visit goes away if nothing was
+    ever put in it, so they land in the shared one."""
     for membership in user.memberships.exclude(household=household).select_related("household"):
         other = membership.household
-        if other.memberships.count() == 1 and not other.pets.exists():
+        empty = not any(related.exists() for related in (
+            other.pets, other.containers, other.products, other.walks, other.notes))
+        if other.memberships.count() == 1 and empty:
             other.delete()
     Membership.objects.update_or_create(household=household, user=user, defaults={"role": role_name})
     adopt_time_zone(household, user)

@@ -129,7 +129,10 @@ class Members(HouseholdMixin, TemplateView):
         from django.contrib.auth import get_user_model
 
         members = self.household.memberships.select_related("user").order_by("user__username")
-        others = get_user_model().objects.filter(is_active=True).exclude(memberships__household=self.household)
+        # Only site admins see other accounts and can add them: owners can't pull strangers into a household.
+        others = get_user_model().objects.none()
+        if self.request.user.is_superuser:
+            others = get_user_model().objects.filter(is_active=True).exclude(memberships__household=self.household)
         return super().get_context_data(
             household=self.household, members=members, others=others.order_by("username"),
             roles=Membership._meta.get_field("role").choices, **kwargs
@@ -143,6 +146,8 @@ class Members(HouseholdMixin, TemplateView):
         roles = dict(Membership._meta.get_field("role").choices)
         user = get_object_or_404(get_user_model(), pk=request.POST.get("user"))
         new_role = request.POST.get("role")
+        if not request.user.is_superuser and not self.household.memberships.filter(user=user).exists():
+            raise PermissionDenied  # adding people is for site admins
         owners = self.household.memberships.filter(role=Membership.OWNER).exclude(user=user)
         if new_role != Membership.OWNER and not owners.exists():
             messages.error(request, _("A household needs at least one owner."))

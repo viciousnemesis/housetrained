@@ -43,6 +43,7 @@ class HouseholdSerializer(serializers.ModelSerializer):
             Product: Product.objects.filter(household=household),
             SupplyItem: SupplyItem.objects.filter(product__household=household),
             Walk: Walk.objects.filter(household=household),
+            Fill: Fill.objects.filter(container__household=household),
             get_user_model(): household.members.all(),
         }
         for field in self.fields.values():
@@ -50,6 +51,8 @@ class HouseholdSerializer(serializers.ModelSerializer):
             queryset = getattr(field, "queryset", None)
             if queryset is not None and queryset.model in scopes:
                 field.queryset = scopes[queryset.model]
+            elif queryset is not None and queryset.model._meta.app_label == "pets":
+                field.queryset = queryset.none()  # fail closed: a new link must be scoped above
 
 
 def serializer(model_class, exclude=("household",), read_only=("logged_by", "created")):
