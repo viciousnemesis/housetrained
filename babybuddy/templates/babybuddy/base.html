@@ -5,9 +5,20 @@
 {% get_current_timezone as TIMEZONE %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}"
-      data-bs-theme="dark"
+      data-bs-theme="{% if user.is_authenticated and user.settings.theme == 'light' %}light{% else %}dark{% endif %}"
       dir="{{ LANGUAGE_BIDI|yesno:"rtl,ltr" }}">
     <head>
+        {% if not user.is_authenticated or user.settings.theme != "light" and user.settings.theme != "dark" %}
+            <script>
+                (function () {
+                    // Automatic theme: follow the device's light/dark setting, live.
+                    var query = window.matchMedia("(prefers-color-scheme: light)");
+                    var apply = function () { document.documentElement.dataset.bsTheme = query.matches ? "light" : "dark"; };
+                    apply();
+                    query.addEventListener("change", apply);
+                })();
+            </script>
+        {% endif %}
         <meta charset="utf-8" />
         <title>
             {% block title %}{% endblock %}

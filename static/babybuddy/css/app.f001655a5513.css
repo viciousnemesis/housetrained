@@ -12453,3 +12453,50 @@ textarea.form-control-lg {
   -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M5%2015v-1H4v-2h1v-1h2v4zm14-3v-1h-2v4h2v-1h1v-2zm-1-6h-2.14C15.5%204.6%2014.4%203.5%2013%203.14V2h-2v1.14C9.6%203.5%208.5%204.6%208.14%206H6v2h12zm0%2016H6c0-1.1.9-2%202-2V9h8v11a2%202%200%200%201%202%202m-8-9a2%202%200%201%200%204%200c0-1.11-.89-2-2-2s-2%20.9-2%202%22/%3E%3C/svg%3E") center/contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M5%2015v-1H4v-2h1v-1h2v4zm14-3v-1h-2v4h2v-1h1v-2zm-1-6h-2.14C15.5%204.6%2014.4%203.5%2013%203.14V2h-2v1.14C9.6%203.5%208.5%204.6%208.14%206H6v2h12zm0%2016H6c0-1.1.9-2%202-2V9h8v11a2%202%200%200%201%202%202m-8-9a2%202%200%201%200%204%200c0-1.11-.89-2-2-2s-2%20.9-2%202%22/%3E%3C/svg%3E") center/contain no-repeat;
 }
+
+[data-bs-theme=light] {
+  --bs-link-color: #8a6510;
+  --bs-link-color-rgb: 138, 101, 16;
+  --bs-link-hover-color: #6d500c;
+  --bs-link-hover-color-rgb: 109, 80, 12;
+  --bs-primary-text-emphasis: #6d500c;
+  --bs-body-bg: #fbfaf7;
+  --bs-secondary-bg: #f1eee6;
+  --bs-tertiary-bg: #f6f4ee;
+}
+[data-bs-theme=light] .text-primary {
+  color: #8a6510 !important;
+}
+[data-bs-theme=light] .text-danger-emphasis {
+  color: #b02a37 !important;
+}
+[data-bs-theme=light] .text-warning {
+  color: var(--bs-warning-text-emphasis) !important;
+}
+[data-bs-theme=light] .btn-outline-light {
+  --bs-btn-color: #343a40;
+  --bs-btn-border-color: #8f959b;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #343a40;
+  --bs-btn-hover-border-color: #343a40;
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #343a40;
+  --bs-btn-active-border-color: #343a40;
+  --bs-btn-disabled-color: #6c757d;
+  --bs-btn-disabled-border-color: #ced4da;
+}
+[data-bs-theme=light] .btn-check:checked + .btn-outline-light,
+[data-bs-theme=light] .btn-check:active + .btn-outline-light {
+  color: #fff;
+  background-color: #343a40;
+  border-color: #343a40;
+}
+[data-bs-theme=light] .card-dashboard .list-group .list-group-item {
+  color: var(--bs-body-color);
+}
+[data-bs-theme=light] .card {
+  --bs-card-bg: #fff;
+}
+[data-bs-theme=light] .table {
+  --bs-table-striped-bg: rgba(0, 0, 0, 0.03);
+}

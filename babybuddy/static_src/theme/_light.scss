@@ -1,0 +1,60 @@
+// Light theme (data-bs-theme="light"). Bootstrap brings the light colours; these fix the bits Baby Buddy
+// and Housetrained built for a dark page. Imported last so they win.
+
+[data-bs-theme="light"] {
+    // Gold text on white is too faint (2.2:1); use a deeper gold for text and links. Gold buttons stay gold.
+    --bs-link-color: #8a6510;
+    --bs-link-color-rgb: 138, 101, 16;
+    --bs-link-hover-color: #6d500c;
+    --bs-link-hover-color-rgb: 109, 80, 12;
+    --bs-primary-text-emphasis: #6d500c;
+    --bs-body-bg: #fbfaf7;
+    --bs-secondary-bg: #f1eee6;
+    --bs-tertiary-bg: #f6f4ee;
+
+    .text-primary {
+        color: #8a6510 !important;
+    }
+
+    .text-danger-emphasis {
+        color: #b02a37 !important;
+    }
+
+    .text-warning {
+        color: var(--bs-warning-text-emphasis) !important;
+    }
+
+    // "Light" outline buttons are white on white here: draw them dark instead.
+    .btn-outline-light {
+        --bs-btn-color: #343a40;
+        --bs-btn-border-color: #8f959b;
+        --bs-btn-hover-color: #fff;
+        --bs-btn-hover-bg: #343a40;
+        --bs-btn-hover-border-color: #343a40;
+        --bs-btn-active-color: #fff;
+        --bs-btn-active-bg: #343a40;
+        --bs-btn-active-border-color: #343a40;
+        --bs-btn-disabled-color: #6c757d;
+        --bs-btn-disabled-border-color: #ced4da;
+    }
+
+    .btn-check:checked + .btn-outline-light,
+    .btn-check:active + .btn-outline-light {
+        color: #fff;
+        background-color: #343a40;
+        border-color: #343a40;
+    }
+
+    // Dashboard card lists were white text on a dark card.
+    .card-dashboard .list-group .list-group-item {
+        color: var(--bs-body-color);
+    }
+
+    .card {
+        --bs-card-bg: #fff;
+    }
+
+    .table {
+        --bs-table-striped-bg: rgba(0, 0, 0, 0.03);
+    }
+}

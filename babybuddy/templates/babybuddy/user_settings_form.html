@@ -54,6 +54,9 @@
                     {% with form_settings.pagination_count as field %}
                         {% include "babybuddy/form_field.html" %}
                     {% endwith %}
+                    {% with form_settings.theme as field %}
+                        {% include "babybuddy/form_field.html" %}
+                    {% endwith %}
                     {% with form_settings.clock as field %}
                         {% include "babybuddy/form_field.html" %}
                     {% endwith %}

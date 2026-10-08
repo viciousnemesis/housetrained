@@ -303,3 +303,24 @@ class FormTests(PetTestCase):
         page = self.client.get("/log/meal/add/").content.decode()
         self.assertIn('id="show-when"', page)
         self.assertIn('id="unit-pairs"', page)
+
+
+class ThemeTests(PetTestCase):
+    def theme_attr(self):
+        return re.search(r'data-bs-theme="(\w+)"\s+dir=', self.client.get("/pets/").content.decode()).group(1)
+
+    def test_light_and_dark(self):
+        for theme in ("light", "dark"):
+            self.owner.settings.theme = theme
+            self.owner.settings.save()
+            self.assertEqual(self.theme_attr(), theme)
+
+    def test_automatic_follows_the_device(self):
+        self.owner.settings.theme = "auto"
+        self.owner.settings.save()
+        self.assertContains(self.client.get("/pets/"), "prefers-color-scheme: light")
+
+    def test_menu_bar_stays_dark(self):
+        self.owner.settings.theme = "light"
+        self.owner.settings.save()
+        self.assertRegex(self.client.get("/pets/").content.decode(), r'<nav class="navbar[^"]*" data-bs-theme="dark">')
