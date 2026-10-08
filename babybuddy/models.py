@@ -129,6 +129,13 @@ class Settings(models.Model):
         default=25,
         verbose_name=_("Items Per Page"),
     )
+    theme = models.CharField(
+        max_length=5,
+        blank=True,
+        default="auto",
+        choices=[("auto", _("Automatic (follow the device)")), ("light", _("Light")), ("dark", _("Dark"))],
+        verbose_name=_("Theme"),
+    )
     clock = models.CharField(
         max_length=2,
         blank=True,
