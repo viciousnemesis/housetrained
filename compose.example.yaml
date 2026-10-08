@@ -1,0 +1,23 @@
+# Housetrained: example Docker Compose setup. Copy to compose.yaml and adjust.
+# Data (database, photos, secret key) lives in ./config; back that folder up.
+name: housetrained
+services:
+  housetrained:
+    container_name: housetrained
+    build: .                        # until a published image exists
+    environment:
+      - PUID=1000                   # user and group that own ./config
+      - PGID=1000
+      - TZ=Etc/UTC                  # your time zone, e.g. Europe/London
+      - ALLOWED_HOSTS=*             # your hostname(s), comma-separated, e.g. pets.example.com
+      - CSRF_TRUSTED_ORIGINS=http://localhost:8000   # every address you open it at, e.g. https://pets.example.com
+      # - SECURE_PROXY_SSL_HEADER=True   # behind a reverse proxy that terminates HTTPS
+      # - ADMIN_PASSWORD=change-me       # first admin password; otherwise a random one is printed in the log
+      # - BABY_MODE=True                 # also show Baby Buddy's baby tracking
+    volumes:
+      - ./config:/config
+    ports:
+      - 8000:8000
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true

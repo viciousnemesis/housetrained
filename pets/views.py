@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.http import Http404, HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils import timezone
@@ -158,6 +158,56 @@ class Members(HouseholdMixin, TemplateView):
             add_member(self.household, user, new_role)
             messages.success(request, _("%(name)s is now %(role)s.") % {"name": user.get_username(), "role": roles[new_role]})
         return HttpResponseRedirect(reverse("pets:members"))
+
+
+class Import(HouseholdMixin, View):
+    """Setup > Import: CSV upload, preview, then import (PUP-35)."""
+
+    def get(self, request):
+        from . import importer
+
+        self.require("add")
+        kind = request.GET.get("template")
+        if kind in importer.KINDS:
+            response = HttpResponse(importer.template_csv(kind), content_type="text/csv")
+            response["Content-Disposition"] = f'attachment; filename="housetrained-{kind}.csv"'
+            return response
+        return self.page({"kind": request.GET.get("kind", "potty")})
+
+    def page(self, context):
+        from . import importer
+
+        return render(self.request, "pets/import.html", {"kinds": importer.KINDS, "household": self.household,
+                                                          **context})
+
+    def post(self, request):
+        from . import importer
+
+        self.require("add")
+        kind = request.POST.get("kind")
+        if kind not in importer.KINDS:
+            raise Http404
+        upload = request.FILES.get("file")
+        if upload:
+            if upload.size > importer.MAX_BYTES:
+                return self.page({"kind": kind, "problems": [_("The file is too big (2 MB at most).")]})
+            try:
+                text = upload.read().decode("utf-8-sig")
+            except UnicodeDecodeError:
+                return self.page({"kind": kind, "problems": [_("Save the file as CSV (UTF-8) and try again.")]})
+        else:
+            text = request.POST.get("csv_text", "")
+        job = importer.Importer(self.household, request.user, kind)
+        rows, problems = job.read(text)
+        errors = [r for r in rows if r.errors]
+        new = [r for r in rows if not r.errors and not r.duplicate]
+        if request.POST.get("confirm") and rows and not errors and not problems:
+            saved = job.save(rows)
+            messages.success(request, _("Imported %(saved)d entries; %(skipped)d already logged.")
+                             % {"saved": saved, "skipped": len(rows) - len(new)})
+            return HttpResponseRedirect(reverse("pets:list", args=[kind]))
+        return self.page({"kind": kind, "rows": rows, "problems": problems, "errors": errors, "new": new,
+                          "csv_text": text, "columns": importer.KINDS[kind].columns})
 
 
 class Setup(HouseholdMixin, TemplateView):
