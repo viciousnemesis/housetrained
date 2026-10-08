@@ -401,12 +401,14 @@
                                     <a href="{% url 'admin:index' %}"
                                        class="dropdown-item">{% trans "Database Admin" %}</a>
                                 {% endif %}
-                                <h6 class="dropdown-header">{% trans "Support" %}</h6>
+                                <h6 class="dropdown-header">{% trans "About" %}</h6>
+                                {% if housetrained_source_url %}
+                                    <a href="{{ housetrained_source_url }}" class="dropdown-item">
+                                        <i class="icon-source" aria-hidden="true"></i> {% trans "Source Code" %}</a>
+                                {% endif %}
                                 <a href="https://github.com/babybuddy/babybuddy" class="dropdown-item">
-                                    <i class="icon-source" aria-hidden="true"></i> {% trans "Source Code" %}</a>
-                                <a href="https://gitter.im/babybuddy/Lobby" class="dropdown-item">
-                                    <i class="icon-chat" aria-hidden="true"></i> {% trans "Chat / Support" %}</a>
-                                <h6 class="dropdown-header">v{% version_string %}</h6>
+                                    <i class="icon-source" aria-hidden="true"></i> {% trans "Built on Baby Buddy" %}</a>
+                                <h6 class="dropdown-header">Housetrained {{ housetrained_version }} · Baby Buddy {% version_string %}</h6>
                             </div>
                         </li>
                     </ul>

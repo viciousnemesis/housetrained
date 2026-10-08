@@ -26,4 +26,7 @@ def baby_mode(request):
         settings_ = getattr(user, "settings", None)
         return settings_ is None or settings_.show_help
 
-    return {"baby_mode": SimpleLazyObject(baby_mode_on), "help_bubbles": SimpleLazyObject(help_on), "pets_can_edit": SimpleLazyObject(editable)}
+    from . import __version__
+
+    return {"housetrained_version": __version__, "housetrained_source_url": settings.HOUSETRAINED_SOURCE_URL,
+            "baby_mode": SimpleLazyObject(baby_mode_on), "help_bubbles": SimpleLazyObject(help_on), "pets_can_edit": SimpleLazyObject(editable)}
