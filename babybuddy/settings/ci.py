@@ -9,3 +9,5 @@ SECRET_KEY = "CISECRETKEYIGUESS"
 STORAGES["staticfiles"][
     "BACKEND"
 ] = "django.contrib.staticfiles.storage.StaticFilesStorage"
+
+DEFAULT_ADMIN_PASSWORD = "admin"  # Baby Buddy's tests sign in as admin/admin

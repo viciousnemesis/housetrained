@@ -202,3 +202,19 @@ class MemberTests(TestCase):
         Membership.objects.create(household=own, user=user, role=Membership.OWNER)
         add_member(self.mine["household"], user, Membership.MEMBER)
         self.assertFalse(Household.objects.filter(pk=own.pk).exists())
+
+
+class BabyApiGateTests(TestCase):
+    def setUp(self):
+        self.api = APIClient()
+        self.api.force_authenticate(get_user_model().objects.create_superuser("siteadmin", password="x"))
+
+    @override_settings(BABY_MODE=False)
+    def test_baby_api_is_off_in_pet_mode(self):
+        for path in ("/api/", "/api/children/", "/api/changes/", "/api/schema"):
+            self.assertEqual(self.api.get(path).status_code, 404, path)
+        self.assertEqual(self.api.get("/api/v1/").status_code, 200)
+
+    @override_settings(BABY_MODE=True)
+    def test_baby_api_works_in_baby_mode(self):
+        self.assertEqual(self.api.get("/api/children/").status_code, 200)

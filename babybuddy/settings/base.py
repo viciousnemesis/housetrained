@@ -78,6 +78,7 @@ MIDDLEWARE = [
     "django.middleware.locale.LocaleMiddleware",
     "babybuddy.middleware.UserLanguageMiddleware",
     "pets.clock.ClockMiddleware",
+    "pets.middleware.BabyApiGate",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
