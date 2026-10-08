@@ -1,0 +1,86 @@
+{% extends "babybuddy/page.html" %}
+{% load i18n pets_tags %}
+{% block title %}{% trans "Import" %}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'pets:setup' %}">{% trans "Setup" %}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Import" %}</li>
+{% endblock %}
+{% block content %}
+    <h1>{% trans "Import" %}</h1>
+    {% if not rows %}
+        <p class="text-body-secondary">
+            {% trans "Bring in past entries from a spreadsheet. Download the template, fill it in (one row per entry, pets and bowls by name), save it as CSV and upload it. You'll see a preview before anything is saved." %}
+        </p>
+        <form method="post" enctype="multipart/form-data" class="mb-4">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label" for="import-kind">{% trans "What are you importing?" %}</label>
+                <select class="form-select w-auto" id="import-kind" name="kind">
+                    {% for key, k in kinds.items %}
+                        <option value="{{ key }}"{% if key == kind %} selected{% endif %}>{{ k.label }}</option>
+                    {% endfor %}
+                </select>
+                <a class="small ms-1" id="template-link" href="?template={{ kind }}">{% trans "Download the template" %}</a>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="import-file">{% trans "CSV file" %}</label>
+                <input class="form-control" type="file" id="import-file" name="file" accept=".csv,text/csv" required>
+            </div>
+            <button class="btn btn-primary" type="submit">{% trans "Preview" %}</button>
+        </form>
+        <script>
+            document.getElementById("import-kind").addEventListener("change", function () {
+                document.getElementById("template-link").href = "?template=" + this.value;
+            });
+        </script>
+    {% endif %}
+    {% for problem in problems %}
+        <div class="alert alert-danger">{{ problem }}</div>
+    {% endfor %}
+    {% if rows %}
+        {% if errors %}
+            <div class="alert alert-danger">
+                {% blocktrans count n=errors|length %}{{ n }} row needs fixing before anything can be imported.{% plural %}{{ n }} rows need fixing before anything can be imported.{% endblocktrans %}
+            </div>
+        {% else %}
+            <div class="alert alert-success">
+                {% blocktrans count n=new|length %}Ready: {{ n }} new row.{% plural %}Ready: {{ n }} new rows.{% endblocktrans %}
+                {% if rows|length != new|length %}{% trans "Rows already logged are skipped." %}{% endif %}
+            </div>
+        {% endif %}
+        <div class="table-responsive mb-3">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>{% trans "Row" %}</th>
+                        {% for c in columns %}<th>{{ c }}</th>{% endfor %}
+                        <th>{% trans "Result" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td>{{ row.number }}</td>
+                            {% for c in columns %}<td>{{ row.values|get_item:c }}</td>{% endfor %}
+                            <td>
+                                {% if row.errors %}<span class="text-danger-emphasis">{{ row.errors|join:"; " }}</span>
+                                {% elif row.duplicate %}<span class="text-body-secondary">{% trans "already logged, skipped" %}</span>
+                                {% else %}{% trans "new" %}{% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <form method="post" class="d-flex gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="kind" value="{{ kind }}">
+            <textarea name="csv_text" hidden>{{ csv_text }}</textarea>
+            {% if not errors and new %}
+                <button class="btn btn-primary" type="submit" name="confirm" value="1">{% trans "Import" %}</button>
+            {% endif %}
+            <a class="btn btn-outline-light" href="{% url 'pets:import' %}?kind={{ kind }}">{% trans "Start over" %}</a>
+        </form>
+    {% endif %}
+{% endblock %}

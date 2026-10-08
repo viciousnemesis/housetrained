@@ -75,6 +75,11 @@ def clock_dt(dt):
 
 
 @register.filter
+def get_item(mapping, key):
+    return mapping.get(key, "")
+
+
+@register.filter
 def pet_age(birth):
     return insights.pet_age(birth)
 

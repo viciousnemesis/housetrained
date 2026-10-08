@@ -10,6 +10,7 @@ urlpatterns = [
     path("pets/setup/", views.Setup.as_view(), name="setup"),
     path("pets/setup/household/", views.HouseholdEdit.as_view(), name="household-edit"),
     path("pets/setup/members/", views.Members.as_view(), name="members"),
+    path("pets/setup/import/", views.Import.as_view(), name="import"),
     path("pets/<slug:slug>/", views.PetDashboard.as_view(), name="pet"),
     path("log/<str:kind>/", views.EntryList.as_view(), name="list"),
     path("log/<str:kind>/add/", views.EntryAdd.as_view(), name="add"),
