@@ -28,8 +28,10 @@ def _prediction_settings():
     values = {}
     for name, value in group._settings:
         try:
-            values[name] = value.to_python(stored[name]) if name in stored else value.default
+            values[name] = value.to_python(stored[name]) if stored.get(name) not in (None, "") else value.default
         except (TypeError, ValueError):
+            values[name] = value.default
+        if values[name] is None:
             values[name] = value.default
     return SimpleNamespace(**values)
 DAY = 24 * 60  # minutes

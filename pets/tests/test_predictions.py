@@ -1,6 +1,7 @@
 """Next Walk prediction edge cases (PUP-18)."""
 import datetime
 import random
+import re
 import zoneinfo
 
 from django.contrib.auth import get_user_model
@@ -22,7 +23,7 @@ def ago(**kwargs):
     return NOW - datetime.timedelta(**kwargs)
 
 
-@override_settings(TIME_ZONE="America/Los_Angeles")
+@override_settings(TIME_ZONE="America/Los_Angeles", BABY_MODE=False)
 class PredictionTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user("owner", password="x")
@@ -218,3 +219,38 @@ class PredictionTests(TestCase):
         card = next_walk_card(pet, now=NOW)
         self.assertTrue(all(p["this_walk"] for p in card["predictions"]))  # pee +20m, poop +30m: one walk
         self.assertEqual(card["expect"], "pee + poop")
+
+
+class PredictionSettingsPageTests(TestCase):
+    def setUp(self):
+        admin = get_user_model().objects.create_superuser("siteadmin", password="x")
+        self.client.force_login(admin)
+
+    def page_fields(self):
+        """Every field on the Site Settings page with its current value, as a browser would submit it."""
+        page = self.client.get("/settings/").content.decode()
+        fields = {}
+        for tag in re.findall(r"<input[^>]*>", page):
+            name = re.search(r'name="([^"]+)"', tag)
+            if not name or 'type="checkbox"' in tag and "checked" not in tag:
+                continue
+            value = re.search(r'value="([^"]*)"', tag)
+            fields[name.group(1)] = value.group(1) if value else ""
+        return fields
+
+    def test_blank_settings_fall_back_to_defaults(self):
+        fields = self.page_fields()
+        self.assertEqual(fields["pets.models__PottyBreak__max_hold_hours"], "8")
+        mine = {k: "" for k in fields if k.startswith("pets.models__PottyBreak__")}
+        response = self.client.post("/settings/", {**fields, **mine}, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Rules.load(), Rules())
+
+    def test_saved_setting_is_used(self):
+        fields = self.page_fields()
+        fields.update({"pets.models__PottyBreak__merge_slack": "45",
+                       "pets.models__PottyBreak__default_bedtime": "22:15:00"})
+        self.client.post("/settings/", fields)
+        rules = Rules.load()
+        self.assertEqual(rules.merge_slack, datetime.timedelta(minutes=45))
+        self.assertEqual(rules.default_bed, 22 * 60 + 15)

@@ -17,23 +17,5 @@
             {% endfor %}
         {% endif %}
         <button type="submit" class="submit-primary btn btn-primary btn-lg">{% trans "Submit" %}</button>
-        {% if request.GET.ended and object %}
-            <button type="submit" form="discard-entry" class="btn btn-outline-light btn-lg ms-2">Cancel</button>
-        {% elif object.pk and object.model_name in "diaperchange feeding tummytime sleep" %}
-            <button type="submit" form="delete-entry" class="btn btn-outline-danger btn-lg ms-2">Delete</button>
-        {% endif %}
     </form>
-    {% if request.GET.ended and object %}
-        <form id="discard-entry" method="post"
-              action="{% if object.model_name == 'tummytime' %}{% url 'core:activity-discard' 'walk' object.id %}{% else %}{% url 'core:activity-discard' 'sleep' object.id %}{% endif %}">
-            {% csrf_token %}
-        </form>
-    {% elif object.pk and object.model_name in "diaperchange feeding tummytime sleep" %}
-        {% with "core:"|add:object.model_name|add:"-delete" as delete_view %}
-            <form id="delete-entry" method="post" action="{% url delete_view object.id %}"
-                  onsubmit="return confirm('Delete this entry? This cannot be undone.')">
-                {% csrf_token %}
-            </form>
-        {% endwith %}
-    {% endif %}
 </div>

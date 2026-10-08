@@ -1,4 +1,4 @@
-{% extends "cards/base.html" %}
+{% extends "pets/cards/_base.html" %}
 {% load i18n %}
 {% block header %}
     {% trans "Accident Times" %}
@@ -17,7 +17,7 @@
         {% for s in sleeps %}
             <rect x="{{ s.x }}" y="{{ s.y }}" width="{{ s.w }}" height="{{ row_h }}" fill="#8e6cc8" opacity=".35" />
         {% endfor %}
-        {% include "cards/pet_chart_grid.html" %}
+        {% include "pets/cards/_chart_grid.html" %}
         {% for m in meals %}
             <rect x="{{ m.x }}" y="{{ m.y }}" width="6" height="6" fill="#4a90e2" />
         {% endfor %}

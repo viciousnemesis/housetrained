@@ -1,5 +1,5 @@
 {% extends "babybuddy/base.html" %}
-{% load babybuddy i18n pet pets_tags static timers %}
+{% load babybuddy i18n pets_tags static timers %}
 {% block nav %}
     <nav class="navbar navbar-expand-md navbar bg-dark sticky-top flex-wrap">
         <div class="container-fluid">
@@ -56,6 +56,10 @@
                                 <i class="icon-feeding" aria-hidden="true"></i>
                                 {% trans "Feeding" %}
                             </a>
+                            <a class="dropdown-item p-2" href="{% url 'core:bottle-feeding-add' %}">
+                                <i class="icon-feeding" aria-hidden="true"></i>
+                                {% trans "Bottle Feeding" %}
+                            </a>
                         {% endif %}
                         {% if perms.core.add_medication %}
                             <a class="dropdown-item p-2" href="{% url 'core:medication-add' %}">
@@ -63,7 +67,7 @@
                                 {% trans "Medication" %}
                             </a>
                         {% endif %}
-                        {% if False %}
+                        {% if perms.core.add_pumping %}
                             <a class="dropdown-item p-2" href="{% url 'core:pumping-add' %}">
                                 <i class="icon-pumping" aria-hidden="true"></i>
                                 {% trans "Pumping" %}
@@ -270,6 +274,10 @@
                                 </a>
                             {% endif %}
                             {% if perms.core.add_feeding %}
+                                <a class="dropdown-item ps-5{% if request.path == '/feedings/bottle/add/' %} active{% endif %}"
+                                   href="{% url 'core:bottle-feeding-add' %}"><i class="icon-add" aria-hidden="true"></i>
+                                    {% trans "Bottle Feeding" %}
+                                </a>
                             {% endif %}
                             {% if perms.core.view_medication %}
                                 <a class="dropdown-item{% if request.path == '/medication/' %} active{% endif %}"
@@ -283,14 +291,14 @@
                                     {% trans "Medication" %}
                                 </a>
                             {% endif %}
-                            {% if False %}
+                            {% if perms.core.view_pumping %}
                                 <a class="dropdown-item{% if request.path == '/pumping/' %} active{% endif %}"
                                    href="{% url 'core:pumping-list' %}">
                                     <i class="icon-pumping" aria-hidden="true"></i>
                                     {% trans "Pumping" %}
                                 </a>
                             {% endif %}
-                            {% if False %}
+                            {% if perms.core.add_pumping %}
                                 <a class="dropdown-item ps-5{% if request.path == '/pumping/add/' %} active{% endif %}"
                                    href="{% url 'core:pumping-add' %}"><i class="icon-add" aria-hidden="true"></i>
                                     {% trans "Pumping entry" %}
@@ -424,26 +432,7 @@
                 </form>
             </div>
         {% endfor %}
-        {% activity_groups as running %}
-        {% for g in running %}
-            <div class="w-100 d-flex flex-wrap align-items-center gap-2 px-3 py-2{% if forloop.first %} mt-2{% endif %} border-top border-primary">
-                <a class="fs-5 text-reset text-decoration-none me-auto" href="{% url 'core:timer-update' g.first.id %}" title="Edit start time">
-                    {% if g.name == "Walk" %}🐾 Walking{% else %}🌙 Sleeping{% endif %} {{ g.names }}
-                    <span class="fw-bold text-primary ms-2 activity-elapsed" data-start="{{ g.start.isoformat }}"></span>
-                    <small class="ms-2 text-body-secondary">since {{ g.start|time }} ✎</small>
-                </a>
-                <form method="post" action="{% url 'core:activity-cancel' g.first.id %}"
-                      onsubmit="return confirm('Cancel this {{ g.name|lower }}? Nothing will be saved.')">
-                    {% csrf_token %}
-                    <button class="btn btn-outline-light btn-lg" type="submit">Cancel {{ g.name }}</button>
-                </form>
-                <form method="post" action="{% url 'core:activity-end' g.first.id %}">
-                    {% csrf_token %}
-                    <button class="btn btn-primary btn-lg" type="submit">End {{ g.name }}</button>
-                </form>
-            </div>
-        {% endfor %}
-        {% if running or running_pets %}
+        {% if running_pets %}
             <script>
                 (function () {
                     var els = document.querySelectorAll(".activity-elapsed");

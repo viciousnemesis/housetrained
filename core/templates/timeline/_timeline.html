@@ -22,7 +22,7 @@
     <ul class="timeline m-auto">
         {% for object in timeline_objects %}
             <li {% cycle "" ' class="timeline-inverted"' %}>
-                <div class="timeline-badge bg-primary">
+                <div class="timeline-badge {% if object.type == "start" %}bg-success{% elif object.type == "end" %}bg-danger{% else %}bg-info{% endif %}">
                     <i class="icon-{{ object.model_name }}"></i>
                 </div>
                 <div class="card text-end">

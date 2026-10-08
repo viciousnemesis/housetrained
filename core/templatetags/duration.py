@@ -19,9 +19,10 @@ def child_age_string(birth_date):
     """
     if not birth_date:
         return ""
-    from dashboard.templatetags.pet import pet_age
-
-    return pet_age(birth_date)
+    try:
+        return timesince.timesince(birth_date, depth=1)
+    except AttributeError:
+        return ""
 
 
 @register.filter

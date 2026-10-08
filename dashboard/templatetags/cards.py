@@ -108,21 +108,6 @@ def card_diaperchange_types(context, child, date=None):
             stats[key]["solid_pct"] = info["solid"] / total * 100
             stats[key]["empty_pct"] = info["empty"] / total * 100
 
-    segments = ("pee_out", "poop_out", "pee_in", "poop_in")
-    for info in stats.values():
-        info.update(dict.fromkeys(segments, 0))
-    for instance in instances:
-        info = stats[(max_date - timezone.localtime(instance.time)).days]
-        where = "in" if instance.color == "inside" else "out"
-        info["pee_" + where] += instance.wet
-        info["poop_" + where] += instance.solid
-    peak = max([sum(i[s] for s in segments) for i in stats.values()] + [1])
-    for key, info in stats.items():
-        day = (max_date - timezone.timedelta(days=key + 1)).date()
-        info["label"] = f"{day:%a} {day.day}"
-        for s in segments:
-            info[s + "_pct"] = info[s] / peak * 100
-
     return {
         "type": "diaperchange",
         "stats": stats,
