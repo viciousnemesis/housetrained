@@ -5,12 +5,17 @@
 {% block content %}
     <div class="small mb-2">
         {% for key, color, label in legend %}
-            <span class="me-3"><span class="d-inline-block rounded-1 me-1" style="width:.8rem;height:.8rem;background:{{ color }}"></span>{{ label }}</span>
+            <span class="me-3 text-nowrap d-inline-block"><span class="d-inline-block rounded-1 me-1" style="width:.8rem;height:.8rem;background:{{ color }}"></span>{{ label }}</span>
         {% endfor %}
-        {% if show_walks %}<span class="text-nowrap"><i class="icon-tummytime" aria-hidden="true"></i> {% trans "walks that day" %}</span>{% endif %}
     </div>
+    {% if show_walks %}
+        <div class="d-flex gap-2 small text-body-secondary">
+            <div class="flex-grow-1"></div>
+            <div class="text-end" style="width: 3rem">{% trans "Walks" %}</div>
+        </div>
+    {% endif %}
     {% for d in days %}
-        <div class="d-flex align-items-center gap-2 mt-2">
+        <div class="d-flex align-items-center gap-2 {% if forloop.first and show_walks %}mt-1{% else %}mt-2{% endif %}">
             <div class="small text-nowrap text-end" style="width: 3.5rem">{{ d.label }}</div>
             <div class="progress flex-grow-1 bg-transparent" style="height: 1.4rem">
                 {% if d.pee_ok %}<div class="progress-bar" style="width: {{ d.pee_ok_pct|safe }}%; background: #8fd18a; color: #000">{{ d.pee_ok }}</div>{% endif %}
@@ -19,8 +24,9 @@
                 {% if d.poop_in %}<div class="progress-bar" style="width: {{ d.poop_in_pct|safe }}%; background: #a72431; color: #fff">{{ d.poop_in }}</div>{% endif %}
             </div>
             {% if show_walks %}
-                <div class="small text-nowrap text-end" style="width: 4.5rem" title="{{ d.walk_time }}">
-                    <i class="icon-tummytime" aria-hidden="true"></i> {{ d.walks }}{% if d.walk_time %} <span class="text-body-secondary">{{ d.walk_time }}</span>{% endif %}
+                <div class="small text-end" style="width: 3rem; font-variant-numeric: tabular-nums"
+                     {% if d.walk_time %}title="{% blocktrans with time=d.walk_time %}{{ time }} walking{% endblocktrans %}"{% endif %}>
+                    {{ d.walks }}
                 </div>
             {% endif %}
         </div>
