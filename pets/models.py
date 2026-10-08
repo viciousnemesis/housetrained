@@ -292,6 +292,13 @@ class Walk(Logged):
         return f"Walk at {self.start:%Y-%m-%d %H:%M}"
 
 
+class PottyBreakManager(models.Manager):
+    """Real potty breaks only: "nothing" entries (no pee, no poop) never count towards stats or predictions."""
+
+    def get_queryset(self):
+        return super().get_queryset().exclude(pee=False, poop=False)
+
+
 class PottyBreak(Logged):
     OUTSIDE, INSIDE, PAD, LITTER_BOX = "outside", "inside", "pad", "litter_box"
     LOCATIONS = [(OUTSIDE, _("Outside")), (INSIDE, _("Inside")), (PAD, _("Pad")), (LITTER_BOX, _("Litter box"))]
@@ -341,12 +348,20 @@ class PottyBreak(Logged):
         help_text=_("Which litter box, e.g. the litter robot."),
     )
 
+    objects = PottyBreakManager()
+    everything = models.Manager()  # including "nothing" entries: the log list, recent activity, editing
+
     class Meta:
         ordering = ["-time"]
         indexes = [models.Index(fields=["pet", "time"])]
+        base_manager_name = "everything"
 
     def __str__(self):
         return f"{self.pet} potty break at {self.time:%Y-%m-%d %H:%M}"
+
+    @property
+    def nothing(self):
+        return not self.pee and not self.poop
 
 
 class Sleep(Logged):

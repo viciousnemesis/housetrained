@@ -431,6 +431,40 @@ class QuickPottyTests(PetTestCase):
         self.ruby.refresh_from_db()
         self.assertIsNone(self.ruby.retry_at)
 
+    def test_nothing_is_logged_but_never_counts(self):
+        from pets import insights
+
+        self.quick("nothing", notes="sniffed around")
+        entry = PottyBreak.everything.get()
+        self.assertEqual((entry.pee, entry.poop, entry.notes), (False, False, "sniffed around"))
+        self.assertFalse(PottyBreak.objects.exists())  # not in stats, charts or predictions
+        self.assertFalse(self.ruby.potty_breaks.exists())
+        tiles = {label: value for label, value, _sub in insights.today_card(self.ruby)["tiles"]}
+        self.assertEqual((tiles["Pees"], tiles["Poops"], tiles["Accidents"]), ("0", "0", "0"))
+        page = self.client.get("/pets/ruby/")
+        self.assertContains(page, "Nothing, outside")  # but it shows in Recent activity
+        self.assertContains(self.client.get("/log/potty/"), "Nothing, outside")
+        self.assertEqual(self.client.get(f"/log/potty/{entry.pk}/").status_code, 200)  # and can be edited
+        response = self.client.post(f"/log/potty/{entry.pk}/", {
+            "pet": self.ruby.pk, "time": "2026-10-08 10:00", "location": "outside", "notes": "edited"})
+        entry.refresh_from_db()
+        self.assertEqual(entry.notes, "edited", getattr(response, "context", None) and response.context["form"].errors)
+
+    def test_notes_from_the_panel(self):
+        self.assertContains(self.client.get("/pets/ruby/"), 'name="notes"')
+        self.quick("pee", notes="by the oak")
+        self.assertEqual(PottyBreak.objects.get().notes, "by the oak")
+
+    def test_panel_buttons_match_and_no_details_link(self):
+        page = self.client.get("/pets/ruby/").content.decode()
+        self.assertNotIn("Potty break (details)", page)
+        self.assertNotIn('btn-outline-light py-2 px-1 text-truncate" type="submit" name="what"', page)
+
+    def test_add_forms_have_cancel(self):
+        for kind in ("meal", "fill", "potty", "walk"):
+            page = self.client.get(f"/log/{kind}/add/?pet=ruby")
+            self.assertContains(page, 'href="/pets/ruby/">Cancel</a>', msg_prefix=kind)
+
     def test_dismiss_retry(self):
         self.quick("nothing")
         self.quick("dismiss")

@@ -37,7 +37,10 @@
             <button type="submit" class="submit-primary btn btn-primary btn-lg">{% trans "Submit" %}</button>
             {% if object and ended %}
                 <button type="submit" form="remove-entry" class="btn btn-outline-light btn-lg ms-2">{% trans "Cancel" %}</button>
-            {% elif object %}
+            {% else %}
+                <a class="btn btn-outline-light btn-lg ms-2" href="{{ next|default:cancel_url }}">{% trans "Cancel" %}</a>
+            {% endif %}
+            {% if object and not ended %}
                 <button type="submit" form="remove-entry" class="btn btn-outline-danger btn-lg ms-2">{% trans "Delete" %}</button>
             {% endif %}
         </form>

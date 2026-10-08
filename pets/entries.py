@@ -16,7 +16,7 @@ def _when(value):
 
 
 def _potty(b):
-    what = " + ".join(w for w, flag in ((_("Pee"), b.pee), (_("Poop"), b.poop)) if flag)
+    what = " + ".join(w for w, flag in ((_("Pee"), b.pee), (_("Poop"), b.poop)) if flag) or _("Nothing")
     text = f"{what}, {b.get_location_display().lower()}"
     if b.spot_id:
         text += f" ({b.spot.name})"
@@ -69,7 +69,7 @@ def _note(n):
 
 # kind: (time field, summary, household queryset, select/prefetch for pets)
 KINDS = {
-    "potty": ("time", _potty, lambda h: PottyBreak.objects.filter(pet__household=h).select_related("pet", "spot")),
+    "potty": ("time", _potty, lambda h: PottyBreak.everything.filter(pet__household=h).select_related("pet", "spot")),
     "walk": ("start", _walk, lambda h: Walk.objects.filter(household=h).select_related("walker", "household").prefetch_related("pets")),
     "sleep": ("start", _sleep, lambda h: Sleep.objects.filter(pet__household=h).select_related("pet")),
     "fill": ("time", _fill, lambda h: Fill.objects.filter(container__household=h).select_related("container__household").prefetch_related("container__pets")),
