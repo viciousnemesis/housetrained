@@ -215,6 +215,17 @@ class CardTests(PetTestCase):
         today = insights.potty_bars_card(self.ruby)["days"][0]
         self.assertEqual((today["pee_ok"], today["poop_ok"], today["pee_in"], today["poop_in"]), (1, 0, 0, 1))
 
+    def test_potty_bars_show_walks_per_day(self):
+        now = timezone.now()
+        for minutes in (20, 25):
+            walk = Walk.objects.create(household=self.household, start=now - datetime.timedelta(minutes=minutes + 60),
+                                       end=now - datetime.timedelta(minutes=60))
+            walk.pets.set([self.ruby])
+        card = insights.potty_bars_card(self.ruby)
+        self.assertTrue(card["show_walks"])
+        self.assertEqual((card["days"][0]["walks"], card["days"][0]["walk_time"]), (2, "45m"))
+        self.assertFalse(insights.potty_bars_card(self.tom)["show_walks"])  # no walks, no column
+
     def test_charts_use_meals_and_accidents(self):
         now = timezone.now()
         Meal.objects.create(pet=self.ruby, time=now, amount=60)
