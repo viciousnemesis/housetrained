@@ -260,7 +260,7 @@ class CardTests(PetTestCase):
         PottyBreak.objects.create(pet=self.ruby, time=now, pee=True, poop=True)
         PottyBreak.objects.create(pet=self.ruby, time=now, pee=True, location=PottyBreak.INSIDE)
         tiles = {label: value for label, value, _sub in insights.today_card(self.ruby)["tiles"]}
-        self.assertEqual((tiles["Pee / poop"], tiles["Accidents"]), ("2 / 1", "1"))
+        self.assertEqual((tiles["Pees"], tiles["Poops"], tiles["Accidents"]), ("2", "1", "1"))
 
 
 class DeleteTests(PetTestCase):

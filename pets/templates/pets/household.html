@@ -7,7 +7,6 @@
 {% block content %}
     {% include "pets/_buttons.html" %}
     <div class="d-flex gap-2 mb-3">
-        <a class="btn btn-sm btn-outline-light" href="{% url 'pets:timeline' %}">{% trans "Timeline" %}</a>
         <a class="btn btn-sm btn-outline-light" href="{% url 'pets:list' 'potty' %}">{% trans "Logs" %}</a>
         <a class="btn btn-sm btn-outline-light" href="{% url 'pets:setup' %}">{% trans "Setup" %}</a>
     </div>

@@ -18,7 +18,7 @@ from babybuddy.mixins import LoginRequiredMixin
 from . import forms
 from .households import add_member, can_edit, current_household, is_owner
 from .models import AccidentSpot, Container, Fill, Meal, Measurement, Membership, Note, Pet, PottyBreak, Product, Sleep, SupplyItem, Walk
-from .entries import KINDS, LIST_TITLES, day_timeline, for_pet, recent_activity, row
+from .entries import KINDS, LIST_TITLES, for_pet, recent_activity, row
 
 
 @dataclass
@@ -401,22 +401,6 @@ class EntryList(HouseholdMixin, TemplateView):
         return super().get_context_data(
             title=LIST_TITLES[kind], page=page, rows=[row(kind, e) for e in page], pet=pet,
             pets=self.household.pets.filter(active=True), kinds=LIST_TITLES.items(), **kwargs,
-        )
-
-
-class Timeline(HouseholdMixin, TemplateView):
-    template_name = "pets/timeline.html"
-
-    def get_context_data(self, **kwargs):
-        try:
-            date = datetime.date.fromisoformat(self.request.GET.get("date", ""))
-        except ValueError:
-            date = timezone.localdate()
-        today = timezone.localdate()
-        return super().get_context_data(
-            date=date, rows=day_timeline(self.household, date),
-            previous=date - datetime.timedelta(days=1),
-            next=date + datetime.timedelta(days=1) if date < today else None, **kwargs,
         )
 
 

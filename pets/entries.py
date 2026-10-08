@@ -1,4 +1,4 @@
-"""One-line summaries of entries, shared by the recent-activity list, the per-type lists and the timeline."""
+"""One-line summaries of entries, shared by the recent-activity list, and the per-type lists."""
 import datetime
 
 from django.urls import reverse
@@ -111,16 +111,3 @@ def recent_activity(pet, limit=20):
     for kind, (field, _summary, qs) in KINDS.items():
         rows += [row(kind, e) for e in for_pet(kind, qs(pet.household), pet).order_by(f"-{field}")[:limit]]
     return sorted(rows, key=lambda r: r["time"], reverse=True)[:limit]
-
-
-def day_timeline(household, date):
-    start = timezone.make_aware(datetime.datetime.combine(date, datetime.time()))
-    end = start + datetime.timedelta(days=1)
-    rows = []
-    for kind, (field, _summary, qs) in KINDS.items():
-        if field == "date":
-            entries = qs(household).filter(date=date)
-        else:
-            entries = qs(household).filter(**{f"{field}__gte": start, f"{field}__lt": end})
-        rows += [row(kind, e) for e in entries]
-    return sorted(rows, key=lambda r: r["time"])

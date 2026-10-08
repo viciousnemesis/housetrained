@@ -15,8 +15,6 @@
             </a>
 
                 <div class="d-lg-none d-md-none d-flex me-auto p-0 ms-2 gap-3">
-                    <a class="text-body-secondary" href="{% url 'pets:household' %}" aria-label="{% trans 'Home' %}"><i class="icon-2x icon-dashboard" aria-hidden="true"></i></a>
-                    <a class="text-body-secondary" href="{% url 'pets:timeline' %}" aria-label="{% trans 'Timeline' %}"><i class="icon-2x icon-timeline" aria-hidden="true"></i></a>
                 </div>
             {% if baby_mode %}
             <div class="d-lg-none d-md-none d-flex me-auto p-0 ms-2">
@@ -112,8 +110,6 @@
             <div class="collapse navbar-collapse" id="navbar-app">
                 <ul class="navbar-nav me-auto">
 
-                        <li class="nav-item"><a class="nav-link" href="{% url 'pets:household' %}"><i class="icon-dashboard" aria-hidden="true"></i> {% trans "Home" %}</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{% url 'pets:timeline' %}"><i class="icon-timeline" aria-hidden="true"></i> {% trans "Timeline" %}</a></li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false">{% trans "Logs" %}</a>
                             <div class="dropdown-menu">

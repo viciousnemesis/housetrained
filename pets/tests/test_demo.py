@@ -15,7 +15,7 @@ class DemoTests(TestCase):
         self.assertTrue(PottyBreak.objects.filter(pet__household=home).exists())
         self.assertTrue(Walk.objects.filter(household=home).exists())
         self.client.force_login(user)
-        for path in ("/pets/", "/pets/biscuit/", "/pets/miso/", "/pets/timeline/"):
+        for path in ("/pets/", "/pets/biscuit/", "/pets/miso/"):
             self.assertEqual(self.client.get(path).status_code, 200, path)
         call_command("housetrained_demo", user="demo", delete=True)
         self.assertFalse(Household.objects.filter(name="Demo home").exists())
