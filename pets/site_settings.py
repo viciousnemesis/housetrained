@@ -57,8 +57,8 @@ class PredictionSettings(dbsettings.Group):
                                _("Used until three meals were followed by a poop."))
     stale_after = _minutes(30, _("Drop a missed trigger after (minutes)"),
                            _("A meal or wake-up that passed this long ago without a potty gives way to the next estimate."))
-    merge_slack = _minutes(30, _("Group needs into one walk within (minutes)"),
-                           _("A need due this soon after a walk would end is handled on that walk."))
+    merge_slack = _minutes(30, _("Needs grouping buffer (minutes)"),
+                           _("A pee or poop due this long after a walk would normally end is expected on that walk."))
     default_walk = _minutes(15, _("Walk length, until learned (minutes)"), _("Used until walks are logged."))
     min_night_hours = dbsettings.PositiveIntegerValue(
         default=4, description=_("Shortest night (hours)"),

@@ -50,7 +50,7 @@ Daylight saving: bedtime and wake-up are learned in local clock time, gaps in re
 ## One walk for several needs
 
 The earliest prediction sets the walk time. Any other need due before that walk would end (the pet's median
-walk length, **15 minutes** until learned) plus **30 minutes** is handled on the same walk: "expect pee + poop".
+walk length, **15 minutes** until learned) plus the **needs grouping buffer** (30 minutes) is handled on the same walk: "expect pee + poop".
 Otherwise it shows as "likely next walk".
 
 ## Settings
@@ -64,7 +64,7 @@ Otherwise it shows as "likely next walk".
 | A potty counts as after a meal within | 3 hours |
 | Pee / poop after a meal, until learned | 20 / 30 minutes |
 | Drop a missed trigger after | 30 minutes |
-| Group needs into one walk within | 30 minutes |
+| Needs grouping buffer | 30 minutes |
 | Walk length, until learned | 15 minutes |
 | Shortest night | 4 hours |
 | How fast old nights fade | 3 days |
