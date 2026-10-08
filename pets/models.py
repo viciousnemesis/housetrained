@@ -63,6 +63,11 @@ class Pet(models.Model):
     birth_date = models.DateField(_("birth date"), null=True, blank=True)
     birth_date_estimated = models.BooleanField(_("birth date is an estimate"), default=False)
     picture = models.ImageField(_("picture"), upload_to="pets/", blank=True)
+    picture_crop = models.JSONField(
+        null=True, blank=True, editable=False,
+        help_text="Part of the picture to show, as fractions of its size: {x, y, w, h}.",
+    )
+    picture_cropped = models.ImageField(upload_to="pets/cropped/", blank=True, editable=False)
     active = models.BooleanField(_("active"), default=True, help_text=_("Untick once a pet is rehomed or has passed."))
     notes = models.TextField(_("notes"), blank=True)
     potty_locations = models.JSONField(
@@ -78,6 +83,39 @@ class Pet(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def card_picture(self):
+        """The cropped square if the picture was cropped, else the picture itself."""
+        return self.picture_cropped or self.picture
+
+    def make_cropped_picture(self):
+        """Save the cropped square of the picture (the original is kept, so it can be cropped again)."""
+        import io
+
+        from django.core.files.base import ContentFile
+        from PIL import Image, ImageOps
+
+        if self.picture_cropped:
+            self.picture_cropped.delete(save=False)
+        if not self.picture or not self.picture_crop:
+            return
+        crop = self.picture_crop
+        with self.picture.open("rb") as handle:
+            image = ImageOps.exif_transpose(Image.open(handle))
+            image.load()
+        width, height = image.size
+        box = (
+            max(0, round(crop["x"] * width)), max(0, round(crop["y"] * height)),
+            min(width, round((crop["x"] + crop["w"]) * width)), min(height, round((crop["y"] + crop["h"]) * height)),
+        )
+        if box[2] - box[0] < 2 or box[3] - box[1] < 2:
+            return
+        cropped = image.crop(box).convert("RGB")
+        cropped.thumbnail((800, 800))
+        out = io.BytesIO()
+        cropped.save(out, "JPEG", quality=88)
+        self.picture_cropped.save(f"{self.slug or 'pet'}-{self.pk or 'new'}.jpg", ContentFile(out.getvalue()), save=False)
 
     def allowed_potty_locations(self):
         """The pet's chosen potty locations, or sensible ones for its type."""

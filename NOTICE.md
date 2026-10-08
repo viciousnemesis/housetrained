@@ -9,3 +9,4 @@ which carries both Baby Buddy's and Housetrained's copyright). It also includes 
 | [Carbon Design System icons](https://github.com/carbon-design-system/carbon) `dog-walker`, Copyright IBM Corp. | Walk icon | Apache 2.0 | `licenses/Apache-2.0.txt` |
 | [Material Design Icons](https://pictogrammers.com/library/mdi/) `fire-hydrant`, Pictogrammers | Potty icon | Apache 2.0 (Pictogrammers Free License) | `licenses/Apache-2.0.txt`, `licenses/pictogrammers-free-license.txt` |
 | [Material Design Icons](https://pictogrammers.com/library/mdi/) `dog-side`, Pictogrammers | Placeholder picture for pets without a photo | Apache 2.0 (Pictogrammers Free License) | `licenses/Apache-2.0.txt`, `licenses/pictogrammers-free-license.txt` |
+| [Cropper.js](https://github.com/fengyuanchen/cropperjs) 1.6.2, Copyright 2015-present Chen Fengyuan | Cropping pet photos | MIT | `licenses/cropperjs-MIT.txt` |

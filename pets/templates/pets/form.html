@@ -26,6 +26,7 @@
             {% if form.non_field_errors %}
                 <div class="alert alert-danger">{{ form.non_field_errors|join:" " }}</div>
             {% endif %}
+            {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
             {% for fieldset in form.hydrated_fielsets %}
                 {% if fieldset.fields %}
                     {% with "forms/layouts/"|add:fieldset.layout|add:".html" as template %}
@@ -48,6 +49,7 @@
             </form>
         {% endif %}
     </div>
+    {% if kind == "pet" %}{% include "pets/_cropper.html" %}{% endif %}
     {% if form.location_map %}{{ form.location_map|json_script:"potty-locations" }}{% endif %}
     {% if form.container_info %}{{ form.container_info|json_script:"fill-containers" }}{% endif %}
     {% if form.show_when_json %}{{ form.show_when_json|json_script:"show-when" }}{% endif %}

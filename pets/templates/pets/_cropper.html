@@ -1,0 +1,53 @@
+{% load static i18n %}
+<link rel="stylesheet" href="{% static 'pets/vendor/cropper.min.css' %}">
+<script src="{% static 'pets/vendor/cropper.min.js' %}"></script>
+<script>
+    (function () {
+        // Pet photo framing: a square box to drag, resize and zoom. Only the box is sent; the original is kept.
+        var input = document.getElementById("id_picture"), crop = document.getElementById("id_picture_crop");
+        if (!input || !crop || !window.Cropper) return;
+        var box = document.createElement("div");
+        box.className = "mb-3 d-none";
+        box.style.maxWidth = "28rem";
+        box.innerHTML = '<div style="max-height: 24rem"><img alt="" style="display:block; max-width:100%"></div>' +
+            '<div class="small text-body-secondary mt-1">{% trans "Drag the box onto your pet; pinch, scroll or drag the corners to resize." %}</div>';
+        input.closest(".col-sm-10, .row").appendChild(box);
+        var img = box.querySelector("img"), cropper = null;
+
+        var start = function (src, saved) {
+            if (cropper) cropper.destroy();
+            box.classList.remove("d-none");
+            img.src = src;
+            cropper = new Cropper(img, {
+                aspectRatio: 1, viewMode: 1, autoCropArea: 0.9, checkOrientation: false, background: false,
+                ready: function () {
+                    if (saved) {
+                        var w = img.naturalWidth, h = img.naturalHeight;
+                        cropper.setData({x: saved.x * w, y: saved.y * h, width: saved.w * w, height: saved.h * h});
+                    }
+                    store();
+                },
+                cropend: function () { store(); },
+                zoom: function () { setTimeout(store, 0); }
+            });
+        };
+        var store = function () {
+            if (!cropper) return;
+            var d = cropper.getData(true), w = img.naturalWidth, h = img.naturalHeight;
+            if (!w || !h) return;
+            crop.value = JSON.stringify({x: Math.max(0, d.x / w), y: Math.max(0, d.y / h),
+                                         w: Math.min(1, d.width / w), h: Math.min(1, d.height / h)});
+        };
+
+        input.addEventListener("change", function () {
+            var file = input.files && input.files[0];
+            if (file) { crop.value = ""; start(URL.createObjectURL(file), null); }
+        });
+        var current = "{% if object.picture %}{{ object.picture.url|escapejs }}{% endif %}";
+        if (current) {
+            var saved = null;
+            try { saved = crop.value ? JSON.parse(crop.value) : null; } catch (e) { saved = null; }
+            start(current, saved);
+        }
+    })();
+</script>
