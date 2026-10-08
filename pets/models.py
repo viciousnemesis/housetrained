@@ -354,3 +354,15 @@ class Note(models.Model):
 
     def __str__(self):
         return self.text[:50]
+
+
+# --- Babies (Baby Buddy's children) ------------------------------------------------------------
+class BabyHousehold(models.Model):
+    """Which household a Baby Buddy child belongs to (PUP-71). Children without one are hidden from everyone
+    (e.g. pets that came over from a Baby Buddy install as children)."""
+
+    child = models.OneToOneField("core.Child", on_delete=models.CASCADE, related_name="household_link")
+    household = models.ForeignKey(Household, on_delete=models.CASCADE, related_name="babies")
+
+    def __str__(self):
+        return f"{self.child} in {self.household}"

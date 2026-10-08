@@ -65,6 +65,16 @@ class BabyBuddyUserForm(forms.ModelForm):
                 }
             )
         super(BabyBuddyUserForm, self).__init__(*args, **kwargs)
+        if settings.BABY_HOUSEHOLDS:
+            # Housetrained: household roles (Setup > Members) decide what people can do; being a site admin is an
+            # explicit choice instead of the default.
+            self.fields.pop("is_read_only")
+            self.fields.pop("is_caregiver")
+            self.fields["is_staff"].label = _("Site admin")
+            self.fields["is_staff"].help_text = _(
+                "Can create accounts, add people to households and change site settings. Leave off for "
+                "everyone else; what they can do in their household is set under Setup > Members."
+            )
 
     def clean(self):
         cleaned_data = super().clean()
@@ -82,9 +92,11 @@ class BabyBuddyUserForm(forms.ModelForm):
 
     def save(self, commit=True):
         user = super(BabyBuddyUserForm, self).save(commit=False)
-        is_read_only = self.cleaned_data["is_read_only"]
+        is_read_only = self.cleaned_data.get("is_read_only", False)
         is_caregiver = self.cleaned_data.get("is_caregiver", False)
-        if is_read_only or is_caregiver:
+        if settings.BABY_HOUSEHOLDS:
+            user.is_superuser = bool(self.cleaned_data.get("is_staff"))
+        elif is_read_only or is_caregiver:
             user.is_superuser = False
         else:
             user.is_superuser = True

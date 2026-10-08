@@ -23,5 +23,9 @@
 - Household roles: owners and members log and change setup, read-only members only look, owners manage
   household settings and members' roles.
 - Only site admins (superusers) create accounts and add people to households.
+- Babies belong to a household too: Baby Buddy's pages, choices and API only show the signed-in user's
+  household's babies, and household roles decide what people can do with them (`pets/tests/test_babies.py`).
+  Babies with no household (e.g. pets that came from a Baby Buddy install) are hidden.
 - Baby Buddy's own API (`/api/children/` and so on) is off unless baby mode is on. The pet API is `/api/v1/`.
+- New accounts are not site admins unless "Site admin" is ticked.
 - Logins are rate-limited by django-axes (from Baby Buddy).

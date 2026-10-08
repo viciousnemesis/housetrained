@@ -34,8 +34,9 @@ class ViewsTestCase(TestCase):
         cls.c.login(**cls.credentials)
 
     def test_root_router(self):
+        # Housetrained: home is the family page (pets and babies); Baby Buddy's dashboard is in the Baby menu.
         page = self.c.get("/")
-        self.assertEqual(page.url, "/dashboard/")
+        self.assertEqual(page.url, "/pets/")
 
     @override_settings(ROLLING_SESSION_REFRESH=1)
     def test_rolling_sessions(self):

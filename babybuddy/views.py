@@ -71,14 +71,14 @@ class RootRouter(LoginRequiredMixin, RedirectView):
     """
 
     def get_redirect_url(self, *args, **kwargs):
-        if baby_mode_on():
-            self.url = reverse("dashboard:dashboard")
-        else:
-            from pets.households import current_household
+        # Housetrained: home is the family page; with one pet and no babies, that pet's page.
+        from core.models import Child
+        from pets.households import current_household
 
-            pets = current_household(self.request.user).pets.filter(active=True)
-            single = pets.first() if pets.count() == 1 else None
-            self.url = reverse("pets:pet", args=[single.slug]) if single else reverse("pets:household")
+        pets = current_household(self.request.user).pets.filter(active=True)
+        babies = baby_mode_on() and Child.objects.exists()
+        single = pets.first() if pets.count() == 1 and not babies else None
+        self.url = reverse("pets:pet", args=[single.slug]) if single else reverse("pets:household")
         return super(RootRouter, self).get_redirect_url(self, *args, **kwargs)
 
 

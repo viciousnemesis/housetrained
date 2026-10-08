@@ -191,8 +191,8 @@ class HomeTests(PetTestCase):
         self.assertRedirects(self.client.get("/"), "/pets/ruby/", fetch_redirect_response=False)
 
     @override_settings(BABY_MODE=True)
-    def test_baby_mode_home_is_the_dashboard(self):
-        self.assertRedirects(self.client.get("/"), "/dashboard/", fetch_redirect_response=False)
+    def test_baby_mode_home_is_still_the_family_page(self):
+        self.assertRedirects(self.client.get("/"), "/pets/", fetch_redirect_response=False)
 
 
 class CardTests(PetTestCase):

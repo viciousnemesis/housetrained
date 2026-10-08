@@ -32,6 +32,8 @@ DEBUG = bool(strtobool(os.environ.get("DEBUG") or "False"))
 
 # Housetrained: Baby Buddy's baby-tracking menus and home page only show in baby mode (PUP-49).
 BABY_MODE = bool(strtobool(os.environ.get("BABY_MODE") or "False"))
+# Babies belong to households: Baby Buddy's pages and API only show the signed-in user's household's babies.
+BABY_HOUSEHOLDS = True
 # Where people can find Housetrained's source (shown in the user menu when set).
 HOUSETRAINED_SOURCE_URL = os.environ.get("HOUSETRAINED_SOURCE_URL", "")
 
@@ -76,6 +78,7 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "babybuddy.middleware.RollingSessionMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "pets.scope.HouseholdScopeMiddleware",
     "babybuddy.middleware.UserTimezoneMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "babybuddy.middleware.UserLanguageMiddleware",
@@ -165,6 +168,7 @@ WSGI_APPLICATION = "babybuddy.wsgi.application"
 AUTHENTICATION_BACKENDS = [
     "axes.backends.AxesBackend",
     "django.contrib.auth.backends.ModelBackend",
+    "pets.permissions.HouseholdRoleBackend",
 ]
 
 LOGIN_REDIRECT_URL = "babybuddy:root-router"

@@ -2,6 +2,7 @@
 import datetime
 import re
 
+from pets.scope import ScopedManager
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import RegexValidator
@@ -179,7 +180,7 @@ class BMI(models.Model):
     notes = models.TextField(blank=True, null=True, verbose_name=_("Notes"))
     tags = TaggableManager(blank=True, through=Tagged)
 
-    objects = models.Manager()
+    objects = ScopedManager("child__household_link__household")  # Housetrained: per household
 
     class Meta:
         default_permissions = ("view", "add", "change", "delete")
@@ -214,7 +215,7 @@ class Child(models.Model):
         blank=True, null=True, upload_to="child/picture/", verbose_name=_("Picture")
     )
 
-    objects = models.Manager()
+    objects = ScopedManager("household_link__household")  # Housetrained: per household
 
     cache_key_count = "core.child.count"
 
@@ -288,7 +289,7 @@ class DiaperChange(models.Model):
     notes = models.TextField(blank=True, null=True, verbose_name=_("Notes"))
     tags = TaggableManager(blank=True, through=Tagged)
 
-    objects = models.Manager()
+    objects = ScopedManager("child__household_link__household")  # Housetrained: per household
 
     class Meta:
         default_permissions = ("view", "add", "change", "delete")
@@ -361,7 +362,7 @@ class Feeding(models.Model):
 
     settings = FeedingSettings()
 
-    objects = models.Manager()
+    objects = ScopedManager("child__household_link__household")  # Housetrained: per household
 
     class Meta:
         default_permissions = ("view", "add", "change", "delete")
@@ -400,7 +401,7 @@ class HeadCircumference(models.Model):
     notes = models.TextField(blank=True, null=True, verbose_name=_("Notes"))
     tags = TaggableManager(blank=True, through=Tagged)
 
-    objects = models.Manager()
+    objects = ScopedManager("child__household_link__household")  # Housetrained: per household
 
     class Meta:
         default_permissions = ("view", "add", "change", "delete")
@@ -430,7 +431,7 @@ class Height(models.Model):
     notes = models.TextField(blank=True, null=True, verbose_name=_("Notes"))
     tags = TaggableManager(blank=True, through=Tagged)
 
-    objects = models.Manager()
+    objects = ScopedManager("child__household_link__household")  # Housetrained: per household
 
     class Meta:
         default_permissions = ("view", "add", "change", "delete")
@@ -484,7 +485,7 @@ class Note(models.Model):
     )
     tags = TaggableManager(blank=True, through=Tagged)
 
-    objects = models.Manager()
+    objects = ScopedManager("child__household_link__household")  # Housetrained: per household
 
     class Meta:
         default_permissions = ("view", "add", "change", "delete")
@@ -525,7 +526,7 @@ class Pumping(models.Model):
     notes = models.TextField(blank=True, null=True, verbose_name=_("Notes"))
     tags = TaggableManager(blank=True, through=Tagged)
 
-    objects = models.Manager()
+    objects = ScopedManager("child__household_link__household")  # Housetrained: per household
 
     class Meta:
         default_permissions = ("view", "add", "change", "delete")
@@ -568,7 +569,7 @@ class Sleep(models.Model):
     notes = models.TextField(blank=True, null=True, verbose_name=_("Notes"))
     tags = TaggableManager(blank=True, through=Tagged)
 
-    objects = models.Manager()
+    objects = ScopedManager("child__household_link__household")  # Housetrained: per household
     settings = NapSettings(_("Nap settings"))
 
     class Meta:
@@ -615,7 +616,7 @@ class Temperature(models.Model):
     notes = models.TextField(blank=True, null=True, verbose_name=_("Notes"))
     tags = TaggableManager(blank=True, through=Tagged)
 
-    objects = models.Manager()
+    objects = ScopedManager("child__household_link__household")  # Housetrained: per household
 
     class Meta:
         default_permissions = ("view", "add", "change", "delete")
@@ -654,7 +655,10 @@ class Timer(models.Model):
         verbose_name=_("User"),
     )
 
-    objects = models.Manager()
+    objects = ScopedManager(  # Housetrained: per household; timers without a child belong to their user's household
+        "child__household_link__household",
+        extra=lambda household: models.Q(child=None, user__memberships__household=household),
+    )
 
     class Meta:
         default_permissions = ("view", "add", "change", "delete")
@@ -734,7 +738,7 @@ class TummyTime(models.Model):
     notes = models.TextField(blank=True, null=True, verbose_name=_("Notes"))
     tags = TaggableManager(blank=True, through=Tagged)
 
-    objects = models.Manager()
+    objects = ScopedManager("child__household_link__household")  # Housetrained: per household
 
     class Meta:
         default_permissions = ("view", "add", "change", "delete")
@@ -772,7 +776,7 @@ class Weight(models.Model):
     notes = models.TextField(blank=True, null=True, verbose_name=_("Notes"))
     tags = TaggableManager(blank=True, through=Tagged)
 
-    objects = models.Manager()
+    objects = ScopedManager("child__household_link__household")  # Housetrained: per household
 
     class Meta:
         default_permissions = ("view", "add", "change", "delete")
@@ -841,7 +845,7 @@ class Medication(models.Model):
     notes = models.TextField(blank=True, null=True, verbose_name=_("Notes"))
     tags = TaggableManager(blank=True, through=Tagged)
 
-    objects = models.Manager()
+    objects = ScopedManager("child__household_link__household")  # Housetrained: per household
 
     class Meta:
         ordering = ["-time"]
