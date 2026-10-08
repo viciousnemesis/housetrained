@@ -837,6 +837,6 @@ class SupplyItemForm(PetsForm):
 class HouseholdForm(forms.ModelForm):
     class Meta:
         model = Household
-        fields = ["name", "units", "time_zone", "minutes_to_outside"]
+        fields = ["name", "units", "time_zone", "minutes_to_outside", "water_cutoff_hours"]
         widgets = {"units": PillRadioSelect()}
         help_texts = {"units": _("Metric shows g, kg, ml, cm; imperial shows oz, lb, fl oz, in.")}

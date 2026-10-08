@@ -227,7 +227,7 @@ class Notifications(HouseholdMixin, View):
         if not push.allowed():
             return render(request, "pets/notifications.html", {"disabled": True, "prefs": prefs})
         return render(request, "pets/notifications.html", {
-            "prefs": prefs, "public_key": push.public_key(),
+            "prefs": prefs, "public_key": push.public_key(), "household_cutoff": self.household.water_cutoff_hours,
             "devices": request.user.push_subscriptions.order_by("-created"),
         })
 
@@ -274,6 +274,7 @@ class Notifications(HouseholdMixin, View):
             prefs.walk_due = bool(request.POST.get("walk_due"))
             prefs.low_supply = bool(request.POST.get("low_supply"))
             prefs.weekly_progress = bool(request.POST.get("weekly_progress"))
+            prefs.water_cutoff = bool(request.POST.get("water_cutoff"))
             prefs.save()
             messages.success(request, _("Saved."))
         return HttpResponseRedirect(reverse("pets:notifications"))
