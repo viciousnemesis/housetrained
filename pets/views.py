@@ -215,6 +215,71 @@ class Import(HouseholdMixin, View):
                           "csv_text": text, "columns": importer.KINDS[kind].columns})
 
 
+class Notifications(HouseholdMixin, View):
+    """Notifications (PUP-58): turn them on per device, choose reminders, send a test."""
+
+    def get(self, request):
+        from . import push
+        from .models import NotificationPreference
+
+        prefs, _created = NotificationPreference.objects.get_or_create(user=request.user)
+        return render(request, "pets/notifications.html", {
+            "prefs": prefs, "public_key": push.public_key(),
+            "devices": request.user.push_subscriptions.order_by("-created"),
+        })
+
+    def post(self, request):
+        import json
+
+        from django.http import JsonResponse
+
+        from . import push
+        from .models import NotificationPreference, PushSubscription
+
+        action = request.POST.get("action") or request.GET.get("action")
+        if action == "subscribe":
+            data = json.loads(request.body or "{}")
+            keys = data.get("keys") or {}
+            endpoint = data.get("endpoint", "")
+            if not endpoint.startswith("https://") or not keys.get("p256dh") or not keys.get("auth"):
+                return JsonResponse({"ok": False}, status=400)
+            PushSubscription.objects.update_or_create(endpoint=endpoint, defaults={
+                "user": request.user, "p256dh": keys["p256dh"], "auth": keys["auth"],
+                "device": (data.get("device") or request.headers.get("User-Agent", ""))[:255],
+            })
+            return JsonResponse({"ok": True})
+        if action == "unsubscribe":
+            data = json.loads(request.body or "{}")
+            request.user.push_subscriptions.filter(endpoint=data.get("endpoint", "")).delete()
+            return JsonResponse({"ok": True})
+        if action == "remove":
+            request.user.push_subscriptions.filter(pk=request.POST.get("device")).delete()
+            messages.success(request, _("Device removed."))
+        elif action == "test":
+            count = push.send(request.user, _("Housetrained"), _("Notifications work on this device."), url="/pets/")
+            if count:
+                messages.success(request, _("Test sent to %(count)d device(s).") % {"count": count})
+            else:
+                messages.warning(request, _("No device received it. Turn notifications on first."))
+        elif action == "prefs":
+            prefs, _created = NotificationPreference.objects.get_or_create(user=request.user)
+            prefs.walk_due = bool(request.POST.get("walk_due"))
+            prefs.low_supply = bool(request.POST.get("low_supply"))
+            prefs.save()
+            messages.success(request, _("Saved."))
+        return HttpResponseRedirect(reverse("pets:notifications"))
+
+
+def service_worker(request):
+    """The push service worker, served from the site root so it covers every page."""
+    from django.template.loader import render_to_string
+
+    response = HttpResponse(render_to_string("pets/sw.js"), content_type="application/javascript")
+    response["Service-Worker-Allowed"] = "/"
+    response["Cache-Control"] = "no-cache"
+    return response
+
+
 class Setup(HouseholdMixin, TemplateView):
     template_name = "pets/setup.html"
 

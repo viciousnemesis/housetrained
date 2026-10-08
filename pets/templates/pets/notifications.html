@@ -1,0 +1,118 @@
+{% extends "babybuddy/page.html" %}
+{% load i18n pets_tags %}
+{% block title %}{% trans "Notifications" %}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Notifications" %}</li>
+{% endblock %}
+{% block content %}
+    <h1>{% trans "Notifications" %}</h1>
+    <div class="card card-dashboard">
+        <div class="card-header">{% trans "This device" %}</div>
+        <div class="card-body">
+            <p id="push-status" class="mb-3">{% trans "Checking..." %}</p>
+            <button class="btn btn-primary d-none" id="push-on" type="button">{% trans "Turn on notifications here" %}</button>
+            <button class="btn btn-outline-light d-none" id="push-off" type="button">{% trans "Turn off here" %}</button>
+            <p class="text-body-secondary small mt-3 mb-0 d-none" id="push-ios">
+                {% trans "On iPhone and iPad: open this site in Safari, tap Share > Add to Home Screen, then open Housetrained from the home screen and turn notifications on there." %}
+            </p>
+        </div>
+    </div>
+    <div class="card card-dashboard">
+        <div class="card-header">{% trans "Remind me" %}</div>
+        <form class="card-body" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="prefs">
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" name="walk_due" id="walk_due" {% if prefs.walk_due %}checked{% endif %}>
+                <label class="form-check-label" for="walk_due">{% trans "When a walk is due" %}
+                    <span class="d-block small text-body-secondary">{% trans "From each pet's Next Walk prediction, once per walk." %}</span></label>
+            </div>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="low_supply" id="low_supply" {% if prefs.low_supply %}checked{% endif %}>
+                <label class="form-check-label" for="low_supply">{% trans "When it's time to buy more" %}
+                    <span class="d-block small text-body-secondary">{% trans "When a bag is down to its reorder days; at most once a day." %}</span></label>
+            </div>
+            <button class="btn btn-primary" type="submit">{% trans "Save" %}</button>
+        </form>
+    </div>
+    <div class="card card-dashboard">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            {% trans "Your devices" %}
+            <form method="post" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="test">
+                <button class="btn btn-sm btn-outline-light" type="submit">{% trans "Send a test" %}</button>
+            </form>
+        </div>
+        <div class="list-group list-group-flush">
+            {% for d in devices %}
+                <form class="list-group-item d-flex justify-content-between align-items-center gap-2" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="remove">
+                    <input type="hidden" name="device" value="{{ d.pk }}">
+                    <span class="small text-truncate">{{ d.device|truncatechars:70 }}<span class="d-block text-body-secondary">{% trans "added" %} {{ d.created|date }}</span></span>
+                    <button class="btn btn-sm btn-outline-danger" type="submit">{% trans "Remove" %}</button>
+                </form>
+            {% empty %}
+                <div class="list-group-item text-body-secondary">{% trans "No devices yet." %}</div>
+            {% endfor %}
+        </div>
+    </div>
+    {{ public_key|json_script:"push-key" }}
+    <script>
+        (function () {
+            var status = document.getElementById("push-status"), on = document.getElementById("push-on"),
+                off = document.getElementById("push-off"), key = JSON.parse(document.getElementById("push-key").textContent);
+            var csrf = document.querySelector("input[name=csrfmiddlewaretoken]").value;
+            var text = {
+                unsupported: "{% trans 'This browser cannot receive notifications from Housetrained.' %}",
+                insecure: "{% trans 'Notifications need the site to be opened over https.' %}",
+                on: "{% trans 'Notifications are on for this device.' %}",
+                off: "{% trans 'Notifications are off for this device.' %}",
+                blocked: "{% trans 'Notifications are blocked for this site in the browser settings.' %}"
+            };
+            var say = function (message) { status.textContent = message; };
+            var post = function (action, body) {
+                return fetch("?action=" + action, {method: "POST", credentials: "same-origin",
+                    headers: {"Content-Type": "application/json", "X-CSRFToken": csrf}, body: JSON.stringify(body)});
+            };
+            var bytes = function (b64) {
+                var s = atob((b64 + "===".slice((b64.length + 3) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
+                return Uint8Array.from(s, function (c) { return c.charCodeAt(0); });
+            };
+            if (/iPhone|iPad|iPod/.test(navigator.userAgent) && !window.navigator.standalone) {
+                document.getElementById("push-ios").classList.remove("d-none");
+            }
+            if (!window.isSecureContext) { say(text.insecure); return; }
+            if (!("serviceWorker" in navigator) || !("PushManager" in window)) { say(text.unsupported); return; }
+            navigator.serviceWorker.register("/sw.js", {scope: "/"}).then(function (reg) {
+                return reg.pushManager.getSubscription().then(function (sub) {
+                    var show = function (sub) {
+                        on.classList.toggle("d-none", !!sub);
+                        off.classList.toggle("d-none", !sub);
+                        say(sub ? text.on : (Notification.permission === "denied" ? text.blocked : text.off));
+                    };
+                    show(sub);
+                    on.addEventListener("click", function () {
+                        Notification.requestPermission().then(function (permission) {
+                            if (permission !== "granted") { show(null); return; }
+                            return reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: bytes(key)})
+                                .then(function (sub) {
+                                    var data = sub.toJSON(); data.device = navigator.userAgent;
+                                    return post("subscribe", data).then(function () { location.reload(); });
+                                });
+                        }).catch(function (e) { say(String(e)); });
+                    });
+                    off.addEventListener("click", function () {
+                        reg.pushManager.getSubscription().then(function (sub) {
+                            if (!sub) { show(null); return; }
+                            return post("unsubscribe", {endpoint: sub.endpoint}).then(function () {
+                                return sub.unsubscribe();
+                            }).then(function () { location.reload(); });
+                        });
+                    });
+                });
+            }).catch(function () { say(text.unsupported); });
+        })();
+    </script>
+{% endblock %}
