@@ -1,0 +1,27 @@
+{% extends "pets/cards/_base.html" %}
+{% load i18n pets_tags %}
+{% block header %}{% trans "Now" %}{% help_bubble _("When to head out, from this pet's own routine (gaps, meals, waking up, bedtime, recent accidents), and the latest of everything. Not veterinary advice.") %}{% endblock %}
+{% block title %}
+    {% if predictions %}
+        <div class="fs-3">{% blocktrans with time=head_out|clock %}Head out ~{{ time }}{% endblocktrans %}</div>
+        <small>{{ due }} · {% trans "expect" %} {{ expect }}</small>
+    {% else %}
+        {% trans "Not enough data for a prediction yet" %}
+    {% endif %}
+{% endblock %}
+{% block content %}
+    <div class="small text-body-secondary mt-1">
+        {% for label, time, url in latest %}<a class="text-reset text-decoration-none" href="{{ url }}?next={{ request.path|urlencode }}">{% if forloop.first %}{% trans "Last" %} {% endif %}{{ label }} {{ time|clock }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}
+        {% if asleep %} · 🌙 {% blocktrans with time=asleep.start|clock %}asleep since {{ time }}{% endblocktrans %}{% endif %}
+    </div>
+    {% if predictions %}
+        <details class="small mt-2">
+            <summary class="text-body-secondary">{% trans "Why?" %}</summary>
+            {% for p in predictions %}
+                <div class="mt-1"><strong>{{ p.kind }} ~{{ p.time|clock }}</strong>{% if not p.this_walk %} · {% trans "likely next walk" %}{% endif %}<br>
+                    <span class="text-body-secondary">{{ p.reason }}</span></div>
+            {% endfor %}
+            {% if to_outside %}<div class="mt-1 text-body-secondary">{% blocktrans %}Includes {{ to_outside }} to get outside.{% endblocktrans %}</div>{% endif %}
+        </details>
+    {% endif %}
+{% endblock %}

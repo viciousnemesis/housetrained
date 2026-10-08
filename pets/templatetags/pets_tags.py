@@ -21,6 +21,8 @@ def _card(name, builder):
 
 for _name, _builder in (
     ("next_walk", insights.next_walk_card),
+    ("now", insights.now_card),
+    ("today", insights.today_card),
     ("statistics", insights.statistics_card),
     ("walks", insights.walks_card),
     ("last_potty", insights.last_potty_card),
@@ -34,11 +36,14 @@ for _name, _builder in (
 
 
 @register.inclusion_tag("pets/cards/supplies.html", takes_context=True)
-def card_supplies(context, pet=None):
-    """Open bags with estimates: for one pet, or for the whole household."""
+def card_supplies(context, pet=None, low_only=False):
+    """Open bags with estimates: for one pet, or for the whole household. low_only: just the ones running low."""
     from ..supplies import household_supplies, pet_supplies
     household = current_household(context["request"].user)
-    return {"request": context["request"], "supplies": pet_supplies(pet) if pet else household_supplies(household)}
+    supplies = pet_supplies(pet) if pet else household_supplies(household)
+    if low_only:
+        supplies = [s for s in supplies if s["low"]]
+    return {"request": context["request"], "supplies": supplies, "low_only": low_only}
 
 
 @register.simple_tag(takes_context=True)

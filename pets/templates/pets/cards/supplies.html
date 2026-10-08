@@ -1,7 +1,7 @@
 {% load i18n %}
 {% if supplies %}
     <div class="card card-dashboard">
-        <div class="card-header">{% trans "Supplies" %}</div>
+        <div class="card-header">{% if low_only %}{% trans "Running low" %}{% else %}{% trans "Supplies" %}{% endif %}</div>
         <ul class="list-group list-group-flush small">
             {% for s in supplies %}
                 <li class="list-group-item">
