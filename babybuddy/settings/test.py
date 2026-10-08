@@ -32,3 +32,7 @@ ENABLE_HOME_ASSISTANT_SUPPORT = True
 # Baby Buddy's own tests exercise the baby features, so they run in baby mode; pet tests switch it off.
 
 BABY_MODE = True
+
+# Baby Buddy's tests sign in as admin/admin; real installs get a random first password.
+
+DEFAULT_ADMIN_PASSWORD = "admin"
