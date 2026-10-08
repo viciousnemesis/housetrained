@@ -55,18 +55,18 @@ Otherwise it shows as "likely next walk".
 
 ## Settings
 
-| Setting | Default |
-|---|---|
-| Longest a pet is expected to hold it | 8 hours |
-| Days of history before learning from it | 3 |
-| Days before the 3-day average replaces the age rule | 7 |
-| Ignore gaps longer than | 12 hours |
-| A potty counts as after a meal within | 3 hours |
-| Pee / poop after a meal, until learned | 20 / 30 minutes |
-| Drop a missed trigger after | 30 minutes |
-| Needs grouping buffer | 30 minutes |
-| Walk length, until learned | 15 minutes |
-| Shortest night | 4 hours |
-| How fast old nights fade | 3 days |
-| Bedtime potty window | 45 minutes |
-| Bedtime / wake-up, until learned | 23:00 / 06:30 |
+| Setting | Default | Meaning |
+|---|---|---|
+| Longest hold | 8 hours | Cap on the age rule of thumb |
+| History needed to learn | 3 days | Before this, the age rule is used |
+| Age rule period | 7 days | After this, the 3-day average is the fallback |
+| Longest real gap | 12 hours | Longer gaps are ignored |
+| After-meal window | 3 hours | Potty breaks this soon after a meal count as caused by it |
+| Pee / poop after a meal | 20 / 30 minutes | Until the pet's own delay is learned |
+| Missed trigger timeout | 30 minutes | A passed meal or wake-up stops driving the prediction |
+| Needs grouping buffer | 30 minutes | A need due this long after a walk would normally end is expected on that walk |
+| Usual walk length | 15 minutes | Until walks are logged |
+| Shortest night | 4 hours | Shortest stretch that counts as the night |
+| Night fade | 3 days | An older night counts half as much every this many days |
+| Bedtime potty window | 45 minutes | A potty this long before bedtime counts as the bedtime one |
+| Starting bedtime / wake-up | 23:00 / 06:30 | Until two nights are logged |
