@@ -1,0 +1,14 @@
+{% load imagekit static %}
+{% include "django/forms/widgets/input.html" %}
+<label {% if widget.attrs.id %}for="{{ widget.attrs.id }}"{% endif %}
+       class="btn btn-outline-light btn-no-hover">
+    {% if widget.picture %}
+        {% thumbnail '40x40' widget.picture as thumb %}
+        <img src="{{ thumb.url }}" class="img-fluid rounded-circle" alt="" />
+    {% elif widget.pet_type == "dog" %}
+        <img src="{% static 'babybuddy/img/core/child-placeholder.png' %}" width="40" height="40" class="img-fluid rounded-circle" alt="" />
+    {% else %}
+        <img src="{% static 'babybuddy/logo/icon.png' %}" width="40" height="40" class="img-fluid rounded-circle bg-body-tertiary p-1" alt="" />
+    {% endif %}
+    {{ widget.label }}
+</label>
