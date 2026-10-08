@@ -298,6 +298,27 @@ class PottyBreak(Logged):
         choices=LOCATIONS,
     )
     walk = models.ForeignKey(Walk, on_delete=models.SET_NULL, null=True, blank=True, related_name="potty_breaks")
+    # Accident context (PUP-76): where in the house, and what was going on.
+    UNSUPERVISED, AFTER_PLAY, AFTER_DRINKING, EXCITED, AFTER_CRATE = (
+        "unsupervised", "after_play", "after_drinking", "excited", "after_crate")
+    CONTEXTS = [(UNSUPERVISED, _("Unsupervised")), (AFTER_PLAY, _("After play")),
+                (AFTER_DRINKING, _("After drinking")), (EXCITED, _("Excited / visitors")),
+                (AFTER_CRATE, _("After the crate"))]
+    spot = models.ForeignKey("AccidentSpot", on_delete=models.SET_NULL, null=True, blank=True,
+                             related_name="accidents", verbose_name=_("where"))
+    context = models.JSONField(_("what was going on"), default=list, blank=True)
+    # Health (PUP-79): blank means normal.
+    LESS, MORE = "less", "more"
+    AMOUNTS = [("", _("Normal")), (LESS, _("Less than normal")), (MORE, _("More than normal"))]
+    PEE_COLOURS = [("", _("Normal")), ("light", _("Too light")), ("dark", _("Too dark"))]
+    CONSISTENCIES = [("", _("Just right")), ("hard", _("Too hard")), ("soft", _("Too soft"))]
+    POOP_COLOURS = [("", _("Brown")), ("black", _("Black")), ("red", _("Red / bloody")), ("green", _("Green")),
+                    ("yellow", _("Yellow")), ("grey", _("Grey / white")), ("other", _("Other"))]
+    pee_amount = models.CharField(_("pee amount"), max_length=10, blank=True, choices=AMOUNTS)
+    pee_colour = models.CharField(_("pee colour"), max_length=10, blank=True, choices=PEE_COLOURS)
+    poop_amount = models.CharField(_("poop amount"), max_length=10, blank=True, choices=AMOUNTS)
+    poop_consistency = models.CharField(_("poop consistency"), max_length=10, blank=True, choices=CONSISTENCIES)
+    poop_colour = models.CharField(_("poop colour"), max_length=10, blank=True, choices=POOP_COLOURS)
     found_later = models.BooleanField(
         _("found it later"), default=False,
         help_text=_("Didn't see it happen, so the time is only when it was found. Predictions don't learn from it."),
@@ -465,3 +486,16 @@ class ReminderLog(models.Model):
 
     key = models.CharField(max_length=255, unique=True)
     created = models.DateTimeField(auto_now_add=True)
+
+
+class AccidentSpot(models.Model):
+    """A place in the house where accidents happen (named once in Setup)."""
+
+    household = models.ForeignKey(Household, on_delete=models.CASCADE, related_name="accident_spots")
+    name = models.CharField(_("name"), max_length=100)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name

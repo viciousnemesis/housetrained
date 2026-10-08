@@ -51,7 +51,20 @@
                 </tbody>
             </table>
         </div>
-        <p class="small text-body-secondary">
+        {% if patterns.spots or patterns.contexts %}
+            <h2 class="h6 text-body-secondary mt-4">{% blocktrans count n=patterns.total %}Last 4 weeks: {{ n }} accident{% plural %}Last 4 weeks: {{ n }} accidents{% endblocktrans %}</h2>
+            <div class="d-flex flex-wrap gap-4 small">
+                {% if patterns.spots %}
+                    <div><div class="text-body-secondary">{% trans "Where" %}</div>
+                        {% for name, n in patterns.spots %}<div>{{ name }} <span class="text-body-secondary">×{{ n }}</span></div>{% endfor %}</div>
+                {% endif %}
+                {% if patterns.contexts %}
+                    <div><div class="text-body-secondary">{% trans "What was going on" %}</div>
+                        {% for name, n in patterns.contexts %}<div>{{ name }} <span class="text-body-secondary">×{{ n }}</span></div>{% endfor %}</div>
+                {% endif %}
+            </div>
+        {% endif %}
+        <p class="small text-body-secondary mt-3">
             {% if pet.type == "dog" %}{% trans "Right place: outside or on a pad. Accidents: inside." %}
             {% else %}{% trans "Right place: anywhere but inside. Accidents: inside." %}{% endif %}
         </p>

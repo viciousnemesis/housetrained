@@ -6,6 +6,10 @@
     <li class="breadcrumb-item fw-bold">{{ pet.name }}</li>
 {% endblock %}
 {% block content %}
+    {% health_alerts pet as alerts %}
+    {% for level, text in alerts %}
+        <div class="alert alert-{{ level }} py-2 small mb-2" role="alert">{{ text }}</div>
+    {% endfor %}
     {% include "pets/_buttons.html" %}
     <div class="row">
         <div class="col-lg-4">
