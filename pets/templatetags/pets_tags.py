@@ -85,6 +85,47 @@ def pet_age(birth):
 
 
 @register.simple_tag(takes_context=True)
+def pet_actions(context, pet=None):
+    """What the top row needs: which pets it logs for, their potty spots, and what's running."""
+    from ..models import PottyBreak
+
+    user = context["request"].user
+    household = current_household(user)
+    pets = [pet] if pet else list(household.pets.filter(active=True))
+    allowed = []
+    for p in pets:
+        for spot in p.allowed_potty_locations():
+            if spot not in allowed:
+                allowed.append(spot)
+    labels = dict(PottyBreak.LOCATIONS)
+    walks = Walk.objects.filter(household=household, end=None)
+    sleeps = Sleep.objects.filter(pet__household=household, end=None)
+    if pet:
+        walks, sleeps = walks.filter(pets=pet), sleeps.filter(pet=pet)
+    return {
+        "pets": pets, "many": len(pets) > 1,
+        "locations": [(spot, labels.get(spot, spot)) for spot in allowed],
+        "usual": pets[0].allowed_potty_locations()[0] if pets else None,
+        "walk": walks.first(), "sleep": sleeps.first(),
+    }
+
+
+@register.simple_tag(takes_context=True)
+def retry_reminders(context):
+    """Pets taken out with nothing to show: try again soon."""
+    import datetime
+
+    from django.utils import timezone
+
+    user = context["request"].user
+    if not user.is_authenticated:
+        return []
+    household = current_household(user)
+    recent = timezone.now() - datetime.timedelta(minutes=45)
+    return list(household.pets.filter(active=True, retry_at__gte=recent).order_by("retry_at"))
+
+
+@register.simple_tag(takes_context=True)
 def running_activities(context):
     """Walks and sleeps without an end time; sleeps started together for several pets show as one."""
     user = context["request"].user

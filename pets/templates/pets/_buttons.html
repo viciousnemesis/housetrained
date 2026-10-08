@@ -1,27 +1,79 @@
 {% load i18n pets_tags %}
-<div class="d-flex flex-wrap gap-2 mb-3">
-    {% if pets_can_edit %}
-        <form class="flex-fill d-flex" method="post" action="{% url 'pets:start' 'walk' %}">
+{% if pets_can_edit %}
+    {% pet_actions pet as a %}
+    {# One row that fits a phone: Potty (quick panel), Walk (start/end), More. #}
+    <div class="d-flex gap-2 mb-2">
+        <button class="btn btn-lg btn-primary flex-fill" type="button" data-bs-toggle="collapse" data-bs-target="#potty-panel"
+                aria-expanded="false" aria-controls="potty-panel">{% trans "Potty" %}</button>
+        {% if a.walk %}
+            <form class="flex-fill d-flex m-0" method="post" action="{% url 'pets:stop' 'walk' a.walk.pk 'end' %}">
+                {% csrf_token %}
+                <button class="btn btn-lg btn-primary flex-fill" type="submit">{% trans "End walk" %}</button>
+            </form>
+        {% else %}
+            <form class="flex-fill d-flex m-0" method="post" action="{% url 'pets:start' 'walk' %}">
+                {% csrf_token %}
+                {% if pet %}<input type="hidden" name="pet" value="{{ pet.slug }}">{% endif %}
+                <button class="btn btn-lg btn-primary flex-fill" type="submit">{% trans "Walk" %}</button>
+            </form>
+        {% endif %}
+        <div class="dropdown flex-fill d-flex">
+            <button class="btn btn-lg btn-outline-light flex-fill dropdown-toggle" type="button" data-bs-toggle="dropdown"
+                    aria-expanded="false">{% trans "More" %}</button>
+            <div class="dropdown-menu dropdown-menu-end">
+                <a class="dropdown-item" href="{% url 'pets:add' 'fill' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Fill bowl" %}</a>
+                <a class="dropdown-item" href="{% url 'pets:add' 'meal' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Log meal" %}</a>
+                {% if a.sleep %}
+                    <form method="post" action="{% url 'pets:stop' 'sleep' a.sleep.pk 'end' %}" class="m-0">
+                        {% csrf_token %}
+                        <button class="dropdown-item" type="submit">{% trans "End sleep" %}</button>
+                    </form>
+                {% else %}
+                    <form method="post" action="{% url 'pets:start' 'sleep' %}" class="m-0">
+                        {% csrf_token %}
+                        {% if pet %}<input type="hidden" name="pet" value="{{ pet.slug }}">{% endif %}
+                        <button class="dropdown-item" type="submit">{% trans "Start sleep" %}</button>
+                    </form>
+                {% endif %}
+                <a class="dropdown-item" href="{% url 'pets:add' 'potty' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Potty break (details)" %}</a>
+                {% if help_bubbles %}
+                    <div class="dropdown-divider"></div>
+                    <div class="px-3 small text-body-secondary" style="max-width: 18rem">
+                        {% trans "Fill bowl: food or water went into a bowl. Log meal: a pet ate or drank; meals drive the predictions." %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="collapse mb-3" id="potty-panel">
+        <form class="card card-body gap-2" method="post" action="{% url 'pets:quick-potty' %}">
             {% csrf_token %}
-            {% if pet %}<input type="hidden" name="pet" value="{{ pet.slug }}">{% endif %}
-            <button class="btn btn-lg btn-primary flex-fill" type="submit">{% trans "Start Walk" %}</button>
+            {% if a.many %}
+                <div class="d-flex flex-wrap gap-2">
+                    {% for p in a.pets %}
+                        <input class="btn-check" type="checkbox" name="pet" value="{{ p.slug }}" id="qp-pet-{{ p.pk }}" checked>
+                        <label class="btn btn-sm btn-outline-light" for="qp-pet-{{ p.pk }}">{{ p.name }}</label>
+                    {% endfor %}
+                </div>
+            {% else %}
+                {% for p in a.pets %}<input type="hidden" name="pet" value="{{ p.slug }}">{% endfor %}
+            {% endif %}
+            {% if a.locations|length > 1 %}
+                <div class="d-flex flex-wrap gap-2">
+                    {% for value, label in a.locations %}
+                        <input class="btn-check" type="radio" name="location" value="{{ value }}" id="qp-loc-{{ value }}"{% if value == a.usual %} checked{% endif %}>
+                        <label class="btn btn-sm btn-outline-light" for="qp-loc-{{ value }}">{{ label }}</label>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <input type="hidden" name="location" value="{{ a.usual }}">
+            {% endif %}
+            <div class="d-grid gap-2" style="grid-template-columns: repeat(4, minmax(0, 1fr))">
+                <button class="btn btn-primary py-2 px-1" type="submit" name="what" value="pee">{% trans "Pee" %}</button>
+                <button class="btn btn-primary py-2 px-1" type="submit" name="what" value="poop">{% trans "Poop" %}</button>
+                <button class="btn btn-primary py-2 px-1" type="submit" name="what" value="both">{% trans "Both" %}</button>
+                <button class="btn btn-outline-light py-2 px-1 text-truncate" type="submit" name="what" value="nothing">{% trans "Nothing" %}</button>
+            </div>
         </form>
-    {% endif %}
-    {% if pets_can_edit %}
-        <a class="btn btn-lg btn-primary flex-fill" href="{% url 'pets:add' 'potty' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Log Potty" %}</a>
-    {% endif %}
-    {% if pets_can_edit %}
-        <a class="btn btn-lg btn-primary flex-fill" href="{% url 'pets:add' 'fill' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Fill Bowl" %}</a>
-        <a class="btn btn-lg btn-primary flex-fill" href="{% url 'pets:add' 'meal' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Log Meal" %}</a>
-    {% endif %}
-    {% if pets_can_edit %}
-        <form class="flex-fill d-flex" method="post" action="{% url 'pets:start' 'sleep' %}">
-            {% csrf_token %}
-            {% if pet %}<input type="hidden" name="pet" value="{{ pet.slug }}">{% endif %}
-            <button class="btn btn-lg btn-primary flex-fill" type="submit">{% trans "Start Sleep" %}</button>
-        </form>
-    {% endif %}
-    {% if pets_can_edit %}
-        <span class="align-self-center">{% help_bubble _("Fill Bowl: food or water went into a bowl or feeder. It counts toward the bag. Log Meal: a pet ate or drank. Meals drive the potty predictions. Feeding a set portion that gets eaten straight away? Tick “Eaten right away” when filling, and both are logged at once.") %}</span>
-    {% endif %}
-</div>
+    </div>
+{% endif %}

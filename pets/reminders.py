@@ -97,6 +97,24 @@ def supply_reminders(household, now):
     return sent
 
 
+def retry_reminders(household, now):
+    """Taken out, nothing happened: a nudge when it's time to try again."""
+    from . import push
+
+    people = _people(household, "walk_due")
+    if not people:
+        return 0
+    sent = 0
+    for pet in household.pets.filter(active=True, retry_at__lte=now, retry_at__gte=now - WALK_LATE_LIMIT):
+        if not _claim(f"retry:{pet.pk}:{pet.retry_at:%Y%m%d%H%M}"):
+            continue
+        title = _("%(pet)s: try again") % {"pet": pet.name}
+        for user in people:
+            sent += push.send(user, title, _("Time for another potty trip."), url=f"/pets/{pet.slug}/",
+                              tag=f"walk-{pet.pk}")
+    return sent
+
+
 def weekly_reminders(household, now):
     """Monday from 9 am (household time): each pet's week in one line."""
     from . import push
@@ -137,6 +155,7 @@ def check(now=None):
                     sent += walk_reminders(household, now)
                     sent += supply_reminders(household, now)
                     sent += weekly_reminders(household, now)
+                    sent += retry_reminders(household, now)
                 except Exception:
                     log.exception("Reminders for %s failed", household)
     ReminderLog.objects.filter(created__lt=now - datetime.timedelta(days=30)).delete()

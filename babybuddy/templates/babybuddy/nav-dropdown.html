@@ -220,6 +220,35 @@
                 {% endif %}
             </div>
         </div>
+        {% retry_reminders as retries %}
+        {% for pet in retries %}
+            <div class="w-100 d-flex flex-wrap align-items-center gap-2 px-3 py-2 mt-2 border-top border-primary">
+                <span class="fs-5 me-auto">
+                    🔁 {% blocktrans with name=pet.name %}Try {{ name }} again{% endblocktrans %}
+                    <span class="fw-bold text-primary ms-2 activity-countdown" data-at="{{ pet.retry_at.isoformat }}"></span>
+                </span>
+                <form method="post" action="{% url 'pets:quick-potty' %}" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="pet" value="{{ pet.slug }}">
+                    <button class="btn btn-outline-light btn-lg" type="submit" name="what" value="dismiss">{% trans "Dismiss" %}</button>
+                </form>
+            </div>
+        {% endfor %}
+        {% if retries %}
+            <script>
+                (function () {
+                    var els = document.querySelectorAll(".activity-countdown");
+                    function tick() {
+                        els.forEach(function (el) {
+                            var s = Math.floor((new Date(el.dataset.at) - Date.now()) / 1000);
+                            el.textContent = s > 0 ? Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") : "{% trans 'now' %}";
+                        });
+                    }
+                    tick();
+                    setInterval(tick, 1000);
+                })();
+            </script>
+        {% endif %}
         {% running_activities as running_pets %}
         {% for r in running_pets %}
             <div class="w-100 d-flex flex-wrap align-items-center gap-2 px-3 py-2{% if forloop.first %} mt-2{% endif %} border-top border-primary">

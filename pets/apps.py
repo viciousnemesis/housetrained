@@ -12,10 +12,13 @@ def link_new_baby(sender, instance, created, raw=False, **kwargs):
         BabyHousehold.objects.get_or_create(child=instance, defaults={"household": household})
 
 
-def record_expectation(sender, instance, raw=False, **kwargs):
-    """An accident (inside) remembers what Next Walk expected just before it; others drop it."""
+def record_expectation(sender, instance, raw=False, created=False, **kwargs):
+    """An accident (inside) remembers what Next Walk expected just before it; others drop it. Any new potty break
+    ends a "try again" countdown."""
     if raw:
         return
+    if created and instance.pet.retry_at:
+        type(instance.pet).objects.filter(pk=instance.pet_id).update(retry_at=None)
     if instance.location == "inside" or instance.expected_at or instance.expected_reason:
         from .insights import snapshot_expectation
 

@@ -19,6 +19,7 @@ urlpatterns = [
     path("log/<str:kind>/add/", views.EntryAdd.as_view(), name="add"),
     path("log/<str:kind>/<int:pk>/", views.EntryEdit.as_view(), name="edit"),
     path("log/<str:kind>/<int:pk>/delete/", views.EntryDelete.as_view(), name="delete"),
+    path("log/potty/quick/", views.QuickPotty.as_view(), name="quick-potty"),
     path("log/<str:kind>/start/", views.ActivityStart.as_view(), name="start"),
     path("log/<str:kind>/<int:pk>/<str:action>/", views.ActivityStop.as_view(), name="stop"),
 ]
