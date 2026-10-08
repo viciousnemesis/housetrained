@@ -21,6 +21,11 @@ class Household(models.Model):
         _("display units"), max_length=10, choices=[(METRIC, _("Metric")), (IMPERIAL, _("Imperial"))], default=METRIC
     )
     time_zone = models.CharField(_("default time zone"), max_length=100, blank=True)
+    minutes_to_outside = models.PositiveSmallIntegerField(
+        _("time to get outside"), default=10,
+        help_text=_("Minutes from deciding to go to standing outside (leash, shoes, stairs or elevator). "
+                    "Next Walk tells you to head out this much before the pet is expected to need to go."),
+    )
     members = models.ManyToManyField(settings.AUTH_USER_MODEL, through="Membership", related_name="households")
     created = models.DateTimeField(auto_now_add=True)
 

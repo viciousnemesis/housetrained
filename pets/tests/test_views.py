@@ -177,6 +177,12 @@ class AllPetsLoggingTests(PetTestCase):
         potty = PottyBreak.objects.create(pet=self.ruby, time=timezone.now(), pee=True)
         self.assertEqual(self.client.get(f"/log/potty/{potty.pk}/").status_code, 404)
 
+    def test_owner_sets_time_to_get_outside(self):
+        self.client.post("/pets/setup/household/", {"name": "Home", "units": "metric", "time_zone": "",
+                                                    "minutes_to_outside": "20"})
+        self.household.refresh_from_db()
+        self.assertEqual(self.household.minutes_to_outside, 20)
+
     def test_household_needs_an_owner(self):
         self.client.post("/pets/setup/members/", {"user": self.owner.pk, "role": "member"})
         self.assertEqual(Membership.objects.get(user=self.owner).role, Membership.OWNER)

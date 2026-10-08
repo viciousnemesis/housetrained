@@ -3,8 +3,8 @@
 {% block header %}{% trans "Next Walk" %}{% help_bubble _("A guess from this pet's own potty history: usual gaps by time of day, how long after meals and waking up, and its learned bedtime. With little history it uses the age rule of thumb (a puppy can hold it about its age in months plus one hour). Not veterinary advice.") %}{% endblock %}
 {% block title %}
     {% if predictions %}
-        <div class="fs-3">~{{ predictions.0.time|clock }}</div>
-        <small>{{ due }} · {% trans "expect" %} {{ expect }}</small>
+        <div class="fs-3">{% blocktrans with time=head_out|clock %}Head out ~{{ time }}{% endblocktrans %}</div>
+        <small>{{ due }} · {% trans "expect" %} {{ expect }} ~{{ predictions.0.time|clock }}{% if to_outside %} · {% blocktrans %}{{ to_outside }} to get outside{% endblocktrans %}{% endif %}</small>
     {% else %}
         {% trans "Not enough data" %}
     {% endif %}

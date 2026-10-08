@@ -313,7 +313,7 @@ class AccidentLearningTests(TestCase):
         review = insights.accident_review(self.pet)
         self.assertEqual(len(review["accident_rows"]), 2)
         self.assertTrue(all(r["early"] for r in review["accident_rows"]))
-        self.assertIn("before the walk was due", review["accident_rows"][0]["relation"])
+        self.assertIn("earlier than expected", review["accident_rows"][0]["relation"])
         self.assertIn("2 of 2", review["accident_summary"])
 
     def test_predictions_move_earlier_after_early_accidents(self):
@@ -334,3 +334,20 @@ class AccidentLearningTests(TestCase):
         PottyBreak.objects.create(pet=self.pet, time=self.noon - datetime.timedelta(minutes=30), pee=True)
         card = next_walk_card(self.pet, now=self.noon)
         self.assertTrue(all(p["time"] == p["raw_time"] for p in card["predictions"]))
+
+
+    def test_head_out_leaves_time_to_get_outside(self):
+        PottyBreak.objects.create(pet=self.pet, time=self.noon - datetime.timedelta(minutes=30), pee=True)
+        self.home.minutes_to_outside = 15
+        self.home.save()
+        card = next_walk_card(self.pet, now=self.noon)
+        self.assertEqual(card["head_out"], card["predictions"][0]["time"] - datetime.timedelta(minutes=15))
+        self.assertEqual(card["to_outside"], "15m")
+
+    def test_no_time_to_get_outside(self):
+        PottyBreak.objects.create(pet=self.pet, time=self.noon - datetime.timedelta(minutes=30), pee=True)
+        self.home.minutes_to_outside = 0
+        self.home.save()
+        card = next_walk_card(self.pet, now=self.noon)
+        self.assertEqual(card["head_out"], card["predictions"][0]["time"])
+        self.assertIsNone(card["to_outside"])
