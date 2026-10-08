@@ -383,6 +383,26 @@ class QuickPottyTests(PetTestCase):
         self.quick("pee", pets=("tom",), location="outside")  # Tom the cat doesn't go outside
         self.assertEqual(PottyBreak.objects.get().location, "litter_box")
 
+    def test_returns_to_the_page_it_was_used_on(self):
+        self.assertIn('name="next" value="/pets/ruby/"', self.client.get("/pets/ruby/").content.decode())
+        response = self.quick("pee", next="/pets/ruby/")
+        self.assertEqual(response.url, "/pets/ruby/")
+
+    def test_missing_choice_says_so_and_stays_on_the_pet(self):
+        response = self.quick("")
+        self.assertEqual(response.url, "/pets/ruby/")
+        self.assertContains(self.client.get(response.url), "Pick pee, poop, both or nothing.")
+        self.assertFalse(PottyBreak.objects.exists())
+
+    def test_buttons_still_send_their_choice_when_disabled(self):
+        # The double-submit guard disables the tapped button, which drops it from the form; the page script
+        # must carry its name/value in a hidden field.
+        import os
+
+        from django.conf import settings
+        with open(os.path.join(settings.STATIC_ROOT, "babybuddy", "js", "app.js"), encoding="utf-8") as f:
+            self.assertIn('type:"hidden",name:n.name,value:n.value', f.read())
+
     def test_several_pets(self):
         self.quick("pee", pets=("ruby", "rex"))
         self.assertEqual(PottyBreak.objects.count(), 2)

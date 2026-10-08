@@ -317,9 +317,12 @@ class QuickPotty(HouseholdMixin, View):
         slugs = request.POST.getlist("pet")
         pets = list(self.household.pets.filter(active=True, slug__in=slugs)) if slugs else []
         what = request.POST.get("what")
-        if not pets or what not in ("pee", "poop", "both", "nothing", "dismiss"):
+        if not pets:
             messages.error(request, _("Pick a pet first."))
             return HttpResponseRedirect(self.back_url())
+        if what not in ("pee", "poop", "both", "nothing", "dismiss"):
+            messages.error(request, _("Pick pee, poop, both or nothing."))
+            return HttpResponseRedirect(self.back_url(pets))
         now = timezone.now().replace(microsecond=0)
         names = ", ".join(p.name for p in pets)
         if what == "dismiss":

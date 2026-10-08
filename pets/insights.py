@@ -381,7 +381,9 @@ class Night:
         self.nights = _nights(times, rules)
         if len(self.nights) >= 2:
             # Recent nights count more, so a drifting routine pulls the estimate along.
-            weights = [0.5 ** ((now - b).total_seconds() / 86400 / rules.night_half_life_days) for _bed, b in self.nights]
+            # Relative to the latest night (not `now`), so the estimate doesn't wobble as the clock moves.
+            latest = self.nights[-1][1]
+            weights = [0.5 ** ((latest - b).total_seconds() / 86400 / rules.night_half_life_days) for _bed, b in self.nights]
             self.bed = _circular_median([_minute(a) for a, _ in self.nights], weights)
             self.wake = _circular_median([_minute(b) for _bed, b in self.nights], weights)
         else:
@@ -400,7 +402,8 @@ class Night:
     @staticmethod
     def _next(dt, minute_of_day):
         local = timezone.localtime(dt)
-        at = local.replace(hour=int(minute_of_day) // 60, minute=int(minute_of_day) % 60, second=0, microsecond=0)
+        minute_of_day = round(minute_of_day) % DAY
+        at = local.replace(hour=minute_of_day // 60, minute=minute_of_day % 60, second=0, microsecond=0)
         return at if at > local else at + datetime.timedelta(days=1)
 
     def next_wake(self, dt):
@@ -432,10 +435,10 @@ def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True, 
     same = [g for g, name in gaps if name == bucket]
     if learned and len(same) >= 3:
         gap = median(same)
-        candidates.append((last + gap, _("%(part)s %(kinds)s usually %(gap)s apart") % {"part": BUCKETS[bucket], "kinds": KINDS[kind][1], "gap": fmt_duration(gap)}))
+        candidates.append((last + gap, _("%(part)s %(kinds)s usually %(gap)s apart") % {"part": BUCKETS[bucket], "kinds": KINDS[kind][1], "gap": fmt_duration(gap)}, False))
     elif fallback:
         gap, reason = fallback
-        candidates.append((last + gap, reason))
+        candidates.append((last + gap, reason, False))
 
     meals_since = [f for f in feedings if f > last]
     if meals_since:
@@ -445,16 +448,17 @@ def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True, 
             if after:
                 delays.append(after[0] - f)
         delay = median(delays) if len(delays) >= 3 else rules.meal_delay[kind]
-        meal = meals_since[-1]
-        candidates.append((meal + delay, _("meal at %(time)s, %(kinds)s ~%(delay)s after meals") % {"time": fmt_time(meal), "kinds": KINDS[kind][1], "delay": fmt_duration(delay)}))
+        # Every meal or drink since is a trigger; a later one never postpones an earlier one (min below).
+        for meal in meals_since:
+            candidates.append((meal + delay, _("meal at %(time)s, %(kinds)s ~%(delay)s after meals") % {"time": fmt_time(meal), "kinds": KINDS[kind][1], "delay": fmt_duration(delay)}, True))
 
-    woke = [s for s in wakes if last < s <= now]
-    if woke:
-        candidates.append((woke[-1], _("woke up at %(time)s") % {"time": fmt_time(woke[-1])}))
+    for woke in (s for s in wakes if last < s <= now):
+        candidates.append((woke, _("woke up at %(time)s") % {"time": fmt_time(woke)}, True))
 
-    # A trigger that passed long ago without a potty break gives way to the next estimate.
-    fresh = [c for c in candidates if c[0] >= now - rules.stale_after] or candidates
-    return min(fresh, key=lambda c: c[0]) if fresh else None
+    # A trigger (meal, wake-up) that passed long ago without a potty break gives way to the next estimate.
+    # The pet's usual gap never does: once that's passed, the pet stays overdue until a potty break is logged.
+    fresh = [c for c in candidates if not c[2] or c[0] >= now - rules.stale_after] or candidates
+    return min(fresh, key=lambda c: c[0])[:2] if fresh else None
 
 
 def accident_shift(pet, now, rules):
@@ -487,7 +491,10 @@ def next_walk_card(pet, now=None, rules=None, learn=True):
     history = (now - breaks[0].time).days if breaks else 0
     months = (timezone.localdate(now) - pet.birth_date).days / 30.44 if pet.birth_date else 12
     age_gap = datetime.timedelta(hours=min(rules.max_hold_hours, months + 1))
-    gap3 = avg_gap(potty(pet, now - datetime.timedelta(days=3), until=now))
+    # Whole days, so the average doesn't drift (and move the estimate) as old breaks age out during the day.
+    since3 = timezone.make_aware(datetime.datetime.combine(timezone.localdate(now) - datetime.timedelta(days=3),
+                                                           datetime.time()))
+    gap3 = avg_gap(potty(pet, since3, until=now))
     if history < rules.age_rule_until_days or not gap3:
         if months < 4:
             reason = _("a %(n).0f-week-old can usually hold it ~%(gap)s") % {"n": months * 30.44 / 7, "gap": fmt_duration(age_gap)}
