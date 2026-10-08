@@ -11,6 +11,13 @@ from .models import PushKey, PushSubscription
 log = logging.getLogger(__name__)
 
 
+def allowed():
+    """Push needs both the site admin (Site Settings) and the REMINDERS setting to allow it."""
+    from .models import Pet
+
+    return bool(settings.HOUSETRAINED_REMINDERS and Pet.site_settings.push_notifications)
+
+
 def _keys():
     key = PushKey.objects.order_by("pk").first()
     if key:
@@ -37,6 +44,8 @@ def send(user, title, body, url="/", tag=None):
     from py_vapid import Vapid
     from pywebpush import WebPushException, webpush
 
+    if not allowed():
+        return 0
     keys = _keys()
     vapid = Vapid.from_pem(keys.private_key.encode())
     payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag or url})

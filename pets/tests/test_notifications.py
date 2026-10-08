@@ -19,6 +19,9 @@ SUB = {"endpoint": "https://push.example.com/abc", "keys": {"p256dh": "BKey", "a
 @override_settings(BABY_MODE=False, TIME_ZONE="UTC")
 class NotificationTests(TestCase):
     def setUp(self):
+        from dbsettings.loading import set_setting_value
+
+        set_setting_value("pets.models", "Pet", "push_notifications", True)  # the site admin allowed them
         self.user = get_user_model().objects.create_user("owner", password="x")
         self.home = Household.objects.create(name="Home", time_zone="UTC")
         Membership.objects.create(household=self.home, user=self.user, role=Membership.OWNER)
@@ -131,3 +134,44 @@ class NotificationTests(TestCase):
         ReminderLog.objects.filter(pk=old.pk).update(created=timezone.now() - datetime.timedelta(days=40))
         reminders.check()
         self.assertFalse(ReminderLog.objects.filter(key="old").exists())
+
+
+@override_settings(BABY_MODE=False, TIME_ZONE="UTC")
+class NotificationsOffTests(TestCase):
+    """Out of the box nothing leaves the server: push is off until a site admin allows it."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("owner", password="x")
+        self.client.force_login(self.user)
+
+    def test_off_by_default(self):
+        page = self.client.get("/pets/notifications/")
+        self.assertContains(page, "turned off for this site")
+        self.assertNotContains(page, "Turn on notifications here")
+        self.assertFalse(PushKey.objects.exists())
+
+    def test_cannot_subscribe_or_send(self):
+        response = self.client.post("/pets/notifications/?action=subscribe", json.dumps(SUB),
+                                    content_type="application/json")
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(PushSubscription.objects.exists())
+
+    @mock.patch("pywebpush.webpush")
+    def test_existing_devices_get_nothing_once_switched_off(self, webpush):
+        PushSubscription.objects.create(user=self.user, endpoint=SUB["endpoint"], p256dh="k", auth="a")
+        self.client.post("/pets/notifications/", {"action": "test"})
+        reminders.check()
+        self.assertEqual(webpush.call_count, 0)
+
+    @override_settings(HOUSETRAINED_REMINDERS=False)
+    def test_reminders_setting_overrides_the_site_switch(self):
+        from dbsettings.loading import set_setting_value
+        from pets import push
+
+        set_setting_value("pets.models", "Pet", "push_notifications", True)
+        self.assertFalse(push.allowed())
+
+    def test_admin_sees_how_to_turn_them_on(self):
+        self.user.is_superuser = True
+        self.user.save()
+        self.assertContains(self.client.get("/pets/notifications/"), "Site Settings")

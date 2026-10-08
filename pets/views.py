@@ -223,6 +223,8 @@ class Notifications(HouseholdMixin, View):
         from .models import NotificationPreference
 
         prefs, _created = NotificationPreference.objects.get_or_create(user=request.user)
+        if not push.allowed():
+            return render(request, "pets/notifications.html", {"disabled": True, "prefs": prefs})
         return render(request, "pets/notifications.html", {
             "prefs": prefs, "public_key": push.public_key(),
             "devices": request.user.push_subscriptions.order_by("-created"),
@@ -237,6 +239,11 @@ class Notifications(HouseholdMixin, View):
         from .models import NotificationPreference, PushSubscription
 
         action = request.POST.get("action") or request.GET.get("action")
+        if not push.allowed() and action in ("subscribe", "test"):
+            if action == "subscribe":
+                return JsonResponse({"ok": False, "reason": "disabled"}, status=403)
+            messages.warning(request, _("Notifications are turned off for this site."))
+            return HttpResponseRedirect(reverse("pets:notifications"))
         if action == "subscribe":
             data = json.loads(request.body or "{}")
             keys = data.get("keys") or {}

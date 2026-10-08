@@ -37,6 +37,7 @@ BABY_HOUSEHOLDS = True
 # Reminders (browser push): checked by the web server every few minutes. PUSH_CONTACT goes in each push
 # message so push services can reach the operator (a mailto: or https: address).
 HOUSETRAINED_REMINDERS = bool(strtobool(os.environ.get("REMINDERS") or "True"))
+HOUSETRAINED_REMINDER_THREAD = HOUSETRAINED_REMINDERS  # the background checker (off in tests)
 HOUSETRAINED_PUSH_CONTACT = os.environ.get("PUSH_CONTACT") or "mailto:noreply@example.com"
 # Where people can find Housetrained's source (shown in the user menu when set).
 HOUSETRAINED_SOURCE_URL = os.environ.get("HOUSETRAINED_SOURCE_URL", "")
