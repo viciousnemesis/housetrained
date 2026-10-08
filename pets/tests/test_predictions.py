@@ -241,7 +241,8 @@ class PredictionSettingsPageTests(TestCase):
     def test_blank_settings_fall_back_to_defaults(self):
         fields = self.page_fields()
         self.assertEqual(fields["pets.models__PottyBreak__max_hold_hours"], "8")
-        mine = {k: "" for k in fields if k.startswith("pets.models__PottyBreak__")}
+        mine = {k: "" for k in fields if k.startswith("pets.models__PottyBreak__") and "learn_from" not in k}
+        mine["pets.models__PottyBreak__learn_from_accidents"] = "on"  # a checkbox: unticked means off
         response = self.client.post("/settings/", {**fields, **mine}, follow=True)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Rules.load(), Rules())
@@ -254,3 +255,82 @@ class PredictionSettingsPageTests(TestCase):
         rules = Rules.load()
         self.assertEqual(rules.merge_slack, datetime.timedelta(minutes=45))
         self.assertEqual(rules.default_bed, 22 * 60 + 15)
+
+
+@override_settings(TIME_ZONE="America/Los_Angeles", BABY_MODE=False)
+class AccidentLearningTests(TestCase):
+    """Accidents remember what Next Walk expected, the card compares them, and predictions learn (PUP-72)."""
+
+    def setUp(self):
+        timezone.activate(LA)
+        self.user = get_user_model().objects.create_user("owner", password="x")
+        self.home = Household.objects.create(name="Home")
+        Membership.objects.create(household=self.home, user=self.user, role=Membership.OWNER)
+        self.pet = Pet.objects.create(household=self.home, name="Ruby", type=Pet.DOG,
+                                      birth_date=timezone.localdate() - datetime.timedelta(weeks=12))
+        today = timezone.localdate()
+        self.noon = timezone.make_aware(datetime.datetime.combine(today, datetime.time(12)), LA)
+
+    def tearDown(self):
+        timezone.deactivate()
+
+    def test_accident_remembers_the_prediction_from_before_it(self):
+        PottyBreak.objects.create(pet=self.pet, time=self.noon - datetime.timedelta(hours=3), pee=True)
+        accident = PottyBreak.objects.create(pet=self.pet, time=self.noon - datetime.timedelta(hours=2), pee=True,
+                                             location=PottyBreak.INSIDE)
+        accident.refresh_from_db()
+        # Age rule: a 12-week-old holds it ~(2.76 months + 1) hours, so the walk was due ~12:45, after the accident.
+        hold = datetime.timedelta(hours=(timezone.localdate() - self.pet.birth_date).days / 30.44 + 1)
+        self.assertLess(abs(accident.expected_raw_at - (self.noon - datetime.timedelta(hours=3) + hold)),
+                        datetime.timedelta(seconds=1))
+        self.assertEqual(accident.expected_at, accident.expected_raw_at)  # no accident history to learn from yet
+        self.assertIn("week-old", accident.expected_reason)
+
+    def test_outside_breaks_have_no_snapshot(self):
+        b = PottyBreak.objects.create(pet=self.pet, time=self.noon, pee=True)
+        b.refresh_from_db()
+        self.assertIsNone(b.expected_at)
+
+    def test_moving_an_accident_outside_clears_it(self):
+        PottyBreak.objects.create(pet=self.pet, time=self.noon - datetime.timedelta(hours=3), pee=True)
+        accident = PottyBreak.objects.create(pet=self.pet, time=self.noon - datetime.timedelta(hours=2), pee=True,
+                                             location=PottyBreak.INSIDE)
+        accident.location = PottyBreak.OUTSIDE
+        accident.save()
+        accident.refresh_from_db()
+        self.assertIsNone(accident.expected_at)
+
+    def early_accidents(self, count):
+        """Each day: a 9 am break, then an accident an hour before the 12 pm prediction."""
+        for back in range(count, 0, -1):
+            day = self.noon - datetime.timedelta(days=back)
+            PottyBreak.objects.create(pet=self.pet, time=day - datetime.timedelta(hours=3), pee=True)
+            PottyBreak.objects.create(pet=self.pet, time=day - datetime.timedelta(hours=1), pee=True,
+                                      location=PottyBreak.INSIDE)
+
+    def test_card_compares_accidents_with_the_prediction(self):
+        self.early_accidents(2)
+        review = insights.accident_review(self.pet)
+        self.assertEqual(len(review["accident_rows"]), 2)
+        self.assertTrue(all(r["early"] for r in review["accident_rows"]))
+        self.assertIn("before the walk was due", review["accident_rows"][0]["relation"])
+        self.assertIn("2 of 2", review["accident_summary"])
+
+    def test_predictions_move_earlier_after_early_accidents(self):
+        self.early_accidents(3)
+        PottyBreak.objects.create(pet=self.pet, time=self.noon - datetime.timedelta(minutes=30), pee=True)
+        pee = [p for p in next_walk_card(self.pet, now=self.noon)["predictions"] if p["key"] == "pee"][0]
+        self.assertLess(pee["time"], pee["raw_time"])
+        self.assertIn("recent accidents came before the prediction", pee["reason"])
+
+    def test_learning_can_be_switched_off(self):
+        self.early_accidents(3)
+        PottyBreak.objects.create(pet=self.pet, time=self.noon - datetime.timedelta(minutes=30), pee=True)
+        card = next_walk_card(self.pet, now=self.noon, rules=Rules(learn_from_accidents=False))
+        self.assertTrue(all(p["time"] == p["raw_time"] for p in card["predictions"]))
+
+    def test_one_early_accident_is_not_enough(self):
+        self.early_accidents(1)
+        PottyBreak.objects.create(pet=self.pet, time=self.noon - datetime.timedelta(minutes=30), pee=True)
+        card = next_walk_card(self.pet, now=self.noon)
+        self.assertTrue(all(p["time"] == p["raw_time"] for p in card["predictions"]))

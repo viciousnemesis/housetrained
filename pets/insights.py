@@ -55,6 +55,8 @@ class Rules:
     max_hold_hours: int = 8
     default_walk: datetime.timedelta = datetime.timedelta(minutes=15)
     merge_slack: datetime.timedelta = datetime.timedelta(minutes=30)  # needs this close to a walk go on it
+    learn_from_accidents: bool = True  # move predictions earlier when accidents keep coming before them
+    accident_max_shift: datetime.timedelta = datetime.timedelta(minutes=90)
     meal_delay: dict = field(default_factory=lambda: {
         "pee": datetime.timedelta(minutes=20), "poop": datetime.timedelta(minutes=30)})
 
@@ -71,6 +73,7 @@ class Rules:
             min_history_days=s.min_history_days, age_rule_until_days=s.age_rule_until_days,
             max_hold_hours=s.max_hold_hours, default_walk=minutes(s.default_walk), merge_slack=minutes(s.merge_slack),
             meal_delay={"pee": minutes(s.meal_delay_pee), "poop": minutes(s.meal_delay_poop)},
+            learn_from_accidents=bool(s.learn_from_accidents), accident_max_shift=minutes(s.accident_max_shift),
         )
 
 # Day x hour chart geometry (SVG units).
@@ -141,8 +144,11 @@ def window_start(days=WINDOW_DAYS):
     return timezone.make_aware(datetime.datetime.combine(today - datetime.timedelta(days=days - 1), datetime.time()))
 
 
-def potty(pet, since):
-    return list(PottyBreak.objects.filter(pet=pet, time__gte=since).order_by("time"))
+def potty(pet, since, until=None):
+    breaks = PottyBreak.objects.filter(pet=pet, time__gte=since)
+    if until is not None:
+        breaks = breaks.filter(time__lt=until)
+    return list(breaks.order_by("time"))
 
 
 def is_accident(b):
@@ -153,10 +159,12 @@ def food_fills(pet, since):
     return Fill.objects.filter(container__pets=pet, contents=Fill.FOOD, time__gte=since)
 
 
-def feeding_times(pet, since, water=False):
+def feeding_times(pet, since, water=False, until=None):
     """When the pet ate (or, with water=True, ate or drank): its meals only. Filling a bowl says nothing about when,
     or whether, it was eaten."""
     meals = Meal.objects.filter(pet=pet, time__gte=since)
+    if until is not None:
+        meals = meals.filter(time__lt=until)
     meals = meals.filter(Q(food=True) | Q(water=True)) if water else meals.filter(food=True)
     return sorted(meals.values_list("time", flat=True))
 
@@ -336,7 +344,7 @@ def accidents_chart(pet):
     hist = [{"x": round(LABEL_W + h * slot + 0.75, 2), "y": 26 - n / peak * 26, "h": n / peak * 26,
              "n": n, "label": f"{h:02d}", "even": h % 2 == 0} for h, n in enumerate(hours)]
     return {"chart": c, "dots": dots, "meals": meals, "sleeps": sleeps, "hist": hist,
-            "hist_w": round(slot - 1.5, 2), "row_h": ROW_H}
+            "hist_w": round(slot - 1.5, 2), "row_h": ROW_H, **accident_review(pet)}
 
 
 # --- Next walk prediction -----------------------------------------------------------------
@@ -457,19 +465,35 @@ def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True, 
     return min(fresh, key=lambda c: c[0]) if fresh else None
 
 
-def next_walk_card(pet, now=None, rules=None):
+def accident_shift(pet, now, rules):
+    """How much earlier to predict, learned from recent accidents that came before the (unadjusted) prediction:
+    their median lead, if at least two did, capped. Returns (shift, how many accidents)."""
+    if not rules.learn_from_accidents:
+        return datetime.timedelta(), 0
+    accidents = PottyBreak.objects.filter(
+        pet=pet, location=PottyBreak.INSIDE, time__gte=now - datetime.timedelta(days=WINDOW_DAYS), time__lt=now,
+    ).exclude(expected_raw_at=None)
+    leads = [a.expected_raw_at - a.time for a in accidents if a.expected_raw_at > a.time]
+    if len(leads) < 2:
+        return datetime.timedelta(), len(leads)
+    return min(median(leads), rules.accident_max_shift), len(leads)
+
+
+def next_walk_card(pet, now=None, rules=None, learn=True):
+    """The Next Walk prediction as of `now` (default: this moment), from data logged before `now` only."""
     now = now or timezone.now()
     rules = rules or Rules.load()
-    since = window_start()
-    breaks = potty(pet, since)
+    since = timezone.make_aware(datetime.datetime.combine(
+        timezone.localdate(now) - datetime.timedelta(days=WINDOW_DAYS - 1), datetime.time()))
+    breaks = potty(pet, since, until=now)
     # What goes in comes out: food drives poops, food and water drive pees.
-    feedings = {"pee": feeding_times(pet, since, water=True), "poop": feeding_times(pet, since)}
-    wakes = sorted(pet.sleeps.filter(end__gte=since).values_list("end", flat=True))
+    feedings = {"pee": feeding_times(pet, since, water=True, until=now), "poop": feeding_times(pet, since, until=now)}
+    wakes = sorted(pet.sleeps.filter(end__gte=since, end__lt=now).values_list("end", flat=True))
     # With little history, lean on the age rule of thumb: a puppy can hold it ~(age in months + 1) hours.
     history = (now - breaks[0].time).days if breaks else 0
-    months = (timezone.localdate() - pet.birth_date).days / 30.44 if pet.birth_date else 12
+    months = (timezone.localdate(now) - pet.birth_date).days / 30.44 if pet.birth_date else 12
     age_gap = datetime.timedelta(hours=min(rules.max_hold_hours, months + 1))
-    gap3 = avg_gap(potty(pet, now - datetime.timedelta(days=3)))
+    gap3 = avg_gap(potty(pet, now - datetime.timedelta(days=3), until=now))
     if history < rules.age_rule_until_days or not gap3:
         if months < 4:
             reason = _("a %(n).0f-week-old can usually hold it ~%(gap)s") % {"n": months * 30.44 / 7, "gap": fmt_duration(age_gap)}
@@ -506,11 +530,23 @@ def next_walk_card(pet, now=None, rules=None):
                     result = (night.next_wake(result[0]), result[1] + _(", so after waking up"))
         if result:
             when, reason = result
-            predictions.append({"kind": str(KINDS[kind][0]), "time": when, "reason": reason, "last": events[-1]})
+            predictions.append({"kind": str(KINDS[kind][0]), "key": kind, "time": when, "raw_time": when,
+                                "reason": reason, "last": events[-1]})
+
+    # Accidents that keep coming before the prediction pull it earlier (not into the night, not before the last
+    # potty break).
+    shift, _count = accident_shift(pet, now, rules) if learn else (datetime.timedelta(), 0)
+    if shift >= datetime.timedelta(minutes=5):
+        for p in predictions:
+            moved = max(p["time"] - shift, p["last"] + datetime.timedelta(minutes=10))
+            if moved < p["time"] and not night.contains(moved):
+                p["time"] = moved
+                p["reason"] += _("; ~%(shift)s earlier: recent accidents came before the prediction") % {
+                    "shift": fmt_duration(p["raw_time"] - moved)}
     predictions.sort(key=lambda p: p["time"])
 
     # Pees and poops happen on walks: anything due before the next walk would end belongs to it.
-    walks = list(Walk.objects.filter(pets=pet, start__gte=since).exclude(end=None).order_by("start"))
+    walks = list(Walk.objects.filter(pets=pet, start__gte=since, start__lt=now).exclude(end=None).order_by("start"))
     lengths = [w.end - w.start for w in walks if w.end > w.start]
     walk_len = median(lengths) if lengths else rules.default_walk
     gaps = [b.start - a.start for a, b in zip(walks, walks[1:])
@@ -533,3 +569,56 @@ def next_walk_card(pet, now=None, rules=None):
             due = _("%(time)s overdue") % {"time": fmt_duration(-delta)}
     return {"predictions": predictions, "due": due, "expect": expect,
             "walk_len": fmt_duration(walk_len), "walk_gap": fmt_duration(walk_gap) if walk_gap else None}
+
+
+# --- Accidents vs the prediction -------------------------------------------------------------
+def snapshot_expectation(accident, rules=None):
+    """Store what Next Walk expected just before this accident: shown and unadjusted, for its kind (poop if any)."""
+    if accident.location != PottyBreak.INSIDE:
+        values = {"expected_at": None, "expected_raw_at": None, "expected_reason": ""}
+    else:
+        rules = rules or Rules.load()
+        card = next_walk_card(accident.pet, now=accident.time, rules=rules)
+        kind = "poop" if accident.poop else "pee"
+        match = next((p for p in card["predictions"] if p["key"] == kind), None) or (
+            card["predictions"][0] if card["predictions"] else None)
+        values = {
+            "expected_at": match["time"] if match else None,
+            "expected_raw_at": match["raw_time"] if match else None,
+            "expected_reason": (match["reason"] if match else "")[:255],
+        }
+    PottyBreak.objects.filter(pk=accident.pk).update(**values)
+    for key, value in values.items():
+        setattr(accident, key, value)
+    return accident
+
+
+def accident_review(pet):
+    """Recent accidents next to what the app expected, and the typical lead. Fills in missing snapshots."""
+    since = window_start()
+    accidents = list(PottyBreak.objects.filter(pet=pet, location=PottyBreak.INSIDE, time__gte=since).order_by("-time"))
+    rules = Rules.load()
+    rows, leads = [], []
+    for a in accidents:
+        if a.expected_at is None and not a.expected_reason:
+            snapshot_expectation(a, rules)
+        if a.expected_at is None:
+            continue
+        lead = a.expected_at - a.time
+        if lead > datetime.timedelta():
+            leads.append(lead)
+            relation = _("%(time)s before the walk was due") % {"time": fmt_duration(lead)}
+        else:
+            relation = _("%(time)s after the walk was due") % {"time": fmt_duration(-lead)}
+        kind = _("Pee + poop") if a.pee and a.poop else (_("Poop") if a.poop else _("Pee"))
+        rows.append({"time": a.time, "kind": kind, "relation": relation, "early": lead > datetime.timedelta(),
+                     "expected": a.expected_at, "pk": a.pk})
+    summary = None
+    if leads:
+        summary = ngettext(
+            "%(n)d of %(total)d accidents came before the walk was due, typically %(lead)s early.",
+            "%(n)d of %(total)d accidents came before the walk was due, typically %(lead)s early.", len(rows),
+        ) % {"n": len(leads), "total": len(rows), "lead": fmt_duration(median(leads))}
+    shift, _count = accident_shift(pet, timezone.now(), rules)
+    adjusted = fmt_duration(shift) if shift >= datetime.timedelta(minutes=5) else None
+    return {"accident_rows": rows[:6], "accident_summary": summary, "accident_adjusted": adjusted}
