@@ -32,6 +32,8 @@ DEBUG = bool(strtobool(os.environ.get("DEBUG") or "False"))
 
 # Housetrained: Baby Buddy's baby-tracking menus and home page only show in baby mode (PUP-49).
 BABY_MODE = bool(strtobool(os.environ.get("BABY_MODE") or "False"))
+# Where people can find Housetrained's source (shown in the user menu when set).
+HOUSETRAINED_SOURCE_URL = os.environ.get("HOUSETRAINED_SOURCE_URL", "")
 
 # Applications
 # https://docs.djangoproject.com/en/5.0/ref/applications/
