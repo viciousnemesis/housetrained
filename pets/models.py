@@ -294,6 +294,10 @@ class PottyBreak(Logged):
         choices=LOCATIONS,
     )
     walk = models.ForeignKey(Walk, on_delete=models.SET_NULL, null=True, blank=True, related_name="potty_breaks")
+    found_later = models.BooleanField(
+        _("found it later"), default=False,
+        help_text=_("Didn't see it happen, so the time is only when it was found. Predictions don't learn from it."),
+    )
     # For accidents (inside): the Next Walk prediction just before it happened. `expected_at` is what the app
     # showed; `expected_raw_at` is the prediction before any accident adjustment, which is what it learns from.
     expected_at = models.DateTimeField(null=True, blank=True, editable=False)
