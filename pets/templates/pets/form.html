@@ -115,12 +115,19 @@
                 info = JSON.parse(info.textContent);
                 var eaten = document.getElementById("id_eaten_now");
                 var amount = document.getElementById("id_amount"), unit = document.getElementById("id_unit");
-                var auto = amount && !amount.value;
+                var auto = amount && !amount.value, autoBag = false;
+                var bagSelect = document.getElementById("id_supply_item");
+                if (bagSelect) bagSelect.addEventListener("change", function () { autoBag = false; });
                 if (amount) amount.addEventListener("input", function () { auto = false; });
                 var pick = function () {
                     var picked = document.querySelector("input[name=container]:checked");
                     var c = picked && info[picked.value];
                     if (!c) return;
+                    var bag = document.getElementById("id_supply_item");
+                    if (bag && c.add && (autoBag || !bag.value)) {
+                        bag.value = c.bag ? String(c.bag) : "";  // the bowl's usual bag
+                        autoBag = true;
+                    }
                     if (c.add && c.last && auto) {
                         amount.value = c.last.amount;
                         unit.value = c.last.unit;

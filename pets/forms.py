@@ -376,7 +376,8 @@ class FillForm(PetsForm):
         self.container_info = {}
         for container in self.fields["container"].queryset:
             litter = container.kind in (Container.LITTER_BOX, Container.AUTO_LITTER_BOX)
-            info = self.container_info[container.pk] = {"litter": litter, "add": not fill.pk}
+            info = self.container_info[container.pk] = {"litter": litter, "add": not fill.pk,
+                                                         "bag": container.default_supply_id}
             last = container.fills.order_by("-time").first()
             if last and (last.bowls is not None or last.amount is not None):
                 if last.bowls is not None:
