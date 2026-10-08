@@ -6,8 +6,9 @@ Track your pets' potty breaks, walks, meals, water, sleep and supplies, and get 
 is due. Built for puppy house-training first, and works for cats and other pets too. Self-hosted, private,
 works on phones.
 
-Housetrained is a fork of [Baby Buddy](https://github.com/babybuddy/babybuddy); Baby Buddy's baby tracking is
-still there behind a switch ("baby mode").
+Housetrained is a fork of [Baby Buddy](https://github.com/babybuddy/babybuddy). New puppy *and* a new baby?
+Turn on baby mode and track both in one place: babies sit next to the pets on the home page, with all of
+Baby Buddy's baby tracking (feedings, diapers, sleep, pumping, growth) under the Baby menu.
 
 ![Pet dashboard](docs/screenshots/pet-dashboard.jpg)
 
@@ -73,13 +74,14 @@ docker compose exec -w /app/www/public housetrained /lsiopy/bin/python3 manage.p
 | `CSRF_TRUSTED_ORIGINS` | Every address you open it at, e.g. `https://pets.example.com` |
 | `SECURE_PROXY_SSL_HEADER` | `True` behind a reverse proxy that handles HTTPS |
 | `ADMIN_PASSWORD` | Password for the first admin (otherwise random, shown once in the log) |
-| `BABY_MODE` | `True` to also show Baby Buddy's baby tracking (also a switch in Site Settings) |
+| `BABY_MODE` | `True` to track babies alongside pets (also a switch in Site Settings) |
 | `HOUSETRAINED_SOURCE_URL` | Link shown as "Source Code" in the user menu |
 
 Baby Buddy's other settings (database, email, sign-in options) still work; see
 [Baby Buddy's configuration docs](docs/configuration). Security notes: [docs/housetrained/security.md](docs/housetrained/security.md).
 
-People: the admin creates accounts (user menu > Users) and adds them to the household (Setup > Members).
+People: the admin creates accounts (user menu > Users; tick "Site admin" only for people who should manage the
+site) and adds them to the household (Setup > Members), where their role is set. Roles cover pets and babies.
 
 ## Backups and updates
 

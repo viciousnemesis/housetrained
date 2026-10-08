@@ -218,3 +218,24 @@ class BabyApiGateTests(TestCase):
     @override_settings(BABY_MODE=True)
     def test_baby_api_works_in_baby_mode(self):
         self.assertEqual(self.api.get("/api/children/").status_code, 200)
+
+
+@override_settings(BABY_HOUSEHOLDS=True)
+class UserFormTests(TestCase):
+    def setUp(self):
+        self.admin = get_user_model().objects.create_superuser("siteadmin", password="x")
+        self.client.force_login(self.admin)
+
+    def test_new_users_are_not_admins_by_default(self):
+        self.client.post("/users/add/", {"username": "helper", "first_name": "Hel", "password1": "Sup3r-secret-pw",
+                                         "password2": "Sup3r-secret-pw", "is_active": "on"})
+        helper = get_user_model().objects.get(username="helper")
+        self.assertFalse(helper.is_superuser)
+
+    def test_site_admin_is_explicit(self):
+        page = self.client.get("/users/add/")
+        self.assertContains(page, "Site admin")
+        self.assertNotContains(page, "Caregiver")
+        self.client.post("/users/add/", {"username": "boss", "password1": "Sup3r-secret-pw",
+                                         "password2": "Sup3r-secret-pw", "is_staff": "on", "is_active": "on"})
+        self.assertTrue(get_user_model().objects.get(username="boss").is_superuser)

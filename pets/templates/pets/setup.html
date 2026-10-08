@@ -29,6 +29,22 @@
                     {% endfor %}
                 </div>
             </div>
+            {% if babies is not None %}
+                <div class="card card-dashboard">
+                    <div class="card-header d-flex justify-content-between">
+                        {% trans "Babies" %} {% if perms.core.add_child %}<a class="btn btn-sm btn-success" href="{% url 'core:child-add' %}">+ {% trans "Add" %}</a>{% endif %}
+                    </div>
+                    <div class="list-group list-group-flush">
+                        {% for b in babies %}
+                            <a class="list-group-item list-group-item-action" href="{% url 'core:child-update' b.slug %}">
+                                {{ b.first_name }} {{ b.last_name }}{% if b.birth_date %} · {{ b.birth_date|date }}{% endif %}
+                            </a>
+                        {% empty %}
+                            <div class="list-group-item">{% trans "No babies yet." %}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
             <div class="card card-dashboard">
                 <div class="card-header d-flex justify-content-between">
                     {% trans "Bowls, feeders and litter boxes" %} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'container' %}">+ {% trans "Add" %}</a>{% endif %}
