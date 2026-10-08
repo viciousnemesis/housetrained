@@ -234,7 +234,7 @@ class PottyBreakForm(PerPetForm):
 
     def clean(self):
         data = super().clean()
-        if not data.get("pee") and not data.get("poop"):
+        if not data.get("pee") and not data.get("poop") and not (self.instance.pk and self.instance.nothing):
             raise forms.ValidationError(_("Pick pee, poop or both."))
         # Details for what didn't happen aren't kept (a poop colour on a pee-only break).
         for kind, names in self.health_kinds.items():

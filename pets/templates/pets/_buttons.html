@@ -35,7 +35,6 @@
                         <button class="dropdown-item" type="submit">{% trans "Start sleep" %}</button>
                     </form>
                 {% endif %}
-                <a class="dropdown-item" href="{% url 'pets:add' 'potty' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Potty break (details)" %}</a>
                 {% if help_bubbles %}
                     <div class="dropdown-divider"></div>
                     <div class="px-3 small text-body-secondary" style="max-width: 18rem">
@@ -69,11 +68,13 @@
             {% else %}
                 <input type="hidden" name="location" value="{{ a.usual }}">
             {% endif %}
+            <input class="form-control form-control-sm" type="text" name="notes" maxlength="500"
+                   placeholder="{% trans 'Notes (optional)' %}" aria-label="{% trans 'Notes' %}">
             <div class="d-grid gap-2" style="grid-template-columns: repeat(4, minmax(0, 1fr))">
                 <button class="btn btn-primary py-2 px-1" type="submit" name="what" value="pee">{% trans "Pee" %}</button>
                 <button class="btn btn-primary py-2 px-1" type="submit" name="what" value="poop">{% trans "Poop" %}</button>
                 <button class="btn btn-primary py-2 px-1" type="submit" name="what" value="both">{% trans "Both" %}</button>
-                <button class="btn btn-outline-light py-2 px-1 text-truncate" type="submit" name="what" value="nothing">{% trans "Nothing" %}</button>
+                <button class="btn btn-primary py-2 px-1 text-truncate" type="submit" name="what" value="nothing">{% trans "Nothing" %}</button>
             </div>
         </form>
     </div>

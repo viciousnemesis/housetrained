@@ -342,18 +342,19 @@ class QuickPotty(HouseholdMixin, View):
         if what == "dismiss":
             Pet.objects.filter(pk__in=[p.pk for p in pets]).update(retry_at=None)
             return HttpResponseRedirect(self.back_url(pets))
-        if what == "nothing":
-            Pet.objects.filter(pk__in=[p.pk for p in pets]).update(retry_at=now + RETRY_AFTER)
-            messages.info(request, _("Nothing this time. Try %(names)s again in 15 minutes.") % {"names": names})
-            return HttpResponseRedirect(self.back_url(pets))
         location = request.POST.get("location")
+        notes = request.POST.get("notes", "").strip()
         entry = None
         for pet in pets:
             spot = location if location in pet.allowed_potty_locations() else pet.allowed_potty_locations()[0]
             entry = PottyBreak(pet=pet, time=now, pee=what in ("pee", "both"), poop=what in ("poop", "both"),
-                               location=spot, logged_by=request.user)
+                               location=spot, logged_by=request.user, notes=notes)
             link_walk(entry)
             entry.save()
+        if what == "nothing":
+            Pet.objects.filter(pk__in=[p.pk for p in pets]).update(retry_at=now + RETRY_AFTER)
+            messages.info(request, _("Logged nothing. Try %(names)s again in 15 minutes.") % {"names": names})
+            return HttpResponseRedirect(self.back_url(pets))
         Pet.objects.filter(pk__in=[p.pk for p in pets]).update(retry_at=None)
         labels = {"pee": _("pee"), "poop": _("poop"), "both": _("pee + poop")}
         messages.success(request, _("Logged %(what)s for %(names)s.") % {"what": labels[what], "names": names})
@@ -430,14 +431,19 @@ class EntryView(HouseholdMixin, View):
         self.entry = ENTRIES[self.kind]
 
     def get_instance(self):
+        model = self.entry.model
         return get_object_or_404(
-            self.entry.model, pk=self.kwargs["pk"], **{self.entry.household_path: self.household}
+            getattr(model, "everything", model._default_manager), pk=self.kwargs["pk"],
+            **{self.entry.household_path: self.household}
         )
 
     def render_form(self, form, instance=None):
         return render(self.request, "pets/form.html", {
             "form": form, "kind": self.kind, "title": self.entry.title, "object": instance,
             "ended": bool(self.request.GET.get("ended")), "next": self.request.GET.get("next", ""),
+            "cancel_url": self.back_url(
+                self.household.pets.filter(slug=self.request.GET.get("pet")) if not instance else
+                [p for p in entry_pets(instance)]),
             "uncalibrated_warning": self.kind == "fill",
         })
 
