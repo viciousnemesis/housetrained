@@ -94,6 +94,19 @@ server's generated keys and settings. Stop
 the container and copy that folder to back up; copy it back to restore. To update, pull the new version and
 run `docker compose up -d --build` again; database changes apply on start.
 
+## Private by design
+
+Housetrained runs entirely on your server. Pages load nothing from the internet (every script, style, font and
+icon is bundled), and the app sends nothing anywhere: no analytics, no update checks, no accounts elsewhere.
+A test (`pets/tests/test_privacy.py`) fails if a page ever loads something from outside.
+
+The one exception is optional: **notifications**. Browsers deliver push notifications through their maker's
+push service (Apple, Google or Mozilla), so turning them on for a device means your server hands encrypted
+messages to that service. They can't read the content, but they do see that a message was sent to that device,
+and when. Nothing is sent unless someone turns notifications on (user menu > Notifications), and
+`REMINDERS=False` switches them off for the whole server. Email (password resets) is only sent if you set up a
+mail server.
+
 ## Not veterinary advice
 
 Predictions and charts are estimates from your own logs. Sudden changes in potty habits, eating or drinking are

@@ -49,7 +49,7 @@ class PetsForm(forms.ModelForm):
             {
                 "layout": "default" if fs.get("layout") == "advanced" else fs.get("layout", "default"),
                 "layout_attrs": fs.get("layout_attrs", {}),
-                "fields": [bound[name] for name in fs["fields"] if name in bound],
+                "fields": [bound[name] for name in fs["fields"] if name in bound and not bound[name].is_hidden],
             }
             for fs in self.fieldsets
         ]
@@ -622,11 +622,54 @@ class PetForm(HouseholdOwnedForm):
         widgets = {"type": PillRadioSelect(), "sex": PillRadioSelect(), "birth_date": DateInput(),
                    "notes": forms.Textarea(attrs={"rows": 3})}
 
+    picture_crop = forms.CharField(required=False, widget=forms.HiddenInput)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.show_when = {"birth_date_estimated": ("birth_date", self.ANY)}
+        self.fields["picture"].help_text = _("Drag and resize the box to frame your pet.")
         if self.instance.pk:
             self.initial["potty_locations"] = self.instance.allowed_potty_locations()
+            if self.instance.picture_crop:
+                import json
+
+                self.initial["picture_crop"] = json.dumps(self.instance.picture_crop)
+
+    def clean_picture_crop(self):
+        """The crop box from the page: fractions of the picture, {x, y, w, h}; anything odd is ignored."""
+        import json
+
+        raw = self.cleaned_data.get("picture_crop")
+        try:
+            crop = {k: float(v) for k, v in json.loads(raw).items() if k in ("x", "y", "w", "h")} if raw else None
+        except (TypeError, ValueError, AttributeError):
+            return None
+        if not crop or len(crop) != 4 or not all(0 <= v <= 1 for v in crop.values()) or crop["w"] <= 0 or crop["h"] <= 0:
+            return None
+        return crop
+
+    def save(self, commit=True):
+        pet = super().save(commit=commit)
+        if commit:
+            crop = self.cleaned_data.get("picture_crop")
+            if not pet.picture:
+                crop = None
+            elif crop is None and "picture" in self.changed_data:
+                crop = _centered_square(pet)  # a new picture without a box: the middle square
+            if crop != pet.picture_crop or "picture" in self.changed_data or (pet.picture_crop and not pet.picture_cropped):
+                pet.picture_crop = crop if pet.picture else None
+                pet.make_cropped_picture()
+                pet.save(update_fields=["picture_crop", "picture_cropped"])
+        return pet
+
+
+def _centered_square(pet):
+    from PIL import Image, ImageOps
+
+    with pet.picture.open("rb") as handle:
+        width, height = ImageOps.exif_transpose(Image.open(handle)).size
+    side = min(width, height)
+    return {"x": (width - side) / 2 / width, "y": (height - side) / 2 / height, "w": side / width, "h": side / height}
 
 
 class ContainerForm(HouseholdOwnedForm):

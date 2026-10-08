@@ -12,6 +12,7 @@ class PetRadioSelect(ChildRadioSelect):
         option = super().create_option(name, value, label, selected, index, subindex, attrs)
         if value != "":
             option["pet_type"] = value.instance.type
+            option["picture"] = value.instance.card_picture
         return option
 
 
@@ -29,7 +30,7 @@ class PetCheckboxSelect(CheckboxSelectMultiple):
     def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
         option = super().create_option(name, value, label, selected, index, subindex, attrs)
         if value != "":
-            option["picture"] = value.instance.picture
+            option["picture"] = value.instance.card_picture
             option["pet_type"] = value.instance.type
         return option
 

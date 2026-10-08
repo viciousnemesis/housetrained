@@ -21,8 +21,8 @@
         {% for pet in pets %}
             <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
                 <a class="card text-reset text-decoration-none h-100" href="{% url 'pets:pet' pet.slug %}">
-                    {% if pet.picture %}
-                        {% thumbnail '300x300' pet.picture as thumb %}
+                    {% if pet.card_picture %}
+                        {% thumbnail '300x300' pet.card_picture as thumb %}
                             <img src="{{ thumb.url }}" class="card-img-top" alt="" style="height: 12rem; object-fit: cover">
                         {% elif pet.type == "dog" %}
                             <img src="{% static 'babybuddy/img/core/child-placeholder.png' %}" class="card-img-top" alt="" style="height: 12rem; object-fit: contain">
