@@ -6,9 +6,6 @@
 {% endblock %}
 {% block content %}
     {% include "pets/_buttons.html" %}
-    {% if pets|length > 1 %}
-        <p class="text-body-secondary small">{% trans "These buttons log for every pet. Open a pet to log for just that one." %}</p>
-    {% endif %}
     <div class="d-flex gap-2 mb-3">
         <a class="btn btn-sm btn-outline-light" href="{% url 'pets:timeline' %}">{% trans "Timeline" %}</a>
         <a class="btn btn-sm btn-outline-light" href="{% url 'pets:list' 'potty' %}">{% trans "Logs" %}</a>

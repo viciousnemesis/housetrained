@@ -89,8 +89,9 @@ class TimerTests(PetTestCase):
         self.client.post("/log/walk/start/")
         self.client.post("/log/sleep/start/")
         page = self.client.get("/pets/").content.decode()
-        self.assertIn("Walking", page)
-        self.assertEqual(len(set(re.findall(r"/log/sleep/(\d+)/end/", page))), 1)  # one bar for the group
+        bar = page.split("</nav>")[0]  # the running bar lives in the top bar
+        self.assertIn("Walking", bar)
+        self.assertEqual(len(set(re.findall(r"/log/sleep/(\d+)/end/", bar))), 1)  # one bar for the group
 
     def test_edit_running_walk_start(self):
         self.client.post("/log/walk/start/")
@@ -341,3 +342,60 @@ class ThemeTests(PetTestCase):
         self.owner.settings.theme = "light"
         self.owner.settings.save()
         self.assertRegex(self.client.get("/pets/").content.decode(), r'<nav class="navbar[^"]*" data-bs-theme="dark">')
+
+
+class QuickPottyTests(PetTestCase):
+    def quick(self, what, pets=("ruby",), **extra):
+        return self.client.post("/log/potty/quick/", {"pet": list(pets), "what": what, **extra})
+
+    def test_one_row_of_three(self):
+        page = self.client.get("/pets/ruby/").content.decode()
+        self.assertIn('data-bs-target="#potty-panel"', page)
+        self.assertIn(">Walk<", page)
+        self.assertIn(">More<", page)
+        self.assertNotIn(">Start Sleep<", page)  # tucked into More
+
+    def test_pee_now_at_the_usual_spot(self):
+        self.quick("pee")
+        b = PottyBreak.objects.get()
+        self.assertEqual((b.pet, b.pee, b.poop, b.location), (self.ruby, True, False, "outside"))
+        self.assertLess(abs(b.time - timezone.now()), datetime.timedelta(seconds=5))
+
+    def test_both_at_a_chosen_spot(self):
+        self.quick("both", location="inside")
+        b = PottyBreak.objects.get()
+        self.assertEqual((b.pee, b.poop, b.location), (True, True, "inside"))
+
+    def test_spot_must_suit_the_pet(self):
+        self.quick("pee", pets=("tom",), location="outside")  # Tom the cat doesn't go outside
+        self.assertEqual(PottyBreak.objects.get().location, "litter_box")
+
+    def test_several_pets(self):
+        self.quick("pee", pets=("ruby", "rex"))
+        self.assertEqual(PottyBreak.objects.count(), 2)
+
+    def test_nothing_starts_a_retry_that_the_next_break_clears(self):
+        self.quick("nothing")
+        self.ruby.refresh_from_db()
+        self.assertIsNotNone(self.ruby.retry_at)
+        self.assertContains(self.client.get("/pets/ruby/"), "Try Ruby again")
+        self.quick("pee")
+        self.ruby.refresh_from_db()
+        self.assertIsNone(self.ruby.retry_at)
+
+    def test_dismiss_retry(self):
+        self.quick("nothing")
+        self.quick("dismiss")
+        self.ruby.refresh_from_db()
+        self.assertIsNone(self.ruby.retry_at)
+
+    def test_quick_break_joins_a_running_walk(self):
+        self.client.post("/log/walk/start/", {"pet": "ruby"})
+        self.assertContains(self.client.get("/pets/ruby/"), ">End walk<")
+        self.quick("pee")
+        self.assertIsNotNone(PottyBreak.objects.get().walk)
+
+    def test_viewer_cannot(self):
+        self.login(self.viewer)
+        self.assertEqual(self.quick("pee").status_code, 403)
+        self.assertNotContains(self.client.get("/pets/ruby/"), "potty-panel")

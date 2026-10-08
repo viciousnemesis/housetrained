@@ -300,6 +300,46 @@ class Progress(HouseholdMixin, TemplateView):
         return super().get_context_data(pet=pet, **progress.page(pet), **kwargs)
 
 
+RETRY_AFTER = datetime.timedelta(minutes=15)
+
+
+class QuickPotty(HouseholdMixin, View):
+    """One-tap potty logging from the top of the page (PUP-74): pee, poop, both or nothing, now."""
+
+    http_method_names = ["post"]
+
+    def post(self, request):
+        from .forms import link_walk
+
+        self.require("add", PottyBreak)
+        slugs = request.POST.getlist("pet")
+        pets = list(self.household.pets.filter(active=True, slug__in=slugs)) if slugs else []
+        what = request.POST.get("what")
+        if not pets or what not in ("pee", "poop", "both", "nothing", "dismiss"):
+            messages.error(request, _("Pick a pet first."))
+            return HttpResponseRedirect(self.back_url())
+        now = timezone.now().replace(microsecond=0)
+        names = ", ".join(p.name for p in pets)
+        if what == "dismiss":
+            Pet.objects.filter(pk__in=[p.pk for p in pets]).update(retry_at=None)
+            return HttpResponseRedirect(self.back_url(pets))
+        if what == "nothing":
+            Pet.objects.filter(pk__in=[p.pk for p in pets]).update(retry_at=now + RETRY_AFTER)
+            messages.info(request, _("Nothing this time. Try %(names)s again in 15 minutes.") % {"names": names})
+            return HttpResponseRedirect(self.back_url(pets))
+        location = request.POST.get("location")
+        for pet in pets:
+            spot = location if location in pet.allowed_potty_locations() else pet.allowed_potty_locations()[0]
+            entry = PottyBreak(pet=pet, time=now, pee=what in ("pee", "both"), poop=what in ("poop", "both"),
+                               location=spot, logged_by=request.user)
+            link_walk(entry)
+            entry.save()
+        Pet.objects.filter(pk__in=[p.pk for p in pets]).update(retry_at=None)
+        labels = {"pee": _("pee"), "poop": _("poop"), "both": _("pee + poop")}
+        messages.success(request, _("Logged %(what)s for %(names)s.") % {"what": labels[what], "names": names})
+        return HttpResponseRedirect(self.back_url(pets))
+
+
 class Setup(HouseholdMixin, TemplateView):
     template_name = "pets/setup.html"
 

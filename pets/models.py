@@ -75,6 +75,10 @@ class Pet(models.Model):
     picture_cropped = models.ImageField(upload_to="pets/cropped/", blank=True, editable=False)
     active = models.BooleanField(_("active"), default=True, help_text=_("Untick once a pet is rehomed or has passed."))
     notes = models.TextField(_("notes"), blank=True)
+    retry_at = models.DateTimeField(
+        null=True, blank=True, editable=False,
+        help_text="Taken out but nothing happened: when to try again (cleared by the next potty break).",
+    )
     potty_locations = models.JSONField(
         _("potty locations"), default=list, blank=True,
         help_text=_("Where this pet goes. Only these show when logging a potty break."),
