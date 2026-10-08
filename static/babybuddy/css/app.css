@@ -12485,11 +12485,32 @@ textarea.form-control-lg {
   --bs-btn-disabled-color: #6c757d;
   --bs-btn-disabled-border-color: #ced4da;
 }
-[data-bs-theme=light] .btn-check:checked + .btn-outline-light,
-[data-bs-theme=light] .btn-check:active + .btn-outline-light {
-  color: #fff;
-  background-color: #343a40;
-  border-color: #343a40;
+[data-bs-theme=light] .navbar.bg-dark {
+  background-color: #7a5a0e !important;
+  --bs-navbar-color: rgba(255, 255, 255, 0.88);
+  --bs-navbar-hover-color: #fff;
+  --bs-navbar-active-color: #fff;
+  --bs-navbar-brand-color: #fff;
+  --bs-navbar-brand-hover-color: #fff;
+  --bs-secondary-color: rgba(255, 255, 255, 0.85);
+}
+[data-bs-theme=light] .navbar.bg-dark .navbar-brand .text-primary {
+  color: #ffd966 !important;
+}
+[data-bs-theme=light] .navbar.bg-dark .text-body-secondary {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+[data-bs-theme=light] .navbar.bg-dark .dropdown-menu {
+  --bs-dropdown-bg: #fff;
+  --bs-dropdown-color: #212529;
+  --bs-dropdown-border-color: rgba(0, 0, 0, 0.15);
+  --bs-dropdown-link-color: #212529;
+  --bs-dropdown-link-hover-color: #212529;
+  --bs-dropdown-link-hover-bg: #f1eee6;
+  --bs-dropdown-link-active-color: #000;
+  --bs-dropdown-link-active-bg: #daa520;
+  --bs-dropdown-header-color: #6c757d;
+  --bs-dropdown-divider-bg: rgba(0, 0, 0, 0.15);
 }
 [data-bs-theme=light] .card-dashboard .list-group .list-group-item {
   color: var(--bs-body-color);
@@ -12499,4 +12520,12 @@ textarea.form-control-lg {
 }
 [data-bs-theme=light] .table {
   --bs-table-striped-bg: rgba(0, 0, 0, 0.03);
+}
+
+.btn-check:checked + .btn-outline-light,
+.btn-check:active + .btn-outline-light,
+.btn-outline-light.active {
+  color: #000;
+  background-color: #daa520;
+  border-color: #daa520;
 }

@@ -38,11 +38,36 @@
         --bs-btn-disabled-border-color: #ced4da;
     }
 
-    .btn-check:checked + .btn-outline-light,
-    .btn-check:active + .btn-outline-light {
-        color: #fff;
-        background-color: #343a40;
-        border-color: #343a40;
+    // The top bar: dark gold instead of the dark theme's grey, white text, light dropdowns.
+    .navbar.bg-dark {
+        background-color: #7a5a0e !important;
+        --bs-navbar-color: rgba(255, 255, 255, 0.88);
+        --bs-navbar-hover-color: #fff;
+        --bs-navbar-active-color: #fff;
+        --bs-navbar-brand-color: #fff;
+        --bs-navbar-brand-hover-color: #fff;
+        --bs-secondary-color: rgba(255, 255, 255, 0.85);
+
+        .navbar-brand .text-primary {
+            color: #ffd966 !important;
+        }
+
+        .text-body-secondary {
+            color: rgba(255, 255, 255, 0.85) !important;
+        }
+
+        .dropdown-menu {
+            --bs-dropdown-bg: #fff;
+            --bs-dropdown-color: #212529;
+            --bs-dropdown-border-color: rgba(0, 0, 0, 0.15);
+            --bs-dropdown-link-color: #212529;
+            --bs-dropdown-link-hover-color: #212529;
+            --bs-dropdown-link-hover-bg: #f1eee6;
+            --bs-dropdown-link-active-color: #000;
+            --bs-dropdown-link-active-bg: #daa520;
+            --bs-dropdown-header-color: #6c757d;
+            --bs-dropdown-divider-bg: rgba(0, 0, 0, 0.15);
+        }
     }
 
     // Dashboard card lists were white text on a dark card.
@@ -57,4 +82,14 @@
     .table {
         --bs-table-striped-bg: rgba(0, 0, 0, 0.03);
     }
+}
+
+
+// Both themes: a picked toggle (pet, walker, location...) is gold like the buttons, not a white block.
+.btn-check:checked + .btn-outline-light,
+.btn-check:active + .btn-outline-light,
+.btn-outline-light.active {
+    color: #000;
+    background-color: $primary;
+    border-color: $primary;
 }
