@@ -110,6 +110,11 @@ def pet_actions(context, pet=None):
     }
 
 
+@register.simple_tag
+def health_alerts(pet):
+    return insights.health_alerts(pet)
+
+
 @register.simple_tag(takes_context=True)
 def retry_reminders(context):
     """Pets taken out with nothing to show: try again soon."""

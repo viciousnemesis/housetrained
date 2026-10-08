@@ -12,7 +12,7 @@ from rest_framework import permissions, routers, serializers, viewsets
 from .forms import link_walk
 from .households import can_edit, current_household, is_owner
 from .models import (
-    Container, Fill, Household, Meal, Measurement, Medication, Note, Pet, PottyBreak, Product, Sleep, SupplyItem, Walk,
+    AccidentSpot, Container, Fill, Household, Meal, Measurement, Medication, Note, Pet, PottyBreak, Product, Sleep, SupplyItem, Walk,
 )
 
 
@@ -44,6 +44,7 @@ class HouseholdSerializer(serializers.ModelSerializer):
             SupplyItem: SupplyItem.objects.filter(product__household=household),
             Walk: Walk.objects.filter(household=household),
             Fill: Fill.objects.filter(container__household=household),
+            AccidentSpot: AccidentSpot.objects.filter(household=household),
             get_user_model(): household.members.all(),
         }
         for field in self.fields.values():

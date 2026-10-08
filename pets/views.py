@@ -17,7 +17,7 @@ from babybuddy.mixins import LoginRequiredMixin
 
 from . import forms
 from .households import add_member, can_edit, current_household, is_owner
-from .models import Container, Fill, Meal, Measurement, Membership, Note, Pet, PottyBreak, Product, Sleep, SupplyItem, Walk
+from .models import AccidentSpot, Container, Fill, Meal, Measurement, Membership, Note, Pet, PottyBreak, Product, Sleep, SupplyItem, Walk
 from .entries import KINDS, LIST_TITLES, day_timeline, for_pet, recent_activity, row
 
 
@@ -42,8 +42,9 @@ ENTRIES = {
     "container": Entry(Container, forms.ContainerForm, _("Bowl, feeder or litter box"), "household"),
     "product": Entry(Product, forms.ProductForm, _("Product"), "household"),
     "supply": Entry(SupplyItem, forms.SupplyItemForm, _("Bag"), "product__household"),
+    "spot": Entry(AccidentSpot, forms.AccidentSpotForm, _("Accident spot"), "household"),
 }
-SETUP_KINDS = ("pet", "container", "product", "supply")
+SETUP_KINDS = ("pet", "container", "product", "supply", "spot")
 
 
 class HouseholdMixin(LoginRequiredMixin):
@@ -72,7 +73,7 @@ class HouseholdMixin(LoginRequiredMixin):
 def entry_pets(entry):
     if isinstance(entry, Pet):
         return [entry]
-    if isinstance(entry, Product):
+    if isinstance(entry, (Product, AccidentSpot)):
         return []
     if hasattr(entry, "pet"):
         return [entry.pet] if entry.pet_id else []
@@ -328,6 +329,7 @@ class QuickPotty(HouseholdMixin, View):
             messages.info(request, _("Nothing this time. Try %(names)s again in 15 minutes.") % {"names": names})
             return HttpResponseRedirect(self.back_url(pets))
         location = request.POST.get("location")
+        entry = None
         for pet in pets:
             spot = location if location in pet.allowed_potty_locations() else pet.allowed_potty_locations()[0]
             entry = PottyBreak(pet=pet, time=now, pee=what in ("pee", "both"), poop=what in ("poop", "both"),
@@ -337,6 +339,10 @@ class QuickPotty(HouseholdMixin, View):
         Pet.objects.filter(pk__in=[p.pk for p in pets]).update(retry_at=None)
         labels = {"pee": _("pee"), "poop": _("poop"), "both": _("pee + poop")}
         messages.success(request, _("Logged %(what)s for %(names)s.") % {"what": labels[what], "names": names})
+        if len(pets) == 1 and entry.location == PottyBreak.INSIDE:
+            # An accident: offer its details (where, what was going on, found later); all optional.
+            back = self.back_url(pets)
+            return HttpResponseRedirect(reverse("pets:edit", args=["potty", entry.pk]) + f"?next={back}")
         return HttpResponseRedirect(self.back_url(pets))
 
 
@@ -362,6 +368,7 @@ class Setup(HouseholdMixin, TemplateView):
             babies=self.babies(),
             containers=self.household.containers.prefetch_related("pets"),
             products=self.household.products.all(),
+            spots=self.household.accident_spots.all(),
             bags=[status(b, unit) for b in bags],
             **kwargs,
         )

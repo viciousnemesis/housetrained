@@ -8,7 +8,7 @@ from babybuddy.widgets import DateInput, DateTimeInput
 from core.widgets import PillRadioSelect
 
 from . import units
-from .models import Container, Fill, Household, Meal, Measurement, Note, Pet, PottyBreak, Product, Sleep, SupplyItem, Walk
+from .models import AccidentSpot, Container, Fill, Household, Meal, Measurement, Note, Pet, PottyBreak, Product, Sleep, SupplyItem, Walk
 from .widgets import PetCheckboxSelect, PetRadioSelect, PillCheckboxSelect
 
 
@@ -63,16 +63,24 @@ class PetsForm(forms.ModelForm):
             return "true" if value else "false"
         return str(getattr(value, "pk", value))
 
+    @staticmethod
+    def _conditions(rule):
+        """A rule is (control, values), or a list of them that must all hold."""
+        return rule if isinstance(rule, list) else [rule]
+
     def _shown(self, name, data):
-        control, values = self.show_when[name]
-        value = data.get(control)
-        if values == self.ANY:
-            return value not in (None, "", [], False)
-        return self._as_text(value) in {self._as_text(v) for v in values}
+        for control, values in self._conditions(self.show_when[name]):
+            value = data.get(control)
+            if values == self.ANY:
+                if value in (None, "", [], False):
+                    return False
+            elif self._as_text(value) not in {self._as_text(v) for v in values}:
+                return False
+        return True
 
     def active_show_when(self):
-        return {name: (control, values) for name, (control, values) in self.show_when.items()
-                if name in self.fields and control in self.fields}
+        return {name: rule for name, rule in self.show_when.items()
+                if name in self.fields and all(control in self.fields for control, _v in self._conditions(rule))}
 
     # Unit pickers that sit inside their amount box instead of on a row of their own.
     UNIT_OF = {"unit": "amount", "water_unit": "water_amount", "distance_unit": "distance", "weight_unit": "value",
@@ -91,8 +99,9 @@ class PetsForm(forms.ModelForm):
 
     @property
     def show_when_json(self):
-        return {name: [control, values if values == self.ANY else [self._as_text(v) for v in values]]
-                for name, (control, values) in self.active_show_when().items()}
+        return {name: [[control, values if values == self.ANY else [self._as_text(v) for v in values]]
+                       for control, values in self._conditions(rule)]
+                for name, rule in self.active_show_when().items()}
 
     def full_clean(self):
         for name in self.active_show_when():
@@ -148,19 +157,35 @@ class PerPetForm(PetsForm):
         pass
 
 
+HEALTH_FIELDS = ["pee_amount", "pee_colour", "poop_amount", "poop_consistency", "poop_colour"]
+
+
 class PottyBreakForm(PerPetForm):
-    show_when = {"container": ("location", [PottyBreak.LITTER_BOX]), "found_later": ("location", [PottyBreak.INSIDE])}
+    unusual = forms.BooleanField(label=_("Something unusual?"), required=False, help_text=_(
+        "Amount, colour or consistency that isn't normal for this pet. Leave off when all looks fine."))
+    show_when = {
+        "container": ("location", [PottyBreak.LITTER_BOX]),
+        "found_later": ("location", [PottyBreak.INSIDE]),
+        "spot": ("location", [PottyBreak.INSIDE]),
+        "context": ("location", [PottyBreak.INSIDE]),
+        "pee_amount": ("unusual", [True]), "pee_colour": ("unusual", [True]),
+        "poop_amount": ("unusual", [True]), "poop_consistency": ("unusual", [True]),
+        "poop_colour": ("unusual", [True]),
+    }
     fieldsets = [
         {"fields": ["pets", "pet", "time"], "layout": "required"},
         {"fields": ["pee", "poop"], "layout": "choices", "layout_attrs": {"label": _("Contents")}},
         {"fields": ["location"], "layout": "required"},
         {"fields": ["found_later"], "layout": "choices", "layout_attrs": {"label": _("Accident")}},
-        {"fields": ["container", "notes"]},
+        {"fields": ["spot", "context", "container"]},
+        {"fields": ["unusual"], "layout": "choices", "layout_attrs": {"label": _("Health")}},
+        {"fields": HEALTH_FIELDS + ["notes"]},
     ]
 
     class Meta:
         model = PottyBreak
-        fields = ["pet", "time", "pee", "poop", "location", "found_later", "container", "notes"]
+        fields = ["pet", "time", "pee", "poop", "location", "found_later", "spot", "context", "container"] + \
+            HEALTH_FIELDS + ["notes"]
         labels = {"found_later": _("Found it later")}
         widgets = {
             "pet": PetRadioSelect,
@@ -175,6 +200,27 @@ class PottyBreakForm(PerPetForm):
         self.fields["container"].queryset = self.fields["container"].queryset.filter(
             kind__in=[Container.LITTER_BOX, Container.AUTO_LITTER_BOX]
         )
+        from .models import AccidentSpot
+
+        self.fields["spot"].queryset = AccidentSpot.objects.filter(household=self.household)
+        self.fields["spot"].widget = PillRadioSelect(choices=self.fields["spot"].choices)
+        self.fields["spot"].empty_label = None
+        if not self.fields["spot"].queryset.exists():
+            self.fields.pop("spot")  # nothing named yet (Setup > Accident spots)
+        self.fields["context"] = forms.MultipleChoiceField(
+            label=_("What was going on"), choices=PottyBreak.CONTEXTS, required=False, widget=PillCheckboxSelect)
+        if self.instance.pk:
+            self.initial["context"] = self.instance.context
+            self.initial["unusual"] = any(getattr(self.instance, f) for f in HEALTH_FIELDS)
+        for name in HEALTH_FIELDS:
+            self.fields[name].widget = PillRadioSelect(choices=self.fields[name].choices)
+        # Pee details only for pees, poop details only for poops.
+        for kind, names in (("pee", ["pee_amount", "pee_colour"]),
+                            ("poop", ["poop_amount", "poop_consistency", "poop_colour"])):
+            for name in names:
+                self.show_when[name] = [("unusual", [True]), (kind, [True])]
+        self.health_kinds = {"pee": ["pee_amount", "pee_colour"],
+                             "poop": ["poop_amount", "poop_consistency", "poop_colour"]}
         # Only the locations the pets use (a dog never uses a litter box); the page script narrows it further to
         # the pets picked.
         pets = [self.instance.pet] if self.instance.pk else list(self.fields["pets"].queryset)
@@ -190,6 +236,11 @@ class PottyBreakForm(PerPetForm):
         data = super().clean()
         if not data.get("pee") and not data.get("poop"):
             raise forms.ValidationError(_("Pick pee, poop or both."))
+        # Details for what didn't happen aren't kept (a poop colour on a pee-only break).
+        for kind, names in self.health_kinds.items():
+            if not data.get(kind):
+                for name in names:
+                    data[name] = ""
         return data
 
     def before_save(self, entry):
@@ -715,6 +766,13 @@ class ContainerForm(HouseholdOwnedForm):
                 raise forms.ValidationError(_("Use %(units)s for this container.") % {"units": ", ".join(table)})
             data["amount_per_bowl"] = units.to_stored(amount, unit, table)
         return data
+
+
+class AccidentSpotForm(HouseholdOwnedForm):
+    class Meta:
+        model = AccidentSpot
+        fields = ["name"]
+        help_texts = {"name": _("A place accidents happen, e.g. dining room rug, by the back door.")}
 
 
 class ProductForm(HouseholdOwnedForm):

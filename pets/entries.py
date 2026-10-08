@@ -17,7 +17,14 @@ def _when(value):
 
 def _potty(b):
     what = " + ".join(w for w, flag in ((_("Pee"), b.pee), (_("Poop"), b.poop)) if flag)
-    return f"{what}, {b.get_location_display().lower()}"
+    text = f"{what}, {b.get_location_display().lower()}"
+    if b.spot_id:
+        text += f" ({b.spot.name})"
+    flags = [b.get_pee_amount_display(), b.get_pee_colour_display(), b.get_poop_amount_display(),
+             b.get_poop_consistency_display(), b.get_poop_colour_display()]
+    unusual = [f.lower() for f, raw in zip(flags, (b.pee_amount, b.pee_colour, b.poop_amount, b.poop_consistency,
+                                                    b.poop_colour)) if raw]
+    return text + (" · " + ", ".join(unusual) if unusual else "")
 
 
 def _walk(w):
@@ -62,7 +69,7 @@ def _note(n):
 
 # kind: (time field, summary, household queryset, select/prefetch for pets)
 KINDS = {
-    "potty": ("time", _potty, lambda h: PottyBreak.objects.filter(pet__household=h).select_related("pet")),
+    "potty": ("time", _potty, lambda h: PottyBreak.objects.filter(pet__household=h).select_related("pet", "spot")),
     "walk": ("start", _walk, lambda h: Walk.objects.filter(household=h).select_related("walker", "household").prefetch_related("pets")),
     "sleep": ("start", _sleep, lambda h: Sleep.objects.filter(pet__household=h).select_related("pet")),
     "fill": ("time", _fill, lambda h: Fill.objects.filter(container__household=h).select_related("container__household").prefetch_related("container__pets")),

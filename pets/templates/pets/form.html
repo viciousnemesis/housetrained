@@ -97,10 +97,12 @@
                     Object.keys(rules).forEach(function (name) {
                         var field = document.getElementById("id_" + name);
                         if (!field) return;
-                        var value = valueOf(rules[name][0]), allowed = rules[name][1];
-                        var show = allowed === "*" ? !!value && value !== "false" && value.length !== 0
-                            : Array.isArray(value) ? value.some(function (v) { return allowed.indexOf(v) >= 0; })
-                            : allowed.indexOf(value) >= 0;
+                        var show = rules[name].every(function (rule) {
+                            var value = valueOf(rule[0]), allowed = rule[1];
+                            return allowed === "*" ? !!value && value !== "false" && value.length !== 0
+                                : Array.isArray(value) ? value.some(function (v) { return allowed.indexOf(v) >= 0; })
+                                : allowed.indexOf(value) >= 0;
+                        });
                         var row = field.dataset.paired ? field : (field.closest(".row.mb-3") || field);
                         row.classList.toggle("d-none", !show);
                         row.querySelectorAll("input, select, textarea").forEach(function (i) { i.disabled = !show; });

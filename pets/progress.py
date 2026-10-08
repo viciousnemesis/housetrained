@@ -69,6 +69,19 @@ def summary(pet, now=None):
 BAR_W, GAP, PLOT_H, LABEL_H = 34, 10, 100, 16
 
 
+def patterns(pet, now=None, days=28):
+    """Where accidents happen and what was going on, over the last four weeks (most common first)."""
+    from collections import Counter
+
+    now = now or timezone.now()
+    accidents = list(PottyBreak.objects.filter(pet=pet, location=PottyBreak.INSIDE,
+                                               time__gte=now - datetime.timedelta(days=days)).select_related("spot"))
+    spots = Counter(a.spot.name for a in accidents if a.spot_id)
+    labels = dict(PottyBreak.CONTEXTS)
+    contexts = Counter(labels.get(c, c) for a in accidents for c in (a.context or []))
+    return {"total": len(accidents), "spots": spots.most_common(4), "contexts": contexts.most_common(4)}
+
+
 def page(pet):
     rows = weeks(pet)
     bars = []
@@ -79,4 +92,4 @@ def page(pet):
     # Always room for WEEKS bars, so one week of data doesn't become one giant bar.
     chart = {"bars": bars, "width": WEEKS * (BAR_W + GAP) - GAP, "plot_h": PLOT_H,
              "height": PLOT_H + LABEL_H, "label_y": PLOT_H + LABEL_H - 3}
-    return {"streak": streak(pet), "weeks": rows, "chart": chart if bars else None}
+    return {"streak": streak(pet), "weeks": rows, "chart": chart if bars else None, "patterns": patterns(pet)}

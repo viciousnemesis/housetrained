@@ -634,3 +634,38 @@ def accident_review(pet):
     shift, _count = accident_shift(pet, timezone.now(), rules)
     adjusted = fmt_duration(shift) if shift >= datetime.timedelta(minutes=5) else None
     return {"accident_rows": rows[:6], "accident_summary": summary, "accident_adjusted": adjusted}
+
+
+# --- Health (PUP-79) -----------------------------------------------------------------------------
+def health_alerts(pet, now=None):
+    """Short warnings for the pet page, only when something's off: worrying poop colours, unusual details logged
+    in the past day, or far more pees today than this pet's normal."""
+    now = now or timezone.now()
+    alerts = []
+    recent = list(PottyBreak.objects.filter(pet=pet, time__gte=now - datetime.timedelta(hours=24), time__lte=now))
+    if any(b.poop_colour in ("black", "red") for b in recent):
+        alerts.append(("danger", _("Black or bloody poop in the past day. That can mean bleeding: call your vet.")))
+    if any(b.poop_colour in ("grey", "yellow") for b in recent):
+        alerts.append(("warning", _("Grey, white or yellow poop in the past day. Worth mentioning to your vet if it "
+                                    "happens again.")))
+    if sum(1 for b in recent if b.poop_consistency == "soft") >= 2:
+        alerts.append(("warning", _("Soft poop more than once in the past day. Keep an eye on water intake; call your "
+                                    "vet if it lasts more than a day or comes with vomiting or tiredness.")))
+    if sum(1 for b in recent if b.pee_colour == "dark") >= 2:
+        alerts.append(("warning", _("Dark pee more than once in the past day. Make sure fresh water is available.")))
+    # Pees today against the usual day (median of the past 2 weeks, not counting today).
+    today = window_start(1)
+    pees_today = PottyBreak.objects.filter(pet=pet, pee=True, time__gte=today, time__lte=now).count()
+    days = []
+    for back in range(1, WINDOW_DAYS):
+        start = today - datetime.timedelta(days=back)
+        days.append(PottyBreak.objects.filter(pet=pet, pee=True, time__gte=start,
+                                              time__lt=start + datetime.timedelta(days=1)).count())
+    logged_days = [d for d in days if d]
+    if len(logged_days) >= 5:
+        usual = median(logged_days)
+        if pees_today >= max(usual * 1.5, usual + 3):
+            alerts.append(("warning", _("%(n)d pees today, usually about %(usual)d. Peeing much more often can be a "
+                                        "urinary infection: worth a vet call if it continues.") % {
+                "n": pees_today, "usual": round(usual)}))
+    return alerts
