@@ -29,7 +29,6 @@ for _name, _builder in (
     ("potty_bars", insights.potty_bars_card),
     ("accidents", insights.accidents_chart),
     ("last_fed", insights.last_fed_card),
-    ("feeding_times", insights.feedings_chart),
     ("sleep", insights.sleep_card),
 ):
     _card(_name, _builder)
