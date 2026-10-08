@@ -24,8 +24,29 @@ class PlatformSettings(dbsettings.Group):
     )
 
 
+class _Blankable:
+    """A setting that may be left blank, meaning "use the default" (see insights._prediction_settings)."""
+
+    def get_db_prep_save(self, value, *args, **kwargs):
+        return "" if value in (None, "") else super().get_db_prep_save(value, *args, **kwargs)
+
+    def to_python(self, value):
+        return None if value in (None, "") else super().to_python(value)
+
+    def to_editor(self, value):
+        return "" if value in (None, "") else super().to_editor(value)
+
+
+class OptionalNumber(_Blankable, dbsettings.PositiveIntegerValue):
+    pass
+
+
+class OptionalTime(_Blankable, dbsettings.TimeValue):
+    pass
+
+
 def _number(default, description, help_text):
-    return dbsettings.PositiveIntegerValue(default=default, description=description, help_text=help_text)
+    return OptionalNumber(default=default, description=description, help_text=help_text, required=False)
 
 
 class PredictionSettings(dbsettings.Group):
@@ -62,7 +83,7 @@ class PredictionSettings(dbsettings.Group):
         "so a changing routine is picked up."))
     bedtime_slack = _number(45, _("Bedtime potty window"), _(
         "Minutes. A potty break this long before the usual bedtime already counts as the bedtime one."))
-    default_bedtime = dbsettings.TimeValue(default=datetime.time(23, 0), description=_("Starting bedtime"),
-                                           help_text=_("Used until two nights are logged."))
-    default_wake = dbsettings.TimeValue(default=datetime.time(6, 30), description=_("Starting wake-up"),
-                                        help_text=_("Used until two nights are logged."))
+    default_bedtime = OptionalTime(default=datetime.time(23, 0), description=_("Starting bedtime"),
+                                           help_text=_("Used until two nights are logged."), required=False)
+    default_wake = OptionalTime(default=datetime.time(6, 30), description=_("Starting wake-up"),
+                                        help_text=_("Used until two nights are logged."), required=False)

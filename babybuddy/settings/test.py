@@ -28,3 +28,7 @@ DBSETTINGS_USE_CACHE = False
 # We want to test the home assistant middleware
 
 ENABLE_HOME_ASSISTANT_SUPPORT = True
+
+# Baby Buddy's own tests exercise the baby features, so they run in baby mode; pet tests switch it off.
+
+BABY_MODE = True
