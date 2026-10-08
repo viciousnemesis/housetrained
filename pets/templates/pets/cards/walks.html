@@ -5,6 +5,7 @@
 {% endblock %}
 {% block title %}
     {% if walks %}{% blocktrans count n=walks|length %}{{ n }} walk{% plural %}{{ n }} walks{% endblocktrans %}{% else %}{% trans "None" %}{% endif %}
+    <small class="d-block">{% trans "Past 2 weeks" %} · <a href="{% url 'pets:list' 'walk' %}?pet={{ pet.slug }}">{% trans "All walks" %}</a></small>
 {% endblock %}
 {% block listgroup %}
     <div class="list-group list-group-flush small overflow-auto" style="max-height: 24rem">

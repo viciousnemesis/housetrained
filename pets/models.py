@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
-from .site_settings import PlatformSettings
+from .site_settings import PlatformSettings, PredictionSettings
 
 
 # --- Households -------------------------------------------------------------------
@@ -240,6 +240,7 @@ class Walk(Logged):
 class PottyBreak(Logged):
     OUTSIDE, INSIDE, PAD, LITTER_BOX = "outside", "inside", "pad", "litter_box"
     LOCATIONS = [(OUTSIDE, _("Outside")), (INSIDE, _("Inside")), (PAD, _("Pad")), (LITTER_BOX, _("Litter box"))]
+    prediction_settings = PredictionSettings()  # Next Walk rules, on the Site Settings page
 
     pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name="potty_breaks")
     time = models.DateTimeField(_("time"), default=timezone.now)

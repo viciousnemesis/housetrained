@@ -20,5 +20,8 @@
         <li class="list-group-item text-body-secondary">
             {% if walk_gap %}{% blocktrans %}Walks usually last {{ walk_len }}, every {{ walk_gap }} during the day{% endblocktrans %}{% else %}{% blocktrans %}Walks usually last {{ walk_len }}{% endblocktrans %}{% endif %}
         </li>
+        <li class="list-group-item text-body-secondary fst-italic">
+            {% trans "Estimates from your own logs, not veterinary advice. Sudden changes in potty habits are worth a call to your vet." %}
+        </li>
     </ul>
 {% endblock %}

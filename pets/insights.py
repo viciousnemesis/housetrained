@@ -2,6 +2,7 @@
 import calendar
 import datetime
 import math
+from dataclasses import dataclass, field
 from statistics import median
 
 from django.db.models import Q, Sum
@@ -12,21 +13,63 @@ from . import units
 from .clock import show_time, uses_24h
 from .models import Fill, Meal, PottyBreak, Sleep, Walk
 
-WINDOW_DAYS = 14
-MAX_GAP = datetime.timedelta(hours=12)
-MEAL_WINDOW = datetime.timedelta(hours=3)
-STALE_AFTER = datetime.timedelta(minutes=30)
+WINDOW_DAYS = 14  # history behind the charts and predictions
+
+
+def _prediction_settings():
+    """All Next Walk settings from the Site Settings page in one query (reading them one by one costs a query each)."""
+    from types import SimpleNamespace
+
+    from dbsettings.models import Setting
+
+    group = PottyBreak.prediction_settings
+    stored = dict(Setting.objects.filter(module_name="pets.models", class_name="PottyBreak")
+                  .values_list("attribute_name", "value"))
+    values = {}
+    for name, value in group._settings:
+        try:
+            values[name] = value.to_python(stored[name]) if name in stored else value.default
+        except (TypeError, ValueError):
+            values[name] = value.default
+    return SimpleNamespace(**values)
 DAY = 24 * 60  # minutes
-MIN_NIGHT = datetime.timedelta(hours=4)  # a day's longest potty-free stretch must be this long to count as night
-DEFAULT_NIGHT = (23 * 60, 6 * 60 + 30)  # bedtime, wake-up (minutes of day) until enough nights are logged
-BEDTIME_SLACK = 45  # minutes before the usual bedtime potty that already count as bedtime
-NIGHT_HALF_LIFE_DAYS = 3  # a night's weight in the bedtime/wake estimate halves every 3 days
-MIN_HISTORY_DAYS = 3  # below this, ignore learned gaps and use the age rule
-AGE_RULE_UNTIL_DAYS = 7  # below this, fall back to the age rule rather than the 3-day average
-MAX_HOLD_HOURS = 8
-DEFAULT_WALK = datetime.timedelta(minutes=15)
-MERGE_SLACK = datetime.timedelta(minutes=30)  # a need due this soon after a walk ends is handled on that walk
-DEFAULT_MEAL_DELAY = {"pee": datetime.timedelta(minutes=20), "poop": datetime.timedelta(minutes=30)}
+
+
+@dataclass
+class Rules:
+    """The Next Walk prediction rules. Defaults here; Site Settings can change them (Rules.load()).
+    See docs/housetrained/predictions.md."""
+
+    max_gap: datetime.timedelta = datetime.timedelta(hours=12)  # longer gaps are missed entries, not holds
+    meal_window: datetime.timedelta = datetime.timedelta(hours=3)  # a potty within this counts as after a meal
+    stale_after: datetime.timedelta = datetime.timedelta(minutes=30)  # missed triggers give way after this
+    min_night: datetime.timedelta = datetime.timedelta(hours=4)  # a day's longest potty-free stretch, to be a night
+    default_bed: int = 23 * 60  # minutes of day, until enough nights are logged
+    default_wake: int = 6 * 60 + 30
+    bedtime_slack: int = 45  # minutes before the usual bedtime potty that already count as bedtime
+    night_half_life_days: int = 3  # a night's weight in the bedtime/wake estimate halves this often
+    min_history_days: int = 3  # below this, ignore learned gaps and use the age rule
+    age_rule_until_days: int = 7  # below this, the age rule rather than the 3-day average is the fallback
+    max_hold_hours: int = 8
+    default_walk: datetime.timedelta = datetime.timedelta(minutes=15)
+    merge_slack: datetime.timedelta = datetime.timedelta(minutes=30)  # needs this close to a walk go on it
+    meal_delay: dict = field(default_factory=lambda: {
+        "pee": datetime.timedelta(minutes=20), "poop": datetime.timedelta(minutes=30)})
+
+    @classmethod
+    def load(cls):
+        s = _prediction_settings()
+        minutes, hours = (lambda n: datetime.timedelta(minutes=n)), (lambda n: datetime.timedelta(hours=n))
+        return cls(
+            max_gap=hours(s.max_gap_hours), meal_window=hours(s.meal_window_hours),
+            stale_after=minutes(s.stale_after), min_night=hours(s.min_night_hours),
+            default_bed=s.default_bedtime.hour * 60 + s.default_bedtime.minute,
+            default_wake=s.default_wake.hour * 60 + s.default_wake.minute,
+            bedtime_slack=s.bedtime_slack, night_half_life_days=max(s.night_half_life_days, 1),
+            min_history_days=s.min_history_days, age_rule_until_days=s.age_rule_until_days,
+            max_hold_hours=s.max_hold_hours, default_walk=minutes(s.default_walk), merge_slack=minutes(s.merge_slack),
+            meal_delay={"pee": minutes(s.meal_delay_pee), "poop": minutes(s.meal_delay_poop)},
+        )
 
 # Day x hour chart geometry (SVG units).
 LABEL_W, PLOT_W, ROW_H, AXIS_H = 46, 254, 14, 16
@@ -123,7 +166,9 @@ def avg_gap(breaks):
 
 # --- Cards -------------------------------------------------------------------------------
 def walks_card(pet):
-    walks = list(pet.walks.select_related("walker").prefetch_related("potty_breaks").order_by("-start"))
+    # The card shows the past two weeks; the Walks log has the rest.
+    walks = list(pet.walks.filter(start__gte=window_start()).select_related("walker")
+                 .prefetch_related("potty_breaks").order_by("-start"))
     for walk in walks:
         breaks = [b for b in walk.potty_breaks.all() if b.pet_id == pet.pk]
         walk.pee = any(b.pee for b in breaks)
@@ -310,12 +355,12 @@ def _circular_median(values, weights):
             return (center + offset) % DAY
 
 
-def _nights(times):
+def _nights(times, rules):
     """Each day's longest potty-free stretch, as (last potty before, first potty after)."""
     longest = {}
     for a, b in zip(times, times[1:]):
         day = timezone.localdate(b)
-        if b - a >= MIN_NIGHT and (day not in longest or b - a > longest[day][1] - longest[day][0]):
+        if b - a >= rules.min_night and (day not in longest or b - a > longest[day][1] - longest[day][0]):
             longest[day] = (a, b)
     return list(longest.values())
 
@@ -323,15 +368,16 @@ def _nights(times):
 class Night:
     """The household's learned sleep window: usual bedtime potty and first potty after waking."""
 
-    def __init__(self, times, now):
-        self.nights = _nights(times)
+    def __init__(self, times, now, rules=None):
+        self.rules = rules = rules or Rules()
+        self.nights = _nights(times, rules)
         if len(self.nights) >= 2:
             # Recent nights count more, so a drifting routine pulls the estimate along.
-            weights = [0.5 ** ((now - b).total_seconds() / 86400 / NIGHT_HALF_LIFE_DAYS) for _bed, b in self.nights]
+            weights = [0.5 ** ((now - b).total_seconds() / 86400 / rules.night_half_life_days) for _bed, b in self.nights]
             self.bed = _circular_median([_minute(a) for a, _ in self.nights], weights)
             self.wake = _circular_median([_minute(b) for _bed, b in self.nights], weights)
         else:
-            self.bed, self.wake = DEFAULT_NIGHT
+            self.bed, self.wake = rules.default_bed, rules.default_wake
         self.length = (self.wake - self.bed) % DAY
 
     def contains(self, dt, slack=0):
@@ -359,20 +405,21 @@ class Night:
         """Usual delay from waking to the first of these events."""
         delays = []
         for _bed, woke in self.nights:
-            after = [e for e in events if woke <= e < woke + MAX_GAP]
+            after = [e for e in events if woke <= e < woke + self.rules.max_gap]
             if after:
                 delays.append(after[0] - woke)
         return median(delays) if len(delays) >= 2 else datetime.timedelta()
 
 
-def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True):
+def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True, rules=None):
     """Predict the next pee or poop. Returns (time, reason) or None."""
+    rules = rules or Rules()
     if not events:
         return None
     last = events[-1]
     candidates = []
 
-    gaps = [(b - a, night.bucket(a)) for a, b in zip(events, events[1:]) if b - a <= MAX_GAP]
+    gaps = [(b - a, night.bucket(a)) for a, b in zip(events, events[1:]) if b - a <= rules.max_gap]
     bucket = night.bucket(last)
     same = [g for g, name in gaps if name == bucket]
     if learned and len(same) >= 3:
@@ -386,10 +433,10 @@ def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True):
     if meals_since:
         delays = []
         for f in feedings:
-            after = [e for e in events if f < e <= f + MEAL_WINDOW]
+            after = [e for e in events if f < e <= f + rules.meal_window]
             if after:
                 delays.append(after[0] - f)
-        delay = median(delays) if len(delays) >= 3 else DEFAULT_MEAL_DELAY[kind]
+        delay = median(delays) if len(delays) >= 3 else rules.meal_delay[kind]
         meal = meals_since[-1]
         candidates.append((meal + delay, _("meal at %(time)s, %(kinds)s ~%(delay)s after meals") % {"time": fmt_time(meal), "kinds": KINDS[kind][1], "delay": fmt_duration(delay)}))
 
@@ -398,12 +445,13 @@ def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True):
         candidates.append((woke[-1], _("woke up at %(time)s") % {"time": fmt_time(woke[-1])}))
 
     # A trigger that passed long ago without a potty break gives way to the next estimate.
-    fresh = [c for c in candidates if c[0] >= now - STALE_AFTER] or candidates
+    fresh = [c for c in candidates if c[0] >= now - rules.stale_after] or candidates
     return min(fresh, key=lambda c: c[0]) if fresh else None
 
 
-def next_walk_card(pet):
-    now = timezone.now()
+def next_walk_card(pet, now=None, rules=None):
+    now = now or timezone.now()
+    rules = rules or Rules.load()
     since = window_start()
     breaks = potty(pet, since)
     # What goes in comes out: food drives poops, food and water drive pees.
@@ -412,9 +460,9 @@ def next_walk_card(pet):
     # With little history, lean on the age rule of thumb: a puppy can hold it ~(age in months + 1) hours.
     history = (now - breaks[0].time).days if breaks else 0
     months = (timezone.localdate() - pet.birth_date).days / 30.44 if pet.birth_date else 12
-    age_gap = datetime.timedelta(hours=min(MAX_HOLD_HOURS, months + 1))
+    age_gap = datetime.timedelta(hours=min(rules.max_hold_hours, months + 1))
     gap3 = avg_gap(potty(pet, now - datetime.timedelta(days=3)))
-    if history < AGE_RULE_UNTIL_DAYS or not gap3:
+    if history < rules.age_rule_until_days or not gap3:
         if months < 4:
             reason = _("a %(n).0f-week-old can usually hold it ~%(gap)s") % {"n": months * 30.44 / 7, "gap": fmt_duration(age_gap)}
         else:
@@ -425,9 +473,9 @@ def next_walk_card(pet):
 
     # After the usual bedtime potty break, the next one comes after waking up.
     times = [b.time for b in breaks]
-    night = Night([b.time for b in breaks if not is_accident(b)], now)
+    night = Night([b.time for b in breaks if not is_accident(b)], now, rules)
     wake = None
-    if times and night.contains(times[-1], slack=BEDTIME_SLACK) and now < night.next_wake(times[-1]) + MAX_GAP:
+    if times and night.contains(times[-1], slack=rules.bedtime_slack) and now < night.next_wake(times[-1]) + rules.max_gap:
         wake = night.next_wake(times[-1])
 
     predictions = []
@@ -439,7 +487,7 @@ def next_walk_card(pet):
                 "bed": fmt_time(times[-1]), "wake": fmt_time(wake), "kind": str(KINDS[kind][0]).lower(),
                 "when": fmt_time(when)})
         else:
-            result = _predict(kind, events, feedings[kind], wakes, fallback, now, night, learned=history >= MIN_HISTORY_DAYS)
+            result = _predict(kind, events, feedings[kind], wakes, fallback, now, night, learned=history >= rules.min_history_days, rules=rules)
             # Needs that would fall during the night: pees go on the bedtime walk if it's still ahead,
             # everything else waits for the first walk after waking up.
             if result and night.contains(result[0]) and not night.contains(now):
@@ -456,16 +504,16 @@ def next_walk_card(pet):
     # Pees and poops happen on walks: anything due before the next walk would end belongs to it.
     walks = list(Walk.objects.filter(pets=pet, start__gte=since).exclude(end=None).order_by("start"))
     lengths = [w.end - w.start for w in walks if w.end > w.start]
-    walk_len = median(lengths) if lengths else DEFAULT_WALK
+    walk_len = median(lengths) if lengths else rules.default_walk
     gaps = [b.start - a.start for a, b in zip(walks, walks[1:])
-            if not night.contains(a.start) and b.start - a.start <= MAX_GAP]
+            if not night.contains(a.start) and b.start - a.start <= rules.max_gap]
     walk_gap = median(gaps) if gaps else None
 
     due = expect = None
     if predictions:
         walk_at = predictions[0]["time"]
         for p in predictions:
-            p["this_walk"] = p["time"] <= walk_at + walk_len + MERGE_SLACK
+            p["this_walk"] = p["time"] <= walk_at + walk_len + rules.merge_slack
         expect = " + ".join(p["kind"].lower() for p in predictions if p["this_walk"])
         delta = walk_at - now
         mins = int(delta.total_seconds() // 60)
