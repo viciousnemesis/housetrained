@@ -311,7 +311,7 @@ def feedings_chart(pet):
             r = 2.5 + min((m.amount or 0) / 30, 2.5)
             dots.append({"x": pos[0], "y": pos[1], "r": r,
                          "label": fmt_time(m.time) + (f" · {units.show(m.amount, 'mass', pet.household)}" if m.amount else "")})
-    return {"chart": c, "dots": dots}
+    return {"chart": c, "dots": dots, "empty": not dots, "hide_empty": True}
 
 
 def accidents_chart(pet):
@@ -346,7 +346,9 @@ def accidents_chart(pet):
     hist = [{"x": round(LABEL_W + h * slot + 0.75, 2), "y": 26 - n / peak * 26, "h": n / peak * 26,
              "n": n, "label": f"{h:02d}", "even": h % 2 == 0} for h, n in enumerate(hours)]
     return {"chart": c, "dots": dots, "meals": meals, "sleeps": sleeps, "hist": hist,
-            "hist_w": round(slot - 1.5, 2), "row_h": ROW_H, **accident_review(pet)}
+            "hist_w": round(slot - 1.5, 2), "row_h": ROW_H, **accident_review(pet), "hide_empty": True,
+            "empty": not dots and not PottyBreak.objects.filter(pet=pet, location=PottyBreak.INSIDE,
+                                                                 time__gte=since).exists()}
 
 
 # --- Next walk prediction -----------------------------------------------------------------
@@ -669,3 +671,59 @@ def health_alerts(pet, now=None):
                                         "urinary infection: worth a vet call if it continues.") % {
                 "n": pees_today, "usual": round(usual)}))
     return alerts
+
+
+# --- Pet page summary cards (PUP-80) ---------------------------------------------------------------
+def now_card(pet, now=None):
+    """Next walk plus the latest of everything, in one card: head-out time, last pee/poop/meal, sleep."""
+    now = now or timezone.now()
+    card = next_walk_card(pet, now=now)
+    last_pee = pet.potty_breaks.filter(pee=True, time__lte=now).order_by("-time").first()
+    last_poop = pet.potty_breaks.filter(poop=True, time__lte=now).order_by("-time").first()
+    last_meal = Meal.objects.filter(pet=pet, food=True, time__lte=now).order_by("-time").first()
+    asleep = pet.sleeps.filter(end=None).order_by("-start").first()
+    latest = []
+    if last_pee:
+        latest.append((_("pee"), last_pee.time, f"/log/potty/{last_pee.pk}/"))
+    if last_poop:
+        latest.append((_("poop"), last_poop.time, f"/log/potty/{last_poop.pk}/"))
+    if last_meal:
+        latest.append((_("ate"), last_meal.time, f"/log/meal/{last_meal.pk}/"))
+    return {**card, "latest": latest, "asleep": asleep}
+
+
+def today_card(pet, now=None):
+    """Four numbers for today: walks, pees and poops, accidents, food eaten."""
+    now = now or timezone.now()
+    today = window_start(1)
+    walks = list(pet.walks.filter(start__gte=today, start__lte=now))
+    walk_time = sum(((w.end or now) - w.start for w in walks), datetime.timedelta())
+    breaks = potty(pet, today, until=now)
+    meals = Meal.objects.filter(pet=pet, food=True, time__gte=today, time__lte=now)
+    eaten = meals.aggregate(s=Sum("amount"))["s"]
+    return {"tiles": [
+        (_("Walks"), str(len(walks)), fmt_duration(walk_time) if walks else ""),
+        (_("Pee / poop"), f"{sum(b.pee for b in breaks)} / {sum(b.poop for b in breaks)}", ""),
+        (_("Accidents"), str(sum(1 for b in breaks if is_accident(b))), ""),
+        (_("Eaten"), units.show(eaten, "mass", pet.household), "") if eaten else (_("Meals"), str(meals.count()), ""),
+    ]}
+
+
+def averages(pet, now=None):
+    """The longer-run numbers that used to be on the pet page, for the Progress page."""
+    now = now or timezone.now()
+    recent, window = potty(pet, now - datetime.timedelta(days=3), until=now), potty(pet, window_start(), until=now)
+    gap3, gap14 = avg_gap(recent), avg_gap(window)
+    rows = []
+    if window:
+        days = (timezone.localdate(now) - timezone.localtime(window[0].time).date()).days + 1
+        rows += [(_("Pees per day"), f"{sum(b.pee for b in window) / days:.1f}"),
+                 (_("Poops per day"), f"{sum(b.poop for b in window) / days:.1f}")]
+    if gap3:
+        rows.append((_("Time between potty breaks (3 days)"), fmt_duration(gap3)))
+    if gap14:
+        rows.append((_("Time between potty breaks (2 weeks)"), fmt_duration(gap14)))
+    card = next_walk_card(pet, now=now)
+    rows.append((_("Usual walk"), card["walk_len"] + (", " + _("every %(gap)s") % {"gap": card["walk_gap"]}
+                                                        if card["walk_gap"] else "")))
+    return rows

@@ -245,9 +245,23 @@ class CardTests(PetTestCase):
     def test_pet_page_cards_render(self):
         PottyBreak.objects.create(pet=self.ruby, time=timezone.now(), pee=True)
         page = self.client.get("/pets/ruby/")
-        for title in ("Next Walk", "Statistics", "Walks", "Last Potty Break", "Potty Breaks", "Accident Times",
-                      "Last Meal", "Meal Times", "Sleep", "not veterinary advice"):
+        for title in ("Now", "Today", "Potty Breaks", "Recent activity", "Not veterinary advice"):
             self.assertContains(page, title)
+        for gone in ("Statistics", "Last Potty Break", "Last Meal", "+ Measurement"):
+            self.assertNotContains(page, gone)
+
+    def test_empty_cards_hide(self):
+        page = self.client.get("/pets/rex/")  # nothing logged for Rex
+        self.assertNotContains(page, "Accident Times")
+        self.assertNotContains(page, "Meal Times")
+        self.assertNotContains(page, "Running low")
+
+    def test_today_tiles(self):
+        now = timezone.now()
+        PottyBreak.objects.create(pet=self.ruby, time=now, pee=True, poop=True)
+        PottyBreak.objects.create(pet=self.ruby, time=now, pee=True, location=PottyBreak.INSIDE)
+        tiles = {label: value for label, value, _sub in insights.today_card(self.ruby)["tiles"]}
+        self.assertEqual((tiles["Pee / poop"], tiles["Accidents"]), ("2 / 1", "1"))
 
 
 class DeleteTests(PetTestCase):

@@ -13,20 +13,16 @@
     {% include "pets/_buttons.html" %}
     <div class="row">
         <div class="col-lg-4">
-            {% card_next_walk pet %}
-            {% card_statistics pet %}
-            {% card_walks pet %}
+            {% card_now pet %}
+            {% card_today pet %}
         </div>
         <div class="col-lg-4">
-            {% card_last_potty pet %}
             {% card_potty_bars pet %}
             {% card_accidents pet %}
         </div>
         <div class="col-lg-4">
-            {% card_last_fed pet %}
+            {% card_supplies pet low_only=True %}
             {% card_feeding_times pet %}
-            {% card_sleep pet %}
-            {% card_supplies pet %}
             <div class="card card-dashboard">
                 <div class="card-header">{% trans "Recent activity" %}</div>
                 <div class="list-group list-group-flush small overflow-auto" style="max-height: 24rem">
@@ -37,11 +33,6 @@
                         </a>
                     {% empty %}
                         <div class="list-group-item">{% trans "Nothing logged yet." %}</div>
-                    {% endfor %}
-                </div>
-                <div class="card-body d-flex flex-wrap gap-2">
-                    {% for kind, label in more_entries %}
-                        <a class="btn btn-sm btn-outline-light" href="{% url 'pets:add' kind %}?pet={{ pet.slug }}">+ {{ label }}</a>
                     {% endfor %}
                 </div>
             </div>

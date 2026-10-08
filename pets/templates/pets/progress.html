@@ -64,6 +64,14 @@
                 {% endif %}
             </div>
         {% endif %}
+        {% if averages %}
+            <h2 class="h6 text-body-secondary mt-4">{% trans "Past 2 weeks" %}</h2>
+            <table class="table table-sm table-borderless small mb-0" style="max-width: 32rem">
+                {% for label, value in averages %}
+                    <tr><td class="ps-0">{{ label }}</td><td class="pe-0 text-end fw-bold">{{ value }}</td></tr>
+                {% endfor %}
+            </table>
+        {% endif %}
         <p class="small text-body-secondary mt-3">
             {% if pet.type == "dog" %}{% trans "Right place: outside or on a pad. Accidents: inside." %}
             {% else %}{% trans "Right place: anywhere but inside. Accidents: inside." %}{% endif %}
