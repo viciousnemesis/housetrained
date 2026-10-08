@@ -43,6 +43,15 @@ BabyBuddy.PullToRefresh = (function (ptr) {
       (event.originalEvent && event.originalEvent.submitter) ||
       $(this).find('[type="submit"]')[0];
     if (!submitter || $(submitter).prop("disabled")) return;
+    // A disabled button isn't sent with the form, so carry its name/value
+    // (e.g. what=pee) in a hidden field.
+    if (submitter.name) {
+      $("<input>", {
+        type: "hidden",
+        name: submitter.name,
+        value: submitter.value,
+      }).appendTo(this);
+    }
     $(submitter)
       .prop("disabled", true)
       .prepend(

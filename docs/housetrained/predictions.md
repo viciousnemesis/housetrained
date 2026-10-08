@@ -27,8 +27,24 @@ For each of pee and poop, the app collects candidate times and picks the earlies
    **20 minutes** for pee and **30 minutes** for poop.
 4. **Waking up.** A logged sleep that ended after the last potty break means "woke up at ...": now.
 
+Every meal or drink since the last potty break is a trigger; the earliest one wins, so logging another meal
+or drink can only bring the estimate forward, never push it later.
+
 A trigger (meal, wake-up) that passed more than **30 minutes** ago without a potty break gives way to the next
-estimate, so the card doesn't stay stuck on "overdue".
+estimate. The pet's usual gap (steps 1 and 2) never gives way: once it has passed, the pet stays overdue until
+a potty break is logged.
+
+### Guarantees
+
+These are checked by `pets/tests/test_prediction_scenarios.py`, including randomised routines:
+
+1. Logging a meal or a drink never makes the estimate later.
+2. Logging a wake-up never makes it later.
+3. With nothing new logged, time passing never makes it later, except a missed trigger giving way, and then
+   only back to the usual gap.
+4. Once the usual gap has passed, the pet stays overdue until a potty break is logged.
+5. Learning from accidents only ever brings the estimate forward.
+6. Logging a pee is what moves the next pee later.
 
 ## The night
 

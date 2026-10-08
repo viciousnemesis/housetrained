@@ -48,6 +48,7 @@
     <div class="collapse mb-3" id="potty-panel">
         <form class="card card-body gap-2" method="post" action="{% url 'pets:quick-potty' %}">
             {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
             {% if a.many %}
                 <div class="d-flex flex-wrap gap-2">
                     {% for p in a.pets %}
