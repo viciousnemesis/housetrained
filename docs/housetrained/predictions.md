@@ -45,6 +45,8 @@ These are checked by `pets/tests/test_prediction_scenarios.py`, including random
 4. Once the usual gap has passed, the pet stays overdue until a potty break is logged.
 5. Learning from accidents only ever brings the estimate forward.
 6. Logging a pee is what moves the next pee later.
+7. A trigger is never due before you could have headed out for it: not while the pet was still asleep, and not
+   before it was logged. A nap or meal logged after the fact is due **now**, not "overdue" for back then.
 
 ## The night
 

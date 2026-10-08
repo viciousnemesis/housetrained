@@ -8,6 +8,7 @@ The rules:
 4. Once the usual gap has passed, the pet stays overdue until a potty break is logged.
 5. Learning from accidents only ever brings the estimate forward.
 6. Logging a pee is what moves the next pee later.
+7. A meal or wake-up can't be due before it was logged, and a wake-up not before waking.
 """
 import datetime
 import random
@@ -48,7 +49,10 @@ class PredictionScenarioTests(TestCase):
                                          location=PottyBreak.INSIDE if inside else PottyBreak.OUTSIDE)
 
     def meal(self, pet, when, food=True, water=False):
-        return Meal.objects.create(pet=pet, time=when, food=food, water=water)
+        meal = Meal.objects.create(pet=pet, time=when, food=food, water=water)
+        Meal.objects.filter(pk=meal.pk).update(created=when)  # logged live
+        meal.created = when
+        return meal
 
     def history(self, pet, days=5, wake=7, bed=23, gap=3, rng=None, meals=True):
         """A regular routine for the past `days` days: up at `wake`, a pee every `gap` hours, a poop on every
@@ -137,10 +141,45 @@ class PredictionScenarioTests(TestCase):
             now = last + datetime.timedelta(minutes=rng.randint(30, 240))
             before = self.times(pet, now)
             nap = Sleep.objects.create(pet=pet, start=last + MIN, end=last + (now - last) * rng.random() + 2 * MIN)
+            Sleep.objects.filter(pk=nap.pk).update(created=nap.end)  # logged live
             after = self.times(pet, now)
             for kind, time in before.items():
                 with self.subTest(case=case, kind=kind, woke=nap.end):
                     self.assertLessEqual(after[kind], time)
+
+    def test_nap_logged_afterwards_is_due_now_not_during_the_nap(self):
+        """A nap from 3:10 to 3:38 logged at 4:01: head out now, not "33m overdue" at 3:28 while she slept."""
+        pet = self.pet()
+        self.household.minutes_to_outside = 10
+        self.household.save()
+        self.history(pet)
+        self.potty(pet, self.at(15, 4), poop=True)
+        nap = Sleep.objects.create(pet=pet, start=self.at(15, 10), end=self.at(15, 38))
+        Sleep.objects.filter(pk=nap.pk).update(created=self.at(16, 1))
+        card = next_walk_card(pet, now=self.at(16, 1), rules=self.rules)
+        self.assertEqual(card["head_out"], self.at(16, 1))
+        self.assertEqual(card["due"], "now")
+
+    def test_head_out_after_a_nap_is_not_before_waking(self):
+        pet = self.pet()
+        self.household.minutes_to_outside = 10
+        self.household.save()
+        self.history(pet)
+        self.potty(pet, self.at(15, 4), poop=True)
+        nap = Sleep.objects.create(pet=pet, start=self.at(15, 10), end=self.at(15, 38))
+        Sleep.objects.filter(pk=nap.pk).update(created=self.at(15, 10))  # started live, ended live at 3:38
+        self.assertEqual(self.head_out(pet, self.at(15, 39)), self.at(15, 38))
+
+    def test_meal_logged_afterwards_is_due_from_when_it_was_logged(self):
+        pet = self.pet()
+        self.history(pet, meals=False)  # default 20 minutes from a meal to a pee
+        self.potty(pet, self.at(11), poop=True)
+        meal = self.meal(pet, self.at(11, 5), food=False, water=True)  # water: drives pees only
+        Meal.objects.filter(pk=meal.pk).update(created=self.at(12))
+        card = next_walk_card(pet, now=self.at(12), rules=self.rules)
+        pee = next(p for p in card["predictions"] if p["key"] == "pee")
+        self.assertEqual(pee["source"], "meal")
+        self.assertEqual(card["head_out"], self.at(12))  # due now, not 35 minutes overdue
 
     # --- rules 3 and 4: time passing ------------------------------------------------------------------
     def test_overdue_stays_put_as_time_passes(self):
