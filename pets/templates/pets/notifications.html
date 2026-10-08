@@ -50,6 +50,11 @@
                 <label class="form-check-label" for="low_supply">{% trans "When it's time to buy more" %}
                     <span class="d-block small text-body-secondary">{% trans "When a bag is down to its reorder days; at most once a day." %}</span></label>
             </div>
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" name="water_cutoff" id="water_cutoff" {% if prefs.water_cutoff %}checked{% endif %}>
+                <label class="form-check-label" for="water_cutoff">{% trans "Water bowl" %}
+                    <span class="d-block small text-body-secondary">{% blocktrans with hours=household_cutoff %}Pick it up {{ hours }} hours before your dog's usual bedtime, put it back in the morning (hours: Setup > Household settings).{% endblocktrans %}</span></label>
+            </div>
             <div class="form-check mb-3">
                 <input class="form-check-input" type="checkbox" name="weekly_progress" id="weekly_progress" {% if prefs.weekly_progress %}checked{% endif %}>
                 <label class="form-check-label" for="weekly_progress">{% trans "Weekly progress" %}

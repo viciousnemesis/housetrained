@@ -180,7 +180,7 @@ class AllPetsLoggingTests(PetTestCase):
 
     def test_owner_sets_time_to_get_outside(self):
         self.client.post("/pets/setup/household/", {"name": "Home", "units": "metric", "time_zone": "",
-                                                    "minutes_to_outside": "20"})
+                                                    "minutes_to_outside": "20", "water_cutoff_hours": "2"})
         self.household.refresh_from_db()
         self.assertEqual(self.household.minutes_to_outside, 20)
 

@@ -135,6 +135,30 @@ class NotificationTests(TestCase):
         reminders.check()
         self.assertFalse(ReminderLog.objects.filter(key="old").exists())
 
+    @mock.patch("pywebpush.webpush")
+    def test_water_bowl_before_bed_and_in_the_morning(self, webpush):
+        self.subscribe()
+        NotificationPreference.objects.create(user=self.user, walk_due=False, low_supply=False, water_cutoff=True)
+        # No nights logged yet, so bedtime is the default 23:00 and wake-up 06:30; 2 hours before bed is 21:00.
+        today = timezone.localdate()
+        at = lambda h, m=0: timezone.make_aware(datetime.datetime.combine(today, datetime.time(h, m)))
+        reminders.check(now=at(20, 30))
+        self.assertEqual(webpush.call_count, 0)  # too early
+        reminders.check(now=at(21, 10))
+        reminders.check(now=at(21, 20))
+        self.assertEqual(webpush.call_count, 1)
+        self.assertEqual(json.loads(webpush.call_args.kwargs["data"])["title"], "Pick up the water bowl")
+        reminders.check(now=at(6, 40))
+        self.assertEqual(json.loads(webpush.call_args.kwargs["data"])["title"], "Water bowl back down")
+
+    @mock.patch("pywebpush.webpush")
+    def test_no_water_reminder_unless_asked(self, webpush):
+        self.subscribe()
+        NotificationPreference.objects.create(user=self.user, walk_due=False, low_supply=False)
+        today = timezone.localdate()
+        reminders.check(now=timezone.make_aware(datetime.datetime.combine(today, datetime.time(21, 10))))
+        self.assertEqual(webpush.call_count, 0)
+
 
 @override_settings(BABY_MODE=False, TIME_ZONE="UTC")
 class NotificationsOffTests(TestCase):
@@ -175,3 +199,4 @@ class NotificationsOffTests(TestCase):
         self.user.is_superuser = True
         self.user.save()
         self.assertContains(self.client.get("/pets/notifications/"), "Site Settings")
+

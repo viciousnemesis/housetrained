@@ -21,6 +21,10 @@ class Household(models.Model):
         _("display units"), max_length=10, choices=[(METRIC, _("Metric")), (IMPERIAL, _("Imperial"))], default=METRIC
     )
     time_zone = models.CharField(_("default time zone"), max_length=100, blank=True)
+    water_cutoff_hours = models.PositiveSmallIntegerField(
+        _("pick up water before bed"), default=2,
+        help_text=_("Hours before the usual bedtime to pick up the water bowl (for the water reminder)."),
+    )
     minutes_to_outside = models.PositiveSmallIntegerField(
         _("time to get outside"), default=10,
         help_text=_("Minutes from deciding to go to standing outside (leash, shoes, stairs or elevator). "
@@ -477,6 +481,8 @@ class NotificationPreference(models.Model):
                                    help_text=_("When a pet's next walk is due, from the Next Walk prediction."))
     low_supply = models.BooleanField(_("Buy more"), default=True,
                                      help_text=_("When a bag is down to its reorder days (once a day)."))
+    water_cutoff = models.BooleanField(_("Water bowl"), default=False,
+                                       help_text=_("Pick it up before bedtime, put it back in the morning."))
     weekly_progress = models.BooleanField(_("Weekly progress"), default=False,
                                           help_text=_("Monday morning: accidents this week against the week before."))
 

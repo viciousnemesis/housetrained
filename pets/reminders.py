@@ -115,6 +115,56 @@ def retry_reminders(household, now):
     return sent
 
 
+def household_night(household, now):
+    """The dogs' learned night (earliest bedtime among them), as datetimes for today: (bedtime, wake-up)."""
+    from .insights import Night, Rules, is_accident, potty, window_start
+
+    rules = Rules.load()
+    nights = []
+    for pet in household.pets.filter(active=True, type="dog"):
+        breaks = [b.time for b in potty(pet, window_start(), until=now) if not is_accident(b)]
+        nights.append(Night(breaks, now, rules))
+    if not nights:
+        return None
+    night = min(nights, key=lambda n: (n.bed - 12 * 60) % (24 * 60))  # earliest bedtime, counted from noon
+    today = timezone.localtime(now).replace(hour=0, minute=0, second=0, microsecond=0)
+    bed = today + datetime.timedelta(minutes=int(night.bed))
+    if night.bed < 12 * 60:  # bedtime after midnight belongs to tonight
+        bed += datetime.timedelta(days=1)
+    wake = today + datetime.timedelta(minutes=int(night.wake))
+    return bed, wake
+
+
+def water_reminders(household, now):
+    """Pick up the water bowl a few hours before bed; put it back after waking up."""
+    from . import push
+    from .clock import show_time
+
+    if not household.water_cutoff_hours:
+        return 0
+    people = _people(household, "water_cutoff")
+    if not people:
+        return 0
+    times = household_night(household, now)
+    if not times:
+        return 0
+    bed, wake = times
+    cutoff = bed - datetime.timedelta(hours=household.water_cutoff_hours)
+    window = datetime.timedelta(minutes=45)
+    sent = 0
+    day = timezone.localdate(now)
+    if cutoff <= now <= cutoff + window and _claim(f"water-up:{household.pk}:{day:%Y%m%d}"):
+        for user in people:
+            with _in_user_zone(user):
+                body = _("Bedtime is usually ~%(time)s.") % {"time": show_time(bed)}
+            sent += push.send(user, _("Pick up the water bowl"), body, url="/pets/", tag="water")
+    if wake <= now <= wake + window and _claim(f"water-down:{household.pk}:{day:%Y%m%d}"):
+        for user in people:
+            sent += push.send(user, _("Water bowl back down"), _("Good morning! Fresh water time."), url="/pets/",
+                              tag="water")
+    return sent
+
+
 def weekly_reminders(household, now):
     """Monday from 9 am (household time): each pet's week in one line."""
     from . import push
@@ -156,6 +206,7 @@ def check(now=None):
                     sent += supply_reminders(household, now)
                     sent += weekly_reminders(household, now)
                     sent += retry_reminders(household, now)
+                    sent += water_reminders(household, now)
                 except Exception:
                     log.exception("Reminders for %s failed", household)
     ReminderLog.objects.filter(created__lt=now - datetime.timedelta(days=30)).delete()
