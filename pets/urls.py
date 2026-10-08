@@ -6,7 +6,6 @@ app_name = "pets"
 
 urlpatterns = [
     path("pets/", views.HouseholdDashboard.as_view(), name="household"),
-    path("pets/timeline/", views.Timeline.as_view(), name="timeline"),
     path("pets/setup/", views.Setup.as_view(), name="setup"),
     path("pets/setup/household/", views.HouseholdEdit.as_view(), name="household-edit"),
     path("pets/setup/members/", views.Members.as_view(), name="members"),

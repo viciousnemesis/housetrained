@@ -63,7 +63,6 @@ class HouseholdIsolationTests(TestCase):
     def test_their_data_is_not_listed(self):
         for kind in ["potty", "walk", "sleep", "fill", "meal", "measurement", "note"]:
             self.assertNotContains(self.client.get(f"/log/{kind}/"), "Theirs dog", msg_prefix=kind)
-        self.assertNotContains(self.client.get("/pets/timeline/"), "Theirs dog")
         self.assertNotContains(self.client.get("/pets/setup/"), "Theirs dog")
         self.assertEqual(self.client.get(f"/pets/{self.theirs['pet'].slug}/").status_code, 404)
 
@@ -99,12 +98,9 @@ class HouseholdIsolationTests(TestCase):
         self.mine["pet"].name = '<script>alert("x")</script>'
         self.mine["pet"].save()
         PottyBreak.objects.create(pet=self.mine["pet"], time=timezone.now(), pee=True, notes="<b>hi</b>")
-        for path in ("/pets/", "/pets/timeline/", "/log/potty/", "/log/potty/add/", "/pets/setup/"):
+        for path in ("/pets/", "/log/potty/", "/log/potty/add/", "/pets/setup/"):
             body = self.client.get(path).content.decode()
             self.assertNotIn('<script>alert("x")</script>', body, path)
-
-    def test_bad_timeline_date_is_harmless(self):
-        self.assertEqual(self.client.get("/pets/timeline/?date=not-a-date").status_code, 200)
 
     def test_logged_out_users_are_sent_to_login(self):
         self.client.logout()

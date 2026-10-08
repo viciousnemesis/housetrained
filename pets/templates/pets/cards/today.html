@@ -2,11 +2,11 @@
 {% load i18n %}
 {% block header %}{% trans "Today" %}{% endblock %}
 {% block content %}
-    <div class="d-grid gap-2 text-center" style="grid-template-columns: repeat(4, minmax(0, 1fr))">
+    <div class="d-grid gap-1 text-center" style="grid-template-columns: repeat(5, minmax(0, 1fr))">
         {% for label, value, sub in tiles %}
             <div>
                 <div class="fs-4 fw-bold" style="font-variant-numeric: tabular-nums">{{ value }}</div>
-                <div class="small text-body-secondary lh-sm">{{ label }}</div>
+                <div class="text-body-secondary lh-sm" style="font-size: .75rem">{{ label }}</div>
                 {% if sub %}<div class="small text-body-secondary">{{ sub }}</div>{% endif %}
             </div>
         {% endfor %}

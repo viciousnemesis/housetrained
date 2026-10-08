@@ -681,7 +681,7 @@ def now_card(pet, now=None):
 
 
 def today_card(pet, now=None):
-    """Four numbers for today: walks, pees and poops, accidents, food eaten."""
+    """Five numbers for today: walks, pees, poops, accidents, meals (or food eaten)."""
     now = now or timezone.now()
     today = window_start(1)
     walks = list(pet.walks.filter(start__gte=today, start__lte=now))
@@ -691,7 +691,8 @@ def today_card(pet, now=None):
     eaten = meals.aggregate(s=Sum("amount"))["s"]
     return {"tiles": [
         (_("Walks"), str(len(walks)), fmt_duration(walk_time) if walks else ""),
-        (_("Pee / poop"), f"{sum(b.pee for b in breaks)} / {sum(b.poop for b in breaks)}", ""),
+        (_("Pees"), str(sum(b.pee for b in breaks)), ""),
+        (_("Poops"), str(sum(b.poop for b in breaks)), ""),
         (_("Accidents"), str(sum(1 for b in breaks if is_accident(b))), ""),
         (_("Eaten"), units.show(eaten, "mass", pet.household), "") if eaten else (_("Meals"), str(meals.count()), ""),
     ]}
