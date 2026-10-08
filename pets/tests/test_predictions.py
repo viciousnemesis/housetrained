@@ -351,3 +351,16 @@ class AccidentLearningTests(TestCase):
         card = next_walk_card(self.pet, now=self.noon)
         self.assertEqual(card["head_out"], card["predictions"][0]["time"])
         self.assertIsNone(card["to_outside"])
+
+    def test_found_later_accidents_are_not_learned_from(self):
+        for back in (3, 2, 1):
+            day = self.noon - datetime.timedelta(days=back)
+            PottyBreak.objects.create(pet=self.pet, time=day - datetime.timedelta(hours=3), pee=True)
+            PottyBreak.objects.create(pet=self.pet, time=day - datetime.timedelta(hours=1), pee=True,
+                                      location=PottyBreak.INSIDE, found_later=True)
+        PottyBreak.objects.create(pet=self.pet, time=self.noon - datetime.timedelta(minutes=30), pee=True)
+        card = next_walk_card(self.pet, now=self.noon)
+        self.assertTrue(all(p["time"] == p["raw_time"] for p in card["predictions"]))
+        review = insights.accident_review(self.pet)
+        self.assertEqual(review["accident_rows"][0]["relation"], "found later, time unknown")
+        self.assertIsNone(review["accident_summary"])

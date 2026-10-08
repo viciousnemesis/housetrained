@@ -149,17 +149,19 @@ class PerPetForm(PetsForm):
 
 
 class PottyBreakForm(PerPetForm):
-    show_when = {"container": ("location", [PottyBreak.LITTER_BOX])}
+    show_when = {"container": ("location", [PottyBreak.LITTER_BOX]), "found_later": ("location", [PottyBreak.INSIDE])}
     fieldsets = [
         {"fields": ["pets", "pet", "time"], "layout": "required"},
         {"fields": ["pee", "poop"], "layout": "choices", "layout_attrs": {"label": _("Contents")}},
         {"fields": ["location"], "layout": "required"},
+        {"fields": ["found_later"], "layout": "choices", "layout_attrs": {"label": _("Accident")}},
         {"fields": ["container", "notes"]},
     ]
 
     class Meta:
         model = PottyBreak
-        fields = ["pet", "time", "pee", "poop", "location", "container", "notes"]
+        fields = ["pet", "time", "pee", "poop", "location", "found_later", "container", "notes"]
+        labels = {"found_later": _("Found it later")}
         widgets = {
             "pet": PetRadioSelect,
             "time": DateTimeInput(),

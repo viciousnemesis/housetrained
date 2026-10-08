@@ -473,7 +473,8 @@ def accident_shift(pet, now, rules):
     if not rules.learn_from_accidents:
         return datetime.timedelta(), 0
     accidents = PottyBreak.objects.filter(
-        pet=pet, location=PottyBreak.INSIDE, time__gte=now - datetime.timedelta(days=WINDOW_DAYS), time__lt=now,
+        pet=pet, location=PottyBreak.INSIDE, found_later=False,
+        time__gte=now - datetime.timedelta(days=WINDOW_DAYS), time__lt=now,
     ).exclude(expected_raw_at=None)
     leads = [a.expected_raw_at - a.time for a in accidents if a.expected_raw_at > a.time]
     if len(leads) < 2:
@@ -487,7 +488,8 @@ def next_walk_card(pet, now=None, rules=None, learn=True):
     rules = rules or Rules.load()
     since = timezone.make_aware(datetime.datetime.combine(
         timezone.localdate(now) - datetime.timedelta(days=WINDOW_DAYS - 1), datetime.time()))
-    breaks = potty(pet, since, until=now)
+    # Accidents found later have no reliable time, so they don't count as potty events here.
+    breaks = [b for b in potty(pet, since, until=now) if not b.found_later]
     # What goes in comes out: food drives poops, food and water drive pees.
     feedings = {"pee": feeding_times(pet, since, water=True, until=now), "poop": feeding_times(pet, since, until=now)}
     wakes = sorted(pet.sleeps.filter(end__gte=since, end__lt=now).values_list("end", flat=True))
@@ -606,6 +608,11 @@ def accident_review(pet):
     rules = Rules.load()
     rows, leads = [], []
     for a in accidents:
+        kind = _("Pee + poop") if a.pee and a.poop else (_("Poop") if a.poop else _("Pee"))
+        if a.found_later:
+            rows.append({"time": a.time, "kind": kind, "relation": _("found later, time unknown"), "early": False,
+                         "expected": None, "pk": a.pk})
+            continue
         if a.expected_at is None and not a.expected_reason:
             snapshot_expectation(a, rules)
         if a.expected_at is None:
@@ -616,7 +623,6 @@ def accident_review(pet):
             relation = _("%(time)s earlier than expected") % {"time": fmt_duration(lead)}
         else:
             relation = _("%(time)s later than expected") % {"time": fmt_duration(-lead)}
-        kind = _("Pee + poop") if a.pee and a.poop else (_("Poop") if a.poop else _("Pee"))
         rows.append({"time": a.time, "kind": kind, "relation": relation, "early": lead > datetime.timedelta(),
                      "expected": a.expected_at, "pk": a.pk})
     summary = None
@@ -624,7 +630,7 @@ def accident_review(pet):
         summary = ngettext(
             "%(n)d of %(total)d accidents came earlier than expected, typically by %(lead)s.",
             "%(n)d of %(total)d accidents came earlier than expected, typically by %(lead)s.", len(rows),
-        ) % {"n": len(leads), "total": len(rows), "lead": fmt_duration(median(leads))}
+        ) % {"n": len(leads), "total": len([r for r in rows if r["expected"]]), "lead": fmt_duration(median(leads))}
     shift, _count = accident_shift(pet, timezone.now(), rules)
     adjusted = fmt_duration(shift) if shift >= datetime.timedelta(minutes=5) else None
     return {"accident_rows": rows[:6], "accident_summary": summary, "accident_adjusted": adjusted}
