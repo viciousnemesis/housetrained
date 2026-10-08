@@ -10,11 +10,11 @@
                         <span>{{ s.left }} {% trans "left of" %} {{ s.size }}</span>
                     </div>
                     <div class="progress my-1" style="height: .5rem">
-                        <div class="progress-bar {% if s.low %}bg-danger{% endif %}" style="width: {{ s.pct_left }}%"></div>
+                        <div class="progress-bar" style="width: {{ s.pct_left }}%{% if s.low %}; background: #ff6b6b{% endif %}"></div>
                     </div>
                     <div class="text-body-secondary">
                         {% if s.days_left is not None %}
-                            {% if s.low %}<strong class="text-danger">{% trans "Buy more soon:" %}</strong>{% endif %}
+                            {% if s.low %}<strong class="text-danger-emphasis">{% trans "Buy more soon:" %}</strong>{% endif %}
                             ~{{ s.days_left }} {% trans "days left" %} ({% trans "runs out around" %} {{ s.runs_out|date:"M j" }}), {{ s.per_day }}/{% trans "day" %}
                         {% else %}
                             {% trans "No fills from this bag yet, so no estimate." %}
