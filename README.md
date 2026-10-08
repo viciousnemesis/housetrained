@@ -1,120 +1,110 @@
-<img src="babybuddy/static_src/logo/icon.png" height="150" align="left">
+<img src="babybuddy/static_src/logo/icon.png" height="110" align="left">
 
-# Baby Buddy
+# Housetrained
 
-[![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
-[![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/babybuddy/Lobby)
-[![CI Status](https://github.com/babybuddy/babybuddy/actions/workflows/ci.yml/badge.svg)](https://github.com/babybuddy/babybuddy/actions/workflows/ci.yml)
-[![Coverage Status](https://coveralls.io/repos/github/babybuddy/babybuddy/badge.svg?branch=master)](https://coveralls.io/github/babybuddy/babybuddy?branch=master)
-[![Open in GitHub Codespaces ready-to-code](https://img.shields.io/badge/Codespace-ready--to--code-blue?logo=github)](https://codespaces.new/babybuddy/babybuddy?quickstart=1)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+Track your pets' potty breaks, walks, meals, water, sleep and supplies, and get a guess at when the next walk
+is due. Built for puppy house-training first, and works for cats and other pets too. Self-hosted, private,
+works on phones.
 
-A buddy for babies! Helps caregivers track sleep, feedings, diaper changes,
-tummy time and more to learn about and predict baby's needs without (_as much_)
-guess work.
+Housetrained is a fork of [Baby Buddy](https://github.com/babybuddy/babybuddy); Baby Buddy's baby tracking is
+still there behind a switch ("baby mode").
 
-![Baby Buddy desktop view](screenshot.png)
+![Pet dashboard](docs/screenshots/pet-dashboard.jpg)
 
-![Baby Buddy mobile views](screenshot_mobile.png)
+<img src="docs/screenshots/fill-bowl-phone.jpg" width="260" align="right" alt="Filling a bowl on a phone">
 
-## 👾 Demo
+## What it does
 
-A [demo of Baby Buddy](https://demo.baby-buddy.net) is available. The demo instance
-resets every hour. Login credentials are:
+- **Potty breaks**: pee, poop, where (outside, inside, pad, litter box; each pet has its own list), linked to
+  the walk they happened on.
+- **Walks**: one tap to start, one to end; for one pet or several; who walked, how far.
+- **Next walk**: a prediction from the pet's own routine: usual gaps by time of day, time after meals and waking
+  up, its bedtime. See [how it works](docs/housetrained/predictions.md).
+- **Food, water and litter**: what went into bowls, feeders and litter boxes, what each pet ate and drank, how
+  much is left in each bag and when to buy more.
+- **Sleep, weight, height, notes**, charts of the past two weeks, a day-by-day timeline.
+- **Households**: everyone in the home logs together; owners, members and read-only people.
+- **Phones first**: big buttons, forms that only show what applies, light and dark themes, metric or imperial.
+- **CSV import** for past records and a [REST API](docs/housetrained/api.md).
 
-- Username: `admin`
-- Password: `admin`
+<br clear="right">
 
-## 📘 Documentation
+## Fill Bowl or Log Meal?
 
-Visit [https://docs.baby-buddy.net](https://docs.baby-buddy.net) for full documentation.
+They're two different things, and that matters for the predictions:
 
-### Additional documentation
+- **Fill Bowl**: food, water or litter went into a bowl, feeder or litter box. It counts toward the bag, so you
+  know how much is left. It says nothing about who ate it, or when.
+- **Log Meal**: a pet ate or drank. Meals are what the Next Walk prediction uses: food leads to poops, food and
+  water to pees.
 
-- [Security](/SECURITY.md)
-- [License](/LICENSE) (BSD-2 Clause)
+Feed set portions that get eaten straight away (most dogs)? Tick **Eaten right away** when filling the bowl and
+both are logged at once; the form remembers your usual amount for each bowl. Pets that graze from a bowl or
+feeder (many cats): just top up with Fill Bowl, and log a meal when you notice them eating.
 
-## 🗺️ Languages
+## Getting started
 
-Baby Buddy is available in a variety of languages thanks to the efforts of numerous
-translators. Language can be set on a per-user basis from the user settings page
-(`/user/settings/`). See [Contributing](https://docs.baby-buddy.net/contributing/translation/)
-for information about how to create/update translations.
+You need Docker. Copy [`compose.example.yaml`](compose.example.yaml) to `compose.yaml`, set your time zone and
+the address you'll open it at, then:
 
-### Available languages
+```bash
+docker compose up -d --build
+```
 
-:brazil: Brazilian Portuguese, :es: Catalan, :cn: Chinese (simplified), :hong_kong: Chinese (traditional), :taiwan: Chinese (Taiwan), :croatia: Croatian, :czech_republic: Czech, :denmark: Danish, :netherlands: Dutch, :uk: English (U.K.), :us: English (U.S.) (base), :finland: Finnish, :fr: French, :de: German, :israel: Hebrew, :hungary: Hungarian, :it: Italian, :jp: Japanese, :kr: Korean, :norway: Norwegian Bokmål, :poland: Polish, :portugal: Portuguese, :ru: Russian, :serbia: Serbian, :mexico: :es: Spanish, :sweden: Swedish, :tr: Turkish, :ukraine: Ukrainian
+Open `http://localhost:8000` and sign in as `admin` with the password printed in the log
+(`docker compose logs housetrained`), or the one you set as `ADMIN_PASSWORD`. Change it under user menu >
+Password.
 
-## 🌐 Baby Buddy on the Web
+Then, under **Setup**: add your pets, their bowls and litter boxes, and the food you buy. Calibrating a bowl
+(weigh one usual scoop) lets "half a bowl" turn into grams. Want to look around first? Load a demo household:
 
-This is a non-exhaustive list of neat projects and blog posts that either extend
-or use Baby Buddy in fun ways. If you have a project to share please open a PR
-adding it here or reach out via GitHub Issues or Discussions or on Gitter!
+```bash
+docker compose exec -w /app/www/public housetrained /lsiopy/bin/python3 manage.py housetrained_demo
+```
 
-### AI
+(`--delete` removes it again.)
 
-- [Baby Buddy MCP server](https://github.com/babybuddy/babybuddy-mcp) - A [Model Context Protocol](https://modelcontextprotocol.io) server for logging and querying Baby Buddy data with AI assistants. See the [MCP documentation](https://docs.baby-buddy.net/mcp/).
+### Settings
 
-### Smart home
+| Variable | What it does |
+|---|---|
+| `TZ` | Server time zone (each person can pick their own in user settings) |
+| `ALLOWED_HOSTS` | Hostnames it answers to, comma-separated |
+| `CSRF_TRUSTED_ORIGINS` | Every address you open it at, e.g. `https://pets.example.com` |
+| `SECURE_PROXY_SSL_HEADER` | `True` behind a reverse proxy that handles HTTPS |
+| `ADMIN_PASSWORD` | Password for the first admin (otherwise random, shown once in the log) |
+| `BABY_MODE` | `True` to also show Baby Buddy's baby tracking (also a switch in Site Settings) |
+| `HOUSETRAINED_SOURCE_URL` | Link shown as "Source Code" in the user menu |
 
-- [Home Assistant Addon](https://github.com/OttPeterR/addon-babybuddy) (host Baby Buddy on Home Assistant)
-- [Home Assistant integration](https://github.com/jcgoette/baby_buddy_homeassistant) (monitor and use Baby Buddy from Home Assistant)
-- [How to Setup Baby Buddy in Home Assistant](https://smarthomescene.com/guides/how-to-setup-baby-buddy-in-home-assistant/)
-- [Baby Buddy and Home Assistant](https://martinnoah.com/babybuddy-and-home-assistant.html)
-- [Alexa skill](https://github.com/babybuddy/babybuddy-alexa-skill)
+Baby Buddy's other settings (database, email, sign-in options) still work; see
+[Baby Buddy's configuration docs](docs/configuration). Security notes: [docs/housetrained/security.md](docs/housetrained/security.md).
 
-### Hardware
+People: the admin creates accounts (user menu > Users) and adds them to the household (Setup > Members).
 
-- [Bottle Scale for BabyBuddy and Home Assistant with ESPHome](https://github.com/sfgabe/OITProjects/tree/master/BabyBuddy_ESP_HASS)
-- [Quick Entry Keypad (ESP8266)](https://github.com/sfgabe/OITProjects/tree/master/Baby_Buddy_Keypad)
-- [Baby Buddy Keypad (ESP32)](https://github.com/jeroenterheerdt/Baby-Buddy-Keypad)
-- [BabyScout](https://github.com/MikeSchapp/BabyScout) - Keypad for recording diaper changes, feedings and sleep to BabyBuddy
-- [BabyPod](https://www.printables.com/model/872095-babypod-a-remote-control-for-baby-buddy-for-new-pa) - A remote control for Baby Buddy for new parents (sources: [hardware](https://github.com/skjdghsdjgsdj/babypod-hardware), [software](https://github.com/skjdghsdjgsdj/babypod-software/))
-- [MatrixPortal BabyBuddy](https://github.com/skjdghsdjgsdj/matrixportal-babybuddy)
+## Backups and updates
 
-### Mobile
+Everything lives in the `config` folder: the database (`data/db.sqlite3`), pet photos (`media`) and the
+server's generated keys and settings. Stop
+the container and copy that folder to back up; copy it back to restore. To update, pull the new version and
+run `docker compose up -d --build` again; database changes apply on start.
 
-- [Baby Buddy Companion for iOS](https://apps.apple.com/app/id6788966667) ([Source](https://github.com/kguy18/babybuddyios/))
-- [Baby Buddy for Android](https://play.google.com/store/apps/details?id=eu.pkgsoftware.babybuddywidgets) ([Source](https://github.com/babybuddy/babybuddy-for-android))
-- [iOS shortcuts](https://github.com/babybuddy/babybuddy/discussions/300)
-- [Convert exported data from "Baby tracker - feeding, sleep and diaper" mobile app to Baby Buddy](https://github.com/babybuddy/babybuddy/discussions/424)
+## Not veterinary advice
 
-### Videos
+Predictions and charts are estimates from your own logs. Sudden changes in potty habits, eating or drinking are
+worth a call to your vet.
 
-- [Baby Buddy: Keep Records of Your Child/Baby's Growth and Activities](https://www.youtube.com/watch?v=sO6rjn2s6-k)
+## Development
 
-### Other
+```bash
+pip install pipenv && pipenv install --dev
+pipenv run python manage.py test
+```
 
-- [Grafana Dashboard](https://github.com/babybuddy/babybuddy/discussions/607)
-- [Sandstorm app](https://github.com/babybuddy/babybuddy-sandstorm)
-- Newborn parenting software series (API, buttons, LCD information screen!)
-  - [part 1](https://lutzky.net/2021/10/03/software-parenting-1/)
-  - [part 2](https://lutzky.net/2021/10/05/software-parenting-2/)
-  - [part 3](https://lutzky.net/2021/10/10/software-parenting-3/)
-- [High Level Developer Documentation (AI-Generated)](https://wiki.mutable.ai/babybuddy/babybuddy)
-- [Example custom TypeScript frontend](https://github.com/jkjustjoshing/maddie-buddy) (based on [Remix](https://remix.run/))
+The pet code lives in `pets/`; design notes in [docs/housetrained](docs/housetrained). The theme is built from
+`babybuddy/static_src` ([styles](docs/housetrained/styles.md)). Changes: [CHANGELOG.md](CHANGELOG.md).
 
-## 🔐 Reporting Vulnerabilities
+## License and credits
 
-See [SECURITY.md](SECURITY.md) for information about where and how to report
-potential Baby Buddy vulnerabilities.
-
-## ❤️ Support
-
-### Contribution and sponsorship
-
-Contribute or sponsor Baby Buddy's contributors using any of the following methods:
-
-- [Sponsor @babybuddy on GitHub](https://github.com/sponsors/babybuddy)
-- [Sponsor @cdubz on GitHub](https://github.com/sponsors/cdubz)
-- [Contribute on Open Collective](https://opencollective.com/babybuddy)
-
-### Tools and infrastructure
-
-The following organizations and services support Baby Buddy contributors in various ways (software licensing, service credits, etc.).
-
-_Some of the links below use referral codes -- all referral proceeds are treated as contributions to the Baby Buddy project._
-
-[![DigitalOcean Referral Badge](https://web-platforms.sfo2.cdn.digitaloceanspaces.com/WWW/Badge%203.svg)](https://www.digitalocean.com/?refcode=dd79e4cfd7b6&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge)
-[<img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.png" width="100" alt="JetBrains Logo (Main) logo.">](https://www.jetbrains.com/community/opensource/)
-[![POEditor](https://poeditor.com/public/images/ui/logos/logo_dark.svg)](https://poeditor.com/)
+BSD 2-Clause, see [LICENSE](LICENSE). Built on [Baby Buddy](https://github.com/babybuddy/babybuddy) by its
+contributors; icons and other third-party parts are listed in [NOTICE.md](NOTICE.md). Baby Buddy's original
+README is in [docs/babybuddy-README.md](docs/babybuddy-README.md).
