@@ -1,5 +1,6 @@
 """Pet pages: timers, logging for several pets, permissions, charts, delete buttons and forms (PUP-23 to 25)."""
 import datetime
+from unittest import mock
 import re
 
 from django.contrib.auth import get_user_model
@@ -222,6 +223,8 @@ class CardTests(PetTestCase):
         today = insights.potty_bars_card(self.ruby)["days"][0]
         self.assertEqual((today["pee_ok"], today["poop_ok"], today["pee_in"], today["poop_in"]), (1, 0, 0, 1))
 
+    @mock.patch("django.utils.timezone.now", lambda: datetime.datetime.combine(
+        datetime.date.today(), datetime.time(12), tzinfo=datetime.timezone.utc))  # not near midnight or bedtime
     def test_potty_bars_show_walks_per_day(self):
         now = timezone.now()
         for minutes in (20, 25):
@@ -403,6 +406,8 @@ class QuickPottyTests(PetTestCase):
         with open(os.path.join(settings.STATIC_ROOT, "babybuddy", "js", "app.js"), encoding="utf-8") as f:
             self.assertIn('type:"hidden",name:n.name,value:n.value', f.read())
 
+    @mock.patch("django.utils.timezone.now", lambda: datetime.datetime.combine(
+        datetime.date.today(), datetime.time(12), tzinfo=datetime.timezone.utc))  # not near midnight or bedtime
     def test_disregard_button_clears_the_trigger(self):
         now = timezone.now()
         PottyBreak.objects.create(pet=self.ruby, time=now - datetime.timedelta(hours=2), pee=True)

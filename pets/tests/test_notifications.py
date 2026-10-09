@@ -93,6 +93,42 @@ class NotificationTests(TestCase):
         self.assertEqual(message["url"], "/pets/biscuit/")
 
     @mock.patch("pywebpush.webpush")
+    def test_no_walk_reminder_while_out_on_a_walk(self, webpush):
+        from pets.models import Walk
+
+        self.subscribe()
+        noon = timezone.make_aware(datetime.datetime.combine(timezone.localdate(), datetime.time(12)))
+        PottyBreak.objects.create(pet=self.pet, time=noon - datetime.timedelta(hours=4, minutes=30), pee=True)
+        walk = Walk.objects.create(household=self.pet.household, start=noon - datetime.timedelta(minutes=5))
+        walk.pets.set([self.pet])
+        reminders.check(now=noon)
+        self.assertEqual(webpush.call_count, 0)  # already out
+        walk.end = noon
+        walk.save()
+        reminders.check(now=noon + datetime.timedelta(minutes=1))
+        self.assertEqual(webpush.call_count, 1)  # back without a pee: still due, so it comes now
+
+    def test_checker_starts_with_the_server_and_checks_right_away(self):
+        import threading
+
+        with mock.patch.object(reminders, "_started", False), \
+                mock.patch.object(reminders.settings, "HOUSETRAINED_REMINDER_THREAD", True), \
+                mock.patch.object(reminders, "check") as check, \
+                mock.patch.object(reminders.time, "sleep", side_effect=SystemExit), \
+                mock.patch.object(threading, "Thread") as thread:
+            reminders.start()
+            reminders.start()  # once per process
+            self.assertEqual(thread.call_count, 1)
+            self.subscribe()
+            with self.assertRaises(SystemExit):
+                reminders._loop()  # checks first, then sleeps
+            check.assert_called_once()
+        self.assertEqual(reminders.INTERVAL, 60)
+        with open(reminders.__file__.replace("pets\\reminders.py", "babybuddy\\wsgi.py")
+                  .replace("pets/reminders.py", "babybuddy/wsgi.py"), encoding="utf-8") as f:
+            self.assertIn("start_reminders()", f.read())
+
+    @mock.patch("pywebpush.webpush")
     def test_no_walk_reminder_when_not_due_or_turned_off(self, webpush):
         self.subscribe()
         noon = timezone.make_aware(datetime.datetime.combine(timezone.localdate(), datetime.time(12)))
