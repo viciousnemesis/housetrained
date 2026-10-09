@@ -64,6 +64,27 @@
                 {% endif %}
             </div>
         {% endif %}
+        {% if parts.rows %}
+            <h2 class="h6 text-body-secondary mt-4">{% trans "By part of the day" %}</h2>
+            {% if parts.headline %}<p class="small mb-2 text-warning">{{ parts.headline }}</p>{% endif %}
+            <table class="table table-sm table-borderless small mb-0" style="max-width: 32rem">
+                <thead><tr class="text-body-secondary">
+                    <th class="ps-0 fw-normal"></th>
+                    <th class="fw-normal text-end">{% trans "Usual gap" %}</th>
+                    <th class="fw-normal text-end">{% trans "Accidents" %}</th>
+                    <th class="pe-0 fw-normal text-end">{% trans "Plan" %}</th>
+                </tr></thead>
+                {% for r in parts.rows %}
+                    <tr>
+                        <td class="ps-0">{{ r.part|capfirst }}</td>
+                        <td class="text-end">{{ r.usual|default:"–" }}</td>
+                        <td class="text-end">{% blocktrans with pee=r.pee_accidents poop=r.poop_accidents %}{{ pee }} pee · {{ poop }} poop{% endblocktrans %}</td>
+                        <td class="pe-0 text-end fw-bold{% if r.shortened %} text-warning{% endif %}">{{ r.planned }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+            <p class="small text-body-secondary mt-1 mb-0">{% blocktrans %}Usual gap: outdoor pee to outdoor pee, past week. Plan is shorter (yellow) where accidents came sooner.{% endblocktrans %}</p>
+        {% endif %}
         {% if averages %}
             <h2 class="h6 text-body-secondary mt-4">{% trans "Past 2 weeks" %}</h2>
             <table class="table table-sm table-borderless small mb-0" style="max-width: 32rem">

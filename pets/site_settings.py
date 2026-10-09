@@ -66,32 +66,30 @@ class PredictionSettings(dbsettings.Group):
     max_hold_hours = _number(8, _("Longest hold"), _(
         "Hours. The most a pet is expected to hold it. Caps the age rule of thumb (age in months + 1 hour). "
         "Adult dogs: about 8."))
-    min_history_days = _number(3, _("History needed to learn"), _(
-        "Days of logs before predictions use the pet's own potty gaps instead of the age rule."))
-    age_rule_until_days = _number(7, _("Age rule period"), _(
-        "Days of logs during which the age rule is the fallback. After that, the average gap over the past "
-        "3 days is used instead."))
+    usual_days = _number(7, _("Days for the usual gap"), _(
+        "The usual gap between pees is the average over this many days of gaps that worked (outdoor pee to "
+        "outdoor pee, no accident between), for the same part of the day."))
+    gap_min_minutes = _number(30, _("Shortest gap that counts"), _(
+        "Minutes. Shorter gaps are top-ups on the same walk and are left out of the usual gap."))
+    gap_max_hours = _number(4, _("Longest gap that counts"), _(
+        "Hours. Longer gaps are naps or missed entries and are left out of the usual gap."))
+    learn_from_accidents = BabyModeValue(
+        required=False, default=True, widget=CheckboxInput, description=_("Learn from accidents"),
+        help_text=_("When pee accidents in a part of the day (morning, afternoon, evening) typically come sooner than "
+                    "the usual gap, plan that part of the day's walks earlier. Needs 2 accidents in two weeks."))
+    accident_margin = _number(15, _("Accident margin"), _(
+        "Minutes. Learning from accidents aims this long before they typically came."))
     max_gap_hours = _number(12, _("Longest real gap"), _(
-        "Hours. Longer gaps between potty breaks are ignored: they're usually missed entries, not real holds."))
-    meal_window_hours = _number(3, _("After-meal window"), _(
-        "Hours. A potty break this soon after a meal counts as caused by it, to learn how long after eating "
-        "this pet goes."))
-    meal_delay_pee = _number(20, _("Pee after a meal"), _(
-        "Minutes from a meal to the next pee, used until three meals were followed by a pee."))
-    meal_delay_poop = _number(30, _("Poop after a meal"), _(
-        "Minutes from a meal to the next poop, used until three meals were followed by a poop."))
+        "Hours. For nights and walk timing: longer gaps between potty breaks are missed entries."))
+    meal_delay_pee = _number(20, _("Pee after eating or drinking"), _(
+        "Minutes from eating or drinking to the pee it brings on."))
+    meal_delay_poop = _number(30, _("Poop after eating"), _(
+        "Minutes from food to the poop it brings on."))
     retry_after = _number(15, _("Try again after nothing"), _(
         "Minutes. Out on a walk (or Nothing on the Potty panel) and nothing happened: the next walk is due this "
         "long after getting back."))
     merge_slack = _number(30, _("Needs grouping buffer"), _(
         "Minutes. A pee or poop due this long after a walk would normally end is expected on that walk."))
-    learn_from_accidents = BabyModeValue(
-        required=False, default=True, widget=CheckboxInput,
-        description=_("Learn from accidents"),
-        help_text=_("When at least two recent accidents came before the predicted walk, predict that much earlier."),
-    )
-    accident_max_shift = _number(90, _("Largest accident adjustment"), _(
-        "Minutes. The most Next Walk is moved earlier because of accidents."))
     default_walk = _number(15, _("Usual walk length"), _(
         "Minutes a walk takes, used until walks are logged."))
     min_night_hours = _number(4, _("Shortest night"), _(
