@@ -8,6 +8,7 @@
         {% endif %}
     </div>
     <div class="card-body">
+        {# Head out on the left with Why? under it; Most recent at the bottom right, so the card doesn't grow. #}
         <div class="d-flex justify-content-between gap-3">
             <div>
                 {% if needs %}
@@ -17,9 +18,32 @@
                     <div class="fw-bold">{% trans "Log a potty break to start the schedule" %}</div>
                 {% endif %}
                 {% if asleep %}<div class="small text-body-secondary mt-1">🌙 {% blocktrans with time=asleep.start|clock %}asleep since {{ time }}{% endblocktrans %}</div>{% endif %}
+            {% if source and pets_can_edit %}
+                {# A meal or nap brought the time forward; it stays due until a potty break, or until this says it passed. #}
+                <form class="mt-2 d-flex align-items-center gap-2" method="post" action="{% url 'pets:disregard' pet.slug %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button class="btn btn-sm btn-outline-light" type="submit">{% if source == "meal" %}{% trans "Disregard meal" %}{% else %}{% trans "Disregard wake-up" %}{% endif %}</button>
+                    {% if help_bubbles %}<span class="small text-body-secondary">{% trans "Went out and nothing happened? Back to the schedule." %}</span>{% endif %}
+                </form>
+            {% endif %}
+            {% if needs %}
+                <details class="small mt-2">
+                    <summary class="text-body-secondary">{% trans "Why?" %}</summary>
+                    {% for p in needs %}
+                        <div class="mt-1"><strong>{{ p.kind }} ~{{ p.time|clock }}</strong>{% if not p.this_walk %} · {% trans "a later walk" %}{% endif %}<br>
+                            <span class="text-body-secondary">{{ p.reason }}</span></div>
+                    {% endfor %}
+                    {% if to_outside %}<div class="mt-1 text-body-secondary">{% blocktrans %}Head out includes {{ to_outside }} to get outside.{% endblocktrans %}</div>{% endif %}
+                    <div class="mt-1 text-body-secondary">
+                        {% blocktrans with pee=pee_every|minutes poop=poop_every|minutes meal=pet.after_meal %}Schedule: pee every {{ pee }}, poop every {{ poop }}, out {{ meal }} min after a meal.{% endblocktrans %}
+                        {% if pets_can_edit %}<a href="{% url 'pets:edit' 'pet' pet.pk %}?next={{ request.path|urlencode }}">{% trans "Change" %}</a>{% endif %}
+                    </div>
+                </details>
+            {% endif %}
             </div>
             {% if latest %}
-                <div class="text-nowrap" style="font-variant-numeric: tabular-nums">
+                <div class="text-nowrap align-self-end" style="font-variant-numeric: tabular-nums">
                     <div class="text-body-secondary border-bottom mb-1 pb-1">{% trans "Most recent" %}</div>
                     {% for label, time, url in latest %}
                         <a class="d-flex justify-content-between gap-3 text-reset text-decoration-none" href="{{ url }}?next={{ request.path|urlencode }}">
@@ -29,15 +53,6 @@
                 </div>
             {% endif %}
         </div>
-        {% if source and pets_can_edit %}
-            {# A meal or nap brought the time forward; it stays due until a potty break, or until this says it passed. #}
-            <form class="mt-2 d-flex align-items-center gap-2" method="post" action="{% url 'pets:disregard' pet.slug %}">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                <button class="btn btn-sm btn-outline-light" type="submit">{% if source == "meal" %}{% trans "Disregard meal" %}{% else %}{% trans "Disregard wake-up" %}{% endif %}</button>
-                {% if help_bubbles %}<span class="small text-body-secondary">{% trans "Went out and nothing happened? Back to the schedule." %}</span>{% endif %}
-            </form>
-        {% endif %}
         {% if coach and pets_can_edit %}
             <form class="mt-2 p-2 rounded border border-warning-subtle small" method="post" action="{% url 'pets:coach' pet.slug %}">
                 {% csrf_token %}
@@ -47,20 +62,6 @@
                 <button class="btn btn-sm btn-primary" type="submit" name="action" value="apply">{% trans "Apply" %}</button>
                 <button class="btn btn-sm btn-outline-light ms-1" type="submit" name="action" value="snooze">{% trans "Not now" %}</button>
             </form>
-        {% endif %}
-        {% if needs %}
-            <details class="small mt-2">
-                <summary class="text-body-secondary">{% trans "Why?" %}</summary>
-                {% for p in needs %}
-                    <div class="mt-1"><strong>{{ p.kind }} ~{{ p.time|clock }}</strong>{% if not p.this_walk %} · {% trans "a later walk" %}{% endif %}<br>
-                        <span class="text-body-secondary">{{ p.reason }}</span></div>
-                {% endfor %}
-                {% if to_outside %}<div class="mt-1 text-body-secondary">{% blocktrans %}Head out includes {{ to_outside }} to get outside.{% endblocktrans %}</div>{% endif %}
-                <div class="mt-1 text-body-secondary">
-                    {% blocktrans with pee=pee_every|minutes poop=poop_every|minutes meal=pet.after_meal %}Schedule: pee every {{ pee }}, poop every {{ poop }}, out {{ meal }} min after a meal.{% endblocktrans %}
-                    {% if pets_can_edit %}<a href="{% url 'pets:edit' 'pet' pet.pk %}?next={{ request.path|urlencode }}">{% trans "Change" %}</a>{% endif %}
-                </div>
-            </details>
         {% endif %}
     </div>
 </div>
