@@ -80,6 +80,9 @@ class PredictionSettings(dbsettings.Group):
         "Minutes from a meal to the next pee, used until three meals were followed by a pee."))
     meal_delay_poop = _number(30, _("Poop after a meal"), _(
         "Minutes from a meal to the next poop, used until three meals were followed by a poop."))
+    retry_after = _number(15, _("Try again after nothing"), _(
+        "Minutes. Out on a walk (or Nothing on the Potty panel) and nothing happened: the next walk is due this "
+        "long after getting back."))
     merge_slack = _number(30, _("Needs grouping buffer"), _(
         "Minutes. A pee or poop due this long after a walk would normally end is expected on that walk."))
     learn_from_accidents = BabyModeValue(

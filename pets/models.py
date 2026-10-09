@@ -498,6 +498,8 @@ class NotificationPreference(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notification_prefs")
     walk_due = models.BooleanField(_("Walk due"), default=True,
                                    help_text=_("When a pet's next walk is due, from the Next Walk prediction."))
+    walk_lead_minutes = models.PositiveSmallIntegerField(
+        _("minutes before"), default=5, help_text=_("How long before the head-out time the walk reminder comes."))
     low_supply = models.BooleanField(_("Buy more"), default=True,
                                      help_text=_("When a bag is down to its reorder days (once a day)."))
     water_cutoff = models.BooleanField(_("Water bowl"), default=False,

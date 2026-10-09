@@ -56,6 +56,7 @@ class Rules:
     merge_slack: datetime.timedelta = datetime.timedelta(minutes=30)  # needs this close to a walk go on it
     learn_from_accidents: bool = True  # move predictions earlier when accidents keep coming before them
     accident_max_shift: datetime.timedelta = datetime.timedelta(minutes=90)
+    retry_after: datetime.timedelta = datetime.timedelta(minutes=15)  # out and nothing happened: try again then
     meal_delay: dict = field(default_factory=lambda: {
         "pee": datetime.timedelta(minutes=20), "poop": datetime.timedelta(minutes=30)})
 
@@ -73,6 +74,7 @@ class Rules:
             max_hold_hours=s.max_hold_hours, default_walk=minutes(s.default_walk), merge_slack=minutes(s.merge_slack),
             meal_delay={"pee": minutes(s.meal_delay_pee), "poop": minutes(s.meal_delay_poop)},
             learn_from_accidents=bool(s.learn_from_accidents), accident_max_shift=minutes(s.accident_max_shift),
+            retry_after=minutes(s.retry_after),
         )
 
 # Day x hour chart geometry (SVG units).
@@ -566,6 +568,22 @@ def next_walk_card(pet, now=None, rules=None, learn=True):
                 p["time"] = moved
                 p["reason"] += _("; ~%(shift)s earlier: recent accidents came before the prediction") % {
                     "shift": fmt_duration(p["raw_time"] - moved)}
+
+    # Went out for it and nothing happened (a walk without one, or Nothing on the Potty panel): the next try is
+    # `retry_after` after getting back, and the walk reminder follows that. Only logging moves the estimate later.
+    nothing = list(PottyBreak.everything.filter(pet=pet, pee=False, poop=False, time__gte=since, time__lte=now)
+                   .values_list("time", flat=True))
+    outings = list(Walk.objects.filter(pets=pet, start__gte=since, end__lte=now).values_list("start", "end"))
+    for p in predictions:
+        tries = [t for t in nothing if t > p["last"]] + [end for start, end in outings if start > p["last"]]
+        if tries:
+            back = max(tries)
+            retry = back + rules.retry_after + to_outside  # head out `retry_after` after getting back
+            if retry > p["time"]:
+                p["time"] = retry
+                p["source"] = None
+                p["reason"] = _("nothing when out at %(time)s; try again ~%(again)s") % {
+                    "time": fmt_time(back), "again": fmt_time(back + rules.retry_after)}
     predictions.sort(key=lambda p: p["time"])
 
     # Pees and poops happen on walks: anything due before the next walk would end belongs to it.

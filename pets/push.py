@@ -41,6 +41,15 @@ def public_key():
 
 def send(user, title, body, url="/", tag=None):
     """Send to every device the user turned notifications on for. Returns how many got it."""
+    return _deliver(user, {"title": title, "body": body, "url": url, "tag": tag or url})
+
+
+def close(user, tag):
+    """Take a notification that's no longer needed (tag) off the user's devices. Returns how many got it."""
+    return _deliver(user, {"close": tag})
+
+
+def _deliver(user, message):
     from py_vapid import Vapid
     from pywebpush import WebPushException, webpush
 
@@ -48,7 +57,7 @@ def send(user, title, body, url="/", tag=None):
         return 0
     keys = _keys()
     vapid = Vapid.from_pem(keys.private_key.encode())
-    payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag or url})
+    payload = json.dumps(message)
     delivered = 0
     for sub in PushSubscription.objects.filter(user=user):
         try:

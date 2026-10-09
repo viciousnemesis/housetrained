@@ -44,7 +44,9 @@ These are checked by `pets/tests/test_prediction_scenarios.py`, including random
 3. With nothing new logged, time passing never makes it later. Only a potty break or Disregard does.
 4. Once the usual gap has passed, the pet stays overdue until a potty break is logged.
 5. Learning from accidents only ever brings the estimate forward.
-6. Logging a pee is what moves the next pee later.
+6. Logging a pee is what moves the next pee later. So does going out and coming back with nothing (a walk
+   without one, or **Nothing** on the Potty panel): the next walk is then due **15 minutes** after getting
+   back, and its reminder comes like any other.
 7. A trigger is never due before you could have headed out for it: not while the pet was still asleep, and not
    before it was logged. A nap or meal logged after the fact is due **now**, not "overdue" for back then.
 
@@ -97,6 +99,7 @@ Otherwise it shows as "likely next walk".
 | History needed to learn | 3 days | Before this, the age rule is used |
 | Age rule period | 7 days | After this, the 3-day average is the fallback |
 | Longest real gap | 12 hours | Longer gaps are ignored |
+| Try again after nothing | 15 minutes | Out and nothing happened: the next walk is due this long after getting back |
 | After-meal window | 3 hours | Potty breaks this soon after a meal count as caused by it |
 | Pee / poop after a meal | 20 / 30 minutes | Until the pet's own delay is learned |
 | Needs grouping buffer | 30 minutes | A need due this long after a walk would normally end is expected on that walk |

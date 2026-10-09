@@ -93,6 +93,55 @@ class NotificationTests(TestCase):
         self.assertEqual(message["url"], "/pets/biscuit/")
 
     @mock.patch("pywebpush.webpush")
+    def test_walk_reminder_comes_minutes_before_head_out(self, webpush):
+        from pets.insights import next_walk_card
+
+        self.subscribe()
+        noon = timezone.make_aware(datetime.datetime.combine(timezone.localdate(), datetime.time(12)))
+        PottyBreak.objects.create(pet=self.pet, time=noon - datetime.timedelta(hours=3), pee=True)
+        head_out = next_walk_card(self.pet, now=noon)["head_out"]
+        self.assertGreater(head_out, noon)
+        prefs = NotificationPreference.objects.create(user=self.user, walk_lead_minutes=0)
+        reminders.check(now=head_out - datetime.timedelta(minutes=4))
+        self.assertEqual(webpush.call_count, 0)  # 0 minutes before: not yet
+        prefs.walk_lead_minutes = 5  # the default
+        prefs.save()
+        reminders.check(now=head_out - datetime.timedelta(minutes=6))
+        self.assertEqual(webpush.call_count, 0)  # too early
+        reminders.check(now=head_out - datetime.timedelta(minutes=4))
+        self.assertEqual(webpush.call_count, 1)
+        self.assertIn("Head out ~", json.loads(webpush.call_args.kwargs["data"])["body"])
+        reminders.check(now=head_out)
+        self.assertEqual(webpush.call_count, 1)  # once per walk
+
+    def test_lead_minutes_setting(self):
+        self.assertEqual(NotificationPreference(user=self.user).walk_lead_minutes, 5)
+        self.client.post("/pets/notifications/", {"action": "prefs", "walk_due": "on", "walk_lead_minutes": "10"})
+        self.assertEqual(NotificationPreference.objects.get(user=self.user).walk_lead_minutes, 10)
+        self.assertContains(self.client.get("/pets/notifications/"), 'name="walk_lead_minutes"')
+
+    @mock.patch("pywebpush.webpush")
+    def test_starting_the_walk_takes_the_reminder_away(self, webpush):
+        self.subscribe()
+        noon = timezone.make_aware(datetime.datetime.combine(timezone.localdate(), datetime.time(12)))
+        PottyBreak.objects.create(pet=self.pet, time=noon - datetime.timedelta(hours=4, minutes=30), pee=True)
+        with mock.patch("django.utils.timezone.now", return_value=noon):
+            reminders.check(now=noon)
+            self.assertEqual(webpush.call_count, 1)
+            self.client.post("/log/walk/start/", {"pet": self.pet.slug})
+        self.assertEqual(webpush.call_count, 2)
+        self.assertEqual(json.loads(webpush.call_args.kwargs["data"]), {"close": f"walk-{self.pet.pk}"})
+        page = self.client.get(f"/pets/{self.pet.slug}/").content.decode()
+        self.assertIn(f'getNotifications({{tag: "walk-{self.pet.pk}"}})', page)  # and this device closes it too
+        self.assertIn("data.close", self.client.get("/sw.js").content.decode())
+
+    @mock.patch("pywebpush.webpush")
+    def test_starting_a_walk_without_a_reminder_sends_nothing(self, webpush):
+        self.subscribe()
+        self.client.post("/log/walk/start/", {"pet": self.pet.slug})
+        self.assertEqual(webpush.call_count, 0)
+
+    @mock.patch("pywebpush.webpush")
     def test_no_walk_reminder_while_out_on_a_walk(self, webpush):
         from pets.models import Walk
 
@@ -106,7 +155,9 @@ class NotificationTests(TestCase):
         walk.end = noon
         walk.save()
         reminders.check(now=noon + datetime.timedelta(minutes=1))
-        self.assertEqual(webpush.call_count, 1)  # back without a pee: still due, so it comes now
+        self.assertEqual(webpush.call_count, 0)  # back without a pee: not straight away...
+        reminders.check(now=noon + datetime.timedelta(minutes=11))
+        self.assertEqual(webpush.call_count, 1)  # ...but 5 minutes before trying again, 15 minutes after
 
     def test_checker_starts_with_the_server_and_checks_right_away(self):
         import threading

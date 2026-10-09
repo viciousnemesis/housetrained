@@ -7,7 +7,8 @@ The rules:
    break is logged or someone taps Disregard on the Now card (then: back to the usual gap).
 4. Once the usual gap has passed, the pet stays overdue until a potty break is logged.
 5. Learning from accidents only ever brings the estimate forward.
-6. Logging a pee is what moves the next pee later.
+6. Logging a pee is what moves the next pee later; so does going out and coming back with nothing (a walk
+   without one, or Nothing): then the next try is 15 minutes after getting back.
 7. A meal or wake-up can't be due before it was logged, and a wake-up not before waking.
 """
 import datetime
@@ -240,6 +241,42 @@ class PredictionScenarioTests(TestCase):
                 with self.subTest(case=case, now=now):
                     self.assertLessEqual(current, previous)
                 previous = current
+
+    def test_walk_without_a_pee_means_try_again_soon(self):
+        pet = self.pet()
+        self.history(pet)
+        self.potty(pet, self.at(9), poop=True)
+        due = self.times(pet, self.at(9, 5))["pee"]
+        from pets.models import Walk
+
+        walk = Walk.objects.create(household=self.household, start=due - 5 * MIN, end=due + 10 * MIN)
+        walk.pets.set([pet])
+        now = due + 11 * MIN
+        card = next_walk_card(pet, now=now, rules=self.rules)
+        pee = next(p for p in card["predictions"] if p["key"] == "pee")
+        self.assertEqual(card["head_out"], due + 25 * MIN)  # 15 minutes after getting back
+        self.assertIn("try again", pee["reason"])
+        self.potty(pet, now + 2 * MIN)  # she goes after all: back to the usual gap from there
+        self.assertGreater(self.times(pet, now + 3 * MIN)["pee"], now + datetime.timedelta(hours=1))
+
+    def test_nothing_on_the_panel_means_try_again_soon(self):
+        pet = self.pet()
+        self.history(pet)
+        self.potty(pet, self.at(9), poop=True)
+        due = self.times(pet, self.at(9, 5))["pee"]
+        PottyBreak.objects.create(pet=pet, time=due, pee=False, poop=False)
+        self.assertEqual(self.head_out(pet, due + MIN), due + 15 * MIN)
+
+    def test_an_early_walk_without_a_pee_changes_nothing(self):
+        pet = self.pet()
+        self.history(pet)
+        self.potty(pet, self.at(9), poop=True)
+        due = self.times(pet, self.at(9, 5))["pee"]
+        from pets.models import Walk
+
+        walk = Walk.objects.create(household=self.household, start=self.at(9, 30), end=self.at(9, 40))
+        walk.pets.set([pet])
+        self.assertEqual(self.times(pet, self.at(9, 45))["pee"], due)
 
     # --- rule 5: accidents only bring it forward -------------------------------------------------------
     def test_accident_learning_never_postpones(self):

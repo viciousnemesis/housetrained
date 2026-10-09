@@ -2,6 +2,13 @@
 self.addEventListener("push", function (event) {
     var data = {};
     try { data = event.data ? event.data.json() : {}; } catch (e) { data = {body: event.data && event.data.text()}; }
+    if (data.close) {
+        // No longer needed (e.g. the walk it was for has started): take it away, show nothing.
+        event.waitUntil(self.registration.getNotifications({tag: data.close}).then(function (shown) {
+            shown.forEach(function (n) { n.close(); });
+        }));
+        return;
+    }
     event.waitUntil(self.registration.showNotification(data.title || "Housetrained", {
         body: data.body || "",
         tag: data.tag || undefined,
