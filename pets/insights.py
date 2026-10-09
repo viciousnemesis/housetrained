@@ -432,14 +432,15 @@ def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True, 
     rules = rules or Rules()
     logged = logged or {}
 
-    def head_out_from(cause, need, wake=False):
-        """`need`, pushed later if heading out for it would fall before it was logged (or before waking)."""
+    def floor_for(cause, wake=False):
+        """The earliest a need from this trigger can be: heading out no sooner than it was logged (or than
+        waking up)."""
         floor = logged.get(cause, cause)
         if floor > now:  # looking back at a moment before it was logged: as if logged live
             floor = cause
         if wake:
             floor = max(floor, cause)
-        return max(need, floor + to_outside)
+        return floor + to_outside
 
     if not events:
         return None
@@ -467,10 +468,11 @@ def _predict(kind, events, feedings, wakes, fallback, now, night, learned=True, 
         delay = median(delays) if len(delays) >= 3 else rules.meal_delay[kind]
         # Every meal or drink since is a trigger; a later one never postpones an earlier one (min below).
         for meal in meals_since:
-            candidates.append((head_out_from(meal, meal + delay), _("meal at %(time)s, %(kinds)s ~%(delay)s after meals") % {"time": fmt_time(meal), "kinds": KINDS[kind][1], "delay": fmt_duration(delay)}, "meal"))
+            candidates.append((max(meal + delay, floor_for(meal)), _("meal at %(time)s, %(kinds)s ~%(delay)s after meals") % {"time": fmt_time(meal), "kinds": KINDS[kind][1], "delay": fmt_duration(delay)}, "meal", floor_for(meal)))
 
     for woke in (s for s in wakes if since < s <= now):
-        candidates.append((head_out_from(woke, woke, wake=True), _("woke up at %(time)s") % {"time": fmt_time(woke)}, "wake"))
+        floor = floor_for(woke, wake=True)
+        candidates.append((max(woke, floor), _("woke up at %(time)s") % {"time": fmt_time(woke)}, "wake", floor))
 
     # Nothing gives way on its own: a passed trigger stays due until a potty break is logged or it's disregarded,
     # so the estimate never quietly moves later.
@@ -554,16 +556,19 @@ def next_walk_card(pet, now=None, rules=None, learn=True):
                 else:
                     result = (night.next_wake(result[0]), result[1] + _(", so after waking up"))
         if result:
-            when, reason, *source = result
+            when, reason, source, floor = (tuple(result) + (None, None))[:4]
             predictions.append({"kind": str(KINDS[kind][0]), "key": kind, "time": when, "raw_time": when,
-                                "reason": reason, "last": events[-1], "source": source[0] if source else None})
+                                "reason": reason, "last": events[-1], "source": source, "floor": floor})
 
     # Accidents that keep coming before the prediction pull it earlier (not into the night, not before the last
     # potty break).
     shift, _count = accident_shift(pet, now, rules) if learn else (datetime.timedelta(), 0)
     if shift >= datetime.timedelta(minutes=5):
         for p in predictions:
-            moved = max(p["time"] - shift, p["last"] + datetime.timedelta(minutes=10))
+            # Not sooner than 10 minutes after the last one (counting the time to get outside), and not before
+            # the trigger behind it could be acted on.
+            moved = max(p["time"] - shift, p["last"] + datetime.timedelta(minutes=10) + to_outside,
+                        p["floor"] or p["time"] - shift)
             if moved < p["time"] and not night.contains(moved):
                 p["time"] = moved
                 p["reason"] += _("; ~%(shift)s earlier: recent accidents came before the prediction") % {
@@ -571,9 +576,9 @@ def next_walk_card(pet, now=None, rules=None, learn=True):
 
     # Went out for it and nothing happened (a walk without one, or Nothing on the Potty panel): the next try is
     # `retry_after` after getting back, and the walk reminder follows that. Only logging moves the estimate later.
-    nothing = list(PottyBreak.everything.filter(pet=pet, pee=False, poop=False, time__gte=since, time__lte=now)
+    nothing = list(PottyBreak.everything.filter(pet=pet, pee=False, poop=False, time__gte=since, time__lt=now)
                    .values_list("time", flat=True))
-    outings = list(Walk.objects.filter(pets=pet, start__gte=since, end__lte=now).values_list("start", "end"))
+    outings = list(Walk.objects.filter(pets=pet, start__gte=since, end__lt=now).values_list("start", "end"))
     for p in predictions:
         tries = [t for t in nothing if t > p["last"]] + [end for start, end in outings if start > p["last"]]
         if tries:

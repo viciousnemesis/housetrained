@@ -292,6 +292,25 @@ class PredictionScenarioTests(TestCase):
         for kind in plain:
             self.assertLessEqual(learned[kind], plain[kind])
 
+    def test_accident_learning_respects_the_meal_and_the_last_potty(self):
+        """A poop at 6:08, a meal at 6:12 logged at 6:13: learning from accidents pulled head-out back to 6:08,
+        before the meal and the moment she'd just gone."""
+        pet = self.pet()
+        self.household.minutes_to_outside = 10
+        self.household.save()
+        self.history(pet)
+        for hours in (30, 54, 78):  # accidents well before the prediction: a big shift
+            accident = self.potty(pet, timezone.now() - datetime.timedelta(hours=hours), poop=True, inside=True)
+            accident.expected_raw_at = accident.time + datetime.timedelta(minutes=60)
+            accident.save()
+        self.potty(pet, self.at(17, 38))
+        self.potty(pet, self.at(18, 8), pee=False, poop=True)
+        meal = self.meal(pet, self.at(18, 12))
+        Meal.objects.filter(pk=meal.pk).update(created=self.at(18, 13))
+        head_out = self.head_out(pet, self.at(18, 14))
+        self.assertGreaterEqual(head_out, self.at(18, 18))  # 10 minutes after the poop, at the earliest
+        self.assertGreaterEqual(head_out, self.at(18, 13))  # and not before the meal was logged
+
     # --- rule 6: a pee moves the next pee ------------------------------------------------------------
     def test_logging_a_pee_moves_the_estimate_past_it(self):
         pet = self.pet()
