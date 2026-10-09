@@ -2,8 +2,8 @@
 
 `check()` looks at every household with someone signed up and sends what's due. Each reminder has a key and is
 claimed in ReminderLog before sending, so it goes out once even when several server processes check at the
-same time. The web server runs `check()` every few minutes in a background thread (started by
-ReminderMiddleware); `manage.py housetrained_reminders` runs it once, for cron.
+same time. The web server runs `check()` every minute in a background thread, started as soon as the server
+loads (wsgi.py; ReminderMiddleware as a fallback); `manage.py housetrained_reminders` runs it once, for cron.
 """
 import datetime
 import logging
@@ -18,7 +18,7 @@ from django.utils.translation import gettext as _
 from .models import Household, NotificationPreference, PushSubscription, ReminderLog
 
 log = logging.getLogger(__name__)
-INTERVAL = 300  # seconds between checks
+INTERVAL = 60  # seconds between checks: a walk reminder is at most this late
 WALK_LATE_LIMIT = datetime.timedelta(hours=2)  # a walk due longer ago than this isn't announced any more
 
 
@@ -57,6 +57,8 @@ def walk_reminders(household, now):
         return 0
     sent = 0
     for pet in household.pets.filter(active=True):
+        if pet.walks.filter(end=None, start__lte=now).exists():
+            continue  # already out: no "time for a walk" mid-walk (and nothing claimed, so it can still come later)
         card = next_walk_card(pet, now=now)
         if not card["predictions"]:
             continue
@@ -219,7 +221,6 @@ _lock = threading.Lock()
 
 def _loop():
     while True:
-        time.sleep(INTERVAL)
         try:
             close_old_connections()
             if PushSubscription.objects.exists():
@@ -228,6 +229,19 @@ def _loop():
             log.exception("Reminder check failed")
         finally:
             close_old_connections()
+        time.sleep(INTERVAL)
+
+
+def start():
+    """Start the reminder thread in this process (once). Called when the web server loads, so reminders don't
+    wait for someone to open a page after a restart."""
+    global _started
+    if _started or not settings.HOUSETRAINED_REMINDER_THREAD:
+        return
+    with _lock:
+        if not _started:
+            threading.Thread(target=_loop, name="housetrained-reminders", daemon=True).start()
+            _started = True
 
 
 class ReminderMiddleware:
@@ -238,10 +252,5 @@ class ReminderMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        global _started
-        if not _started and settings.HOUSETRAINED_REMINDER_THREAD:
-            with _lock:
-                if not _started:
-                    threading.Thread(target=_loop, name="housetrained-reminders", daemon=True).start()
-                    _started = True
+        start()
         return self.get_response(request)
