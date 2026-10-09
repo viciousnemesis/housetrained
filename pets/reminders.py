@@ -53,10 +53,10 @@ def _walk_lead(user):
 
 
 def walk_reminders(household, now):
-    """Each person gets it their chosen minutes before the head-out time (default 5), once per predicted walk."""
+    """Each person gets it their chosen minutes before the head-out time (default 5), once per walk."""
     from . import push
     from .clock import show_time
-    from .insights import next_walk_card
+    from .schedule import next_walk
 
     people = _people(household, "walk_due")
     if not people:
@@ -65,14 +65,14 @@ def walk_reminders(household, now):
     for pet in household.pets.filter(active=True):
         if pet.walks.filter(end=None, start__lte=now).exists():
             continue  # already out: no "time for a walk" mid-walk (and nothing claimed, so it can still come later)
-        card = next_walk_card(pet, now=now)
-        if not card["predictions"]:
+        card = next_walk(pet, now=now)
+        if not card["needs"]:
             continue
         due = card["head_out"]  # when to leave, which is a little before the pet needs to go
         for user in people:
             if not (now - WALK_LATE_LIMIT <= due <= now + _walk_lead(user)):
                 continue
-            # One reminder per predicted walk and person: the key changes once a potty break moves it on.
+            # One reminder per walk and person: the key changes once a potty break moves it on.
             if not _claim(f"walk:{pet.pk}:{due:%Y%m%d%H%M}:{user.pk}"):
                 continue
             with _in_user_zone(user):
@@ -123,22 +123,12 @@ def supply_reminders(household, now):
 
 
 def household_night(household, now):
-    """The dogs' learned night (earliest bedtime among them), as datetimes for today: (bedtime, wake-up)."""
-    from .insights import Night, Rules, is_accident, potty, window_start
-
-    rules = Rules.load()
-    nights = []
-    for pet in household.pets.filter(active=True, type="dog"):
-        breaks = [b.time for b in potty(pet, window_start(), until=now) if not is_accident(b)]
-        nights.append(Night(breaks, now, rules))
-    if not nights:
-        return None
-    night = min(nights, key=lambda n: (n.bed - 12 * 60) % (24 * 60))  # earliest bedtime, counted from noon
-    today = timezone.localtime(now).replace(hour=0, minute=0, second=0, microsecond=0)
-    bed = today + datetime.timedelta(minutes=int(night.bed))
-    if night.bed < 12 * 60:  # bedtime after midnight belongs to tonight
+    """Tonight's bedtime and this morning's wake-up from the household's quiet hours: (bedtime, wake-up)."""
+    today = timezone.localdate(now)
+    bed = timezone.make_aware(datetime.datetime.combine(today, household.bedtime))
+    if household.bedtime < datetime.time(12):  # bedtime after midnight belongs to tonight
         bed += datetime.timedelta(days=1)
-    wake = today + datetime.timedelta(minutes=int(night.wake))
+    wake = timezone.make_aware(datetime.datetime.combine(today, household.wake_time))
     return bed, wake
 
 
@@ -163,7 +153,7 @@ def water_reminders(household, now):
     if cutoff <= now <= cutoff + window and _claim(f"water-up:{household.pk}:{day:%Y%m%d}"):
         for user in people:
             with _in_user_zone(user):
-                body = _("Bedtime is usually ~%(time)s.") % {"time": show_time(bed)}
+                body = _("Bedtime is ~%(time)s.") % {"time": show_time(bed)}
             sent += push.send(user, _("Pick up the water bowl"), body, url="/pets/", tag="water")
     if wake <= now <= wake + window and _claim(f"water-down:{household.pk}:{day:%Y%m%d}"):
         for user in people:

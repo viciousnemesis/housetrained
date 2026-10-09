@@ -94,12 +94,12 @@ class NotificationTests(TestCase):
 
     @mock.patch("pywebpush.webpush")
     def test_walk_reminder_comes_minutes_before_head_out(self, webpush):
-        from pets.insights import next_walk_card
+        from pets.schedule import next_walk
 
         self.subscribe()
         noon = timezone.make_aware(datetime.datetime.combine(timezone.localdate(), datetime.time(12)))
         PottyBreak.objects.create(pet=self.pet, time=noon - datetime.timedelta(hours=3), pee=True)
-        head_out = next_walk_card(self.pet, now=noon)["head_out"]
+        head_out = next_walk(self.pet, now=noon)["head_out"]
         self.assertGreater(head_out, noon)
         prefs = NotificationPreference.objects.create(user=self.user, walk_lead_minutes=0)
         reminders.check(now=head_out - datetime.timedelta(minutes=4))

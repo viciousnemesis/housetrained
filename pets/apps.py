@@ -12,17 +12,10 @@ def link_new_baby(sender, instance, created, raw=False, **kwargs):
         BabyHousehold.objects.get_or_create(child=instance, defaults={"household": household})
 
 
-def record_expectation(sender, instance, raw=False, created=False, **kwargs):
-    """An accident (inside) remembers what Next Walk expected just before it; others drop it. Any new potty break
-    ends a "try again" countdown."""
-    if raw:
-        return
-    if created and instance.pet.retry_at:
+def end_retry(sender, instance, raw=False, created=False, **kwargs):
+    """Any new potty break ends a "try again" countdown."""
+    if not raw and created and instance.pet.retry_at:
         type(instance.pet).objects.filter(pk=instance.pet_id).update(retry_at=None)
-    if instance.location == "inside" or instance.expected_at or instance.expected_reason:
-        from .insights import snapshot_expectation
-
-        snapshot_expectation(instance)
 
 
 class PetsConfig(AppConfig):
@@ -34,5 +27,5 @@ class PetsConfig(AppConfig):
         from .scope import install
 
         post_save.connect(link_new_baby, sender="core.Child", dispatch_uid="pets.link_new_baby")
-        post_save.connect(record_expectation, sender="pets.PottyBreak", dispatch_uid="pets.record_expectation")
+        post_save.connect(end_retry, sender="pets.PottyBreak", dispatch_uid="pets.end_retry")
         install()

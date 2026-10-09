@@ -1,12 +1,12 @@
 {% extends "pets/cards/_base.html" %}
 {% load i18n pets_tags %}
-{% block header %}{% trans "Now" %}{% help_bubble _("When to head out: the last pee plus the gap between pees that has worked at this time of day (sooner after eating, drinking or waking up, and where accidents keep coming early). Details on the Progress page. Not veterinary advice.") %}{% endblock %}
+{% block header %}{% trans "Now" %}{% help_bubble _("When to head out, from the schedule you set: the last pee plus pee every, the last poop plus poop every, sooner after a meal or a nap. The coach suggests changes; nothing changes until you apply them. Not veterinary advice.") %}{% endblock %}
 {% block title %}
-    {% if predictions %}
+    {% if needs %}
         <div class="fs-3">{% blocktrans with time=head_out|clock %}Head out ~{{ time }}{% endblocktrans %}</div>
         <small>{{ due }} · {% trans "expect" %} {{ expect }}</small>
     {% else %}
-        {% trans "Not enough data for a prediction yet" %}
+        {% trans "Log a potty break to start the schedule" %}
     {% endif %}
 {% endblock %}
 {% block content %}
@@ -15,22 +15,36 @@
         {% if asleep %} · 🌙 {% blocktrans with time=asleep.start|clock %}asleep since {{ time }}{% endblocktrans %}{% endif %}
     </div>
     {% if source and pets_can_edit %}
-        {# A meal or wake-up drives the time; it stays due until a potty break, or until this says it passed. #}
+        {# A meal or nap brought the time forward; it stays due until a potty break, or until this says it passed. #}
         <form class="mt-2 d-flex align-items-center gap-2" method="post" action="{% url 'pets:disregard' pet.slug %}">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
             <button class="btn btn-sm btn-outline-light" type="submit">{% if source == "meal" %}{% trans "Disregard meal" %}{% else %}{% trans "Disregard wake-up" %}{% endif %}</button>
-            {% if help_bubbles %}<span class="small text-body-secondary">{% trans "Went out and nothing happened? Go back to the usual gap." %}</span>{% endif %}
+            {% if help_bubbles %}<span class="small text-body-secondary">{% trans "Went out and nothing happened? Back to the schedule." %}</span>{% endif %}
         </form>
     {% endif %}
-    {% if predictions %}
+    {% if coach and pets_can_edit %}
+        <form class="mt-2 p-2 rounded border border-warning-subtle small" method="post" action="{% url 'pets:coach' pet.slug %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <input type="hidden" name="kind" value="{{ coach.kind }}">
+            <div class="mb-2">{{ coach.text }}</div>
+            <button class="btn btn-sm btn-primary" type="submit" name="action" value="apply">{% trans "Apply" %}</button>
+            <button class="btn btn-sm btn-outline-light ms-1" type="submit" name="action" value="snooze">{% trans "Not now" %}</button>
+        </form>
+    {% endif %}
+    {% if needs %}
         <details class="small mt-2">
             <summary class="text-body-secondary">{% trans "Why?" %}</summary>
-            {% for p in predictions %}
-                <div class="mt-1"><strong>{{ p.kind }} ~{{ p.time|clock }}</strong>{% if not p.this_walk %} · {% trans "likely next walk" %}{% endif %}<br>
+            {% for p in needs %}
+                <div class="mt-1"><strong>{{ p.kind }} ~{{ p.time|clock }}</strong>{% if not p.this_walk %} · {% trans "a later walk" %}{% endif %}<br>
                     <span class="text-body-secondary">{{ p.reason }}</span></div>
             {% endfor %}
-            {% if to_outside %}<div class="mt-1 text-body-secondary">{% blocktrans %}Includes {{ to_outside }} to get outside.{% endblocktrans %}</div>{% endif %}
+            {% if to_outside %}<div class="mt-1 text-body-secondary">{% blocktrans %}Head out includes {{ to_outside }} to get outside.{% endblocktrans %}</div>{% endif %}
+            <div class="mt-1 text-body-secondary">
+                {% blocktrans with pee=pee_every|minutes poop=poop_every|minutes meal=pet.after_meal %}Schedule: pee every {{ pee }}, poop every {{ poop }}, out {{ meal }} min after a meal.{% endblocktrans %}
+                {% if pets_can_edit %}<a href="{% url 'pets:edit' 'pet' pet.pk %}?next={{ request.path|urlencode }}">{% trans "Change" %}</a>{% endif %}
+            </div>
         </details>
     {% endif %}
 {% endblock %}

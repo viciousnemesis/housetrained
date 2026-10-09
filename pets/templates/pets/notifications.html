@@ -43,7 +43,7 @@
             <div class="form-check mb-2">
                 <input class="form-check-input" type="checkbox" name="walk_due" id="walk_due" {% if prefs.walk_due %}checked{% endif %}>
                 <label class="form-check-label" for="walk_due">{% trans "When a walk is due" %}
-                    <span class="d-block small text-body-secondary">{% trans "From each pet's Next Walk prediction, once per walk." %}</span></label>
+                    <span class="d-block small text-body-secondary">{% trans "From each pet's schedule, once per walk." %}</span></label>
                 <div class="d-flex align-items-center gap-2 mt-1 small">
                     <input class="form-control form-control-sm" style="width: 4.5rem" type="number" min="0" max="120"
                            name="walk_lead_minutes" id="walk_lead_minutes" value="{{ prefs.walk_lead_minutes }}">

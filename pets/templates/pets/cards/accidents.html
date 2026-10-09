@@ -25,18 +25,6 @@
             <circle cx="{{ dot.x }}" cy="{{ dot.y }}" r="3.5" fill="{{ dot.color }}"><title>{{ dot.label }}</title></circle>
         {% endfor %}
     </svg>
-    {% if accident_rows %}
-        <div class="small mt-3 mb-1">{% trans "Compared with Next Walk" %}</div>
-        <ul class="list-unstyled small mb-2">
-            {% for r in accident_rows %}
-                <li class="d-flex justify-content-between gap-2">
-                    <a class="text-reset" href="{% url 'pets:edit' 'potty' r.pk %}?next={{ request.path|urlencode }}">{{ r.time|clock_dt }} · {{ r.kind }}</a>
-                    <span class="text-end {% if r.early %}text-warning{% else %}text-body-secondary{% endif %}">{{ r.relation }}</span>
-                </li>
-            {% endfor %}
-        </ul>
-        {% if accident_summary %}<div class="small text-body-secondary">{{ accident_summary }}</div>{% endif %}
-    {% endif %}
     {% if dots %}
         <div class="small mt-2 mb-1">{% trans "Accidents by hour (past 2 weeks)" %}</div>
         <svg viewBox="0 0 {{ chart.width }} 40" class="w-100" role="img" aria-label="{% trans 'Accidents by hour of day' %}">

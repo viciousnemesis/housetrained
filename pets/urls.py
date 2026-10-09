@@ -20,6 +20,7 @@ urlpatterns = [
     path("log/<str:kind>/<int:pk>/delete/", views.EntryDelete.as_view(), name="delete"),
     path("log/potty/quick/", views.QuickPotty.as_view(), name="quick-potty"),
     path("pets/<slug:slug>/disregard/", views.Disregard.as_view(), name="disregard"),
+    path("pets/<slug:slug>/coach/", views.Coach.as_view(), name="coach"),
     path("log/<str:kind>/start/", views.ActivityStart.as_view(), name="start"),
     path("log/<str:kind>/<int:pk>/<str:action>/", views.ActivityStop.as_view(), name="stop"),
 ]

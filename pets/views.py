@@ -102,7 +102,8 @@ class HouseholdEdit(HouseholdMixin, View):
             raise PermissionDenied
 
     def render_form(self, form):
-        return render(self.request, "pets/form.html", {"form": form, "title": _("Household"), "kind": "household"})
+        return render(self.request, "pets/form.html", {"form": form, "title": _("Household"), "kind": "household",
+                                                        "cancel_url": reverse("pets:setup")})
 
     def get(self, request):
         self.check()
@@ -306,7 +307,7 @@ class Progress(HouseholdMixin, TemplateView):
         return super().get_context_data(pet=pet, **progress.page(pet), **kwargs)
 
 
-RETRY_AFTER = datetime.timedelta(minutes=15)  # the page's "try again" banner; Next Walk uses Rules.retry_after
+RETRY_AFTER = datetime.timedelta(minutes=15)  # the page's "try again" banner (Next Walk: schedule.RETRY)
 
 
 class Disregard(HouseholdMixin, View):
@@ -320,6 +321,31 @@ class Disregard(HouseholdMixin, View):
         pet.triggers_cleared_at = timezone.now()
         pet.save(update_fields=["triggers_cleared_at"])
         messages.info(request, _("Disregarded. %(name)s is back on the usual gap.") % {"name": pet.name})
+        return HttpResponseRedirect(self.back_url([pet]))
+
+
+class Coach(HouseholdMixin, View):
+    """Apply the coach's suggestion (a new pee or poop interval), or not now (ask again in two days)."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, slug):
+        from .schedule import COACH_SNOOZE, coach, fmt_minutes
+
+        self.require("change", Pet)
+        pet = get_object_or_404(self.household.pets, slug=slug)
+        tip = coach(pet)
+        if request.POST.get("action") == "apply" and tip and request.POST.get("kind") == tip["kind"]:
+            setattr(pet, f"{tip['kind']}_every", tip["suggested"])
+            pet.schedule_changed_at = timezone.now()
+            pet.coach_snoozed_until = None
+            pet.save(update_fields=[f"{tip['kind']}_every", "schedule_changed_at", "coach_snoozed_until"])
+            messages.success(request, _("%(name)s: %(kind)s every %(every)s.") % {
+                "name": pet.name, "kind": _("pee") if tip["kind"] == "pee" else _("poop"),
+                "every": fmt_minutes(tip["suggested"])})
+        elif request.POST.get("action") == "snooze":
+            pet.coach_snoozed_until = timezone.now() + COACH_SNOOZE
+            pet.save(update_fields=["coach_snoozed_until"])
         return HttpResponseRedirect(self.back_url([pet]))
 
 

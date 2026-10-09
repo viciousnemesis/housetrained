@@ -4,7 +4,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from babybuddy.widgets import DateInput, DateTimeInput
+from babybuddy.widgets import DateInput, DateTimeInput, TimeInput
 from core.widgets import PillRadioSelect
 
 from . import units
@@ -670,8 +670,8 @@ class PetForm(HouseholdOwnedForm):
 
     class Meta:
         model = Pet
-        fields = ["name", "type", "breed", "sex", "birth_date", "birth_date_estimated", "potty_locations", "picture",
-                  "active", "notes"]
+        fields = ["name", "type", "breed", "sex", "birth_date", "birth_date_estimated", "potty_locations",
+                  "pee_every", "poop_every", "after_meal", "picture", "active", "notes"]
         widgets = {"type": PillRadioSelect(), "sex": PillRadioSelect(), "birth_date": DateInput(),
                    "notes": forms.Textarea(attrs={"rows": 3})}
 
@@ -681,12 +681,17 @@ class PetForm(HouseholdOwnedForm):
         super().__init__(*args, **kwargs)
         self.show_when = {"birth_date_estimated": ("birth_date", self.ANY)}
         self.fields["picture"].help_text = _("Drag and resize the box to frame your pet.")
+        self.fields["after_meal"].required = False
         if self.instance.pk:
             self.initial["potty_locations"] = self.instance.allowed_potty_locations()
             if self.instance.picture_crop:
                 import json
 
                 self.initial["picture_crop"] = json.dumps(self.instance.picture_crop)
+
+    def clean_after_meal(self):
+        value = self.cleaned_data.get("after_meal")
+        return 15 if value is None else value
 
     def clean_picture_crop(self):
         """The crop box from the page: fractions of the picture, {x, y, w, h}; anything odd is ignored."""
@@ -702,6 +707,10 @@ class PetForm(HouseholdOwnedForm):
         return crop
 
     def save(self, commit=True):
+        if self.instance.pk and {"pee_every", "poop_every"} & set(self.changed_data):
+            from django.utils import timezone
+
+            self.instance.schedule_changed_at = timezone.now()  # the coach starts counting again
         pet = super().save(commit=commit)
         if commit:
             crop = self.cleaned_data.get("picture_crop")
@@ -837,6 +846,18 @@ class SupplyItemForm(PetsForm):
 class HouseholdForm(forms.ModelForm):
     class Meta:
         model = Household
-        fields = ["name", "units", "time_zone", "minutes_to_outside", "water_cutoff_hours"]
-        widgets = {"units": PillRadioSelect()}
+        fields = ["name", "units", "time_zone", "minutes_to_outside", "bedtime", "wake_time", "water_cutoff_hours"]
+        widgets = {"units": PillRadioSelect(), "bedtime": TimeInput(), "wake_time": TimeInput()}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ("bedtime", "wake_time"):  # left blank: keep what's set
+            self.fields[name].required = False
+
+    def clean(self):
+        data = super().clean()
+        for name in ("bedtime", "wake_time"):
+            if data.get(name) is None:
+                data[name] = getattr(self.instance, name)
+        return data
         help_texts = {"units": _("Metric shows g, kg, ml, cm; imperial shows oz, lb, fl oz, in.")}
