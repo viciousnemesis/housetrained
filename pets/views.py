@@ -115,8 +115,13 @@ class HouseholdEdit(HouseholdMixin, View):
         self.check()
         form = forms.HouseholdForm(request.POST, instance=self.household)
         if form.is_valid():
-            form.save()
+            household = form.save(commit=False)
+            household.setup_done = sorted(set(household.setup_done or []) | {"quiet"})  # quiet hours seen
+            household.save()
             messages.success(request, _("Household saved."))
+            target = request.POST.get("next") or request.GET.get("next")
+            if target and url_has_allowed_host_and_scheme(target, {request.get_host()}):
+                return HttpResponseRedirect(target)
             return HttpResponseRedirect(reverse("pets:setup"))
         form.hydrated_fielsets = [{"layout": "default", "layout_attrs": {}, "fields": list(form)}]
         return self.render_form(form)
@@ -217,6 +222,36 @@ class Import(HouseholdMixin, View):
                           "csv_text": text, "columns": importer.KINDS[kind].columns})
 
 
+class SetupSkip(HouseholdMixin, View):
+    """Skip a first-run step, or hide the checklist ("all")."""
+
+    http_method_names = ["post"]
+
+    def post(self, request):
+        step = request.POST.get("step")
+        if step in ("quiet", "bowls", "notifications", "all"):
+            household = self.household
+            household.setup_done = sorted(set(household.setup_done or []) | {step})
+            household.save(update_fields=["setup_done"])
+        elif step == "schedule":
+            pet = get_object_or_404(self.household.pets, slug=request.POST.get("pet"))
+            pet.schedule_checked = True
+            pet.save(update_fields=["schedule_checked"])
+        return HttpResponseRedirect(self.back_url())
+
+
+class Export(HouseholdMixin, View):
+    """Everything as CSV in a zip, in the importer's columns (PUP-117). Anyone in the household can take it."""
+
+    def get(self, request):
+        from .exporter import export_zip
+
+        response = HttpResponse(export_zip(self.household), content_type="application/zip")
+        stamp = timezone.localtime().strftime("%Y-%m-%d")
+        response["Content-Disposition"] = f'attachment; filename="housetrained-export-{stamp}.zip"'
+        return response
+
+
 class Notifications(HouseholdMixin, View):
     """Notifications (PUP-58): turn them on per device, choose reminders, send a test."""
 
@@ -277,6 +312,7 @@ class Notifications(HouseholdMixin, View):
                 prefs.walk_lead_minutes = min(max(int(request.POST.get("walk_lead_minutes", 5)), 0), 120)
             except ValueError:
                 pass
+            prefs.walk_overdue = bool(request.POST.get("walk_overdue"))
             prefs.low_supply = bool(request.POST.get("low_supply"))
             prefs.weekly_progress = bool(request.POST.get("weekly_progress"))
             prefs.water_cutoff = bool(request.POST.get("water_cutoff"))
@@ -431,8 +467,11 @@ class PetDashboard(HouseholdMixin, TemplateView):
         more = [(kind, ENTRIES[kind].title) for kind in ("walk", "sleep", "meal", "measurement", "note")]
         filters = [("all", _("All")), ("walk", _("Walks")), ("pee", _("Pees")), ("poop", _("Poops")),
                    ("accident", _("Accidents")), ("meal", _("Meals")), ("sleep", _("Sleep"))]
+        from .schedule import setup_steps
+
+        steps = setup_steps(pet, self.request.user) if can_edit(self.request.user, self.household) else []
         return super().get_context_data(pet=pet, recent=recent_activity(pet), more_entries=more,
-                                        activity_filters=filters, **kwargs)
+                                        activity_filters=filters, setup_steps=steps, **kwargs)
 
 
 class EntryList(HouseholdMixin, TemplateView):

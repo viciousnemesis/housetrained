@@ -114,6 +114,40 @@ class NotificationTests(TestCase):
         reminders.check(now=head_out)
         self.assertEqual(webpush.call_count, 1)  # once per walk
 
+    @mock.patch("pywebpush.webpush")
+    def test_still_not_out_reminder(self, webpush):
+        from pets.schedule import next_walk
+
+        self.subscribe()
+        noon = timezone.make_aware(datetime.datetime.combine(timezone.localdate(), datetime.time(12)))
+        PottyBreak.objects.create(pet=self.pet, time=noon - datetime.timedelta(hours=3), pee=True)
+        head_out = next_walk(self.pet, now=noon)["head_out"]
+        reminders.check(now=head_out)
+        self.assertEqual(webpush.call_count, 1)  # time for a walk
+        reminders.check(now=head_out + datetime.timedelta(minutes=9))
+        self.assertEqual(webpush.call_count, 1)  # not yet
+        reminders.check(now=head_out + datetime.timedelta(minutes=11))
+        self.assertEqual(webpush.call_count, 2)
+        message = json.loads(webpush.call_args.kwargs["data"])
+        self.assertEqual(message["title"], "Biscuit: still not out")
+        self.assertEqual(message["tag"], f"walk-{self.pet.pk}")  # replaces the first on the device
+        reminders.check(now=head_out + datetime.timedelta(minutes=20))
+        self.assertEqual(webpush.call_count, 2)  # once
+
+    @mock.patch("pywebpush.webpush")
+    def test_still_not_out_can_be_turned_off(self, webpush):
+        from pets.schedule import next_walk
+
+        self.subscribe()
+        NotificationPreference.objects.create(user=self.user, walk_overdue=False)
+        noon = timezone.make_aware(datetime.datetime.combine(timezone.localdate(), datetime.time(12)))
+        PottyBreak.objects.create(pet=self.pet, time=noon - datetime.timedelta(hours=3), pee=True)
+        head_out = next_walk(self.pet, now=noon)["head_out"]
+        reminders.check(now=head_out + datetime.timedelta(minutes=11))
+        self.assertEqual(webpush.call_count, 1)  # only the first one
+        self.client.post("/pets/notifications/", {"action": "prefs", "walk_due": "on", "walk_overdue": "on"})
+        self.assertTrue(NotificationPreference.objects.get(user=self.user).walk_overdue)
+
     def test_lead_minutes_setting(self):
         self.assertEqual(NotificationPreference(user=self.user).walk_lead_minutes, 5)
         self.client.post("/pets/notifications/", {"action": "prefs", "walk_due": "on", "walk_lead_minutes": "10"})

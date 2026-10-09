@@ -1,19 +1,17 @@
-# Security Policy
+# Security policy
 
-## Supported Versions
+## Supported versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+Only the latest release of Housetrained gets security fixes. Update by pulling the newest image (or code) and
+restarting; database changes apply on start.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 2.x     | :white_check_mark: |
-| 1.x     | :x:                |
+## Reporting a vulnerability
 
-## Reporting a Vulnerability
+Please report security problems privately, not in a public issue: use **Report a vulnerability** on this
+repository's Security tab (GitHub private vulnerability reporting). Include what you found, how to reproduce it,
+and what an attacker could do with it.
 
-Baby Buddy's maintainers recommend GitHub for reporting vulnerabilities.
-Maintainers will do their best to verify, respond to and fix issues reported
-on the platform.
+You'll get a reply within a week. Once a fix is released, the report is credited in the changelog unless you'd
+rather not be named.
 
-[Disclose a Vulnerability on GitHub](https://github.com/babybuddy/babybuddy/security)
+Problems in Baby Buddy's own code that also affect Baby Buddy should be reported to Baby Buddy as well.

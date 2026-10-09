@@ -36,6 +36,8 @@ class Household(models.Model):
         _("bedtime"), default=datetime.time(23, 0),
         help_text=_("Quiet hours start: after the bedtime walk, the next one is at wake-up."))
     wake_time = models.TimeField(_("wake-up"), default=datetime.time(6, 30), help_text=_("Quiet hours end."))
+    setup_done = models.JSONField(default=list, blank=True, editable=False,
+                                  help_text="First-run steps done or skipped: quiet, bowls, notifications, all.")
     members = models.ManyToManyField(settings.AUTH_USER_MODEL, through="Membership", related_name="households")
     created = models.DateTimeField(auto_now_add=True)
 
@@ -104,6 +106,7 @@ class Pet(models.Model):
     after_meal = models.PositiveSmallIntegerField(
         _("out after a meal"), default=15, help_text=_("Minutes after eating or drinking to go out."))
     schedule_changed_at = models.DateTimeField(null=True, blank=True, editable=False)
+    schedule_checked = models.BooleanField(default=False, editable=False)  # the pet's form was saved (setup)
     coach_snoozed_until = models.DateTimeField(null=True, blank=True, editable=False)
     potty_locations = models.JSONField(
         _("potty locations"), default=list, blank=True,
@@ -529,6 +532,9 @@ class NotificationPreference(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notification_prefs")
     walk_due = models.BooleanField(_("Walk due"), default=True,
                                    help_text=_("When a pet's next walk is due, from its schedule."))
+    walk_overdue = models.BooleanField(
+        _("Still not out"), default=True,
+        help_text=_("A second reminder when nobody has gone out 10 minutes after it was time to head out."))
     walk_lead_minutes = models.PositiveSmallIntegerField(
         _("minutes before"), default=5, help_text=_("How long before the head-out time the walk reminder comes."))
     low_supply = models.BooleanField(_("Buy more"), default=True,
