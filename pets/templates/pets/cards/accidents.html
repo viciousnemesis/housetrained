@@ -36,7 +36,6 @@
             {% endfor %}
         </ul>
         {% if accident_summary %}<div class="small text-body-secondary">{{ accident_summary }}</div>{% endif %}
-        {% if accident_adjusted %}<div class="small text-body-secondary">{% blocktrans with time=accident_adjusted %}Next Walk is now predicted {{ time }} earlier to allow for that.{% endblocktrans %}</div>{% endif %}
     {% endif %}
     {% if dots %}
         <div class="small mt-2 mb-1">{% trans "Accidents by hour (past 2 weeks)" %}</div>

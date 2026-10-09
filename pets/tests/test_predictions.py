@@ -93,7 +93,7 @@ class PredictionTests(TestCase):
         self.routine(pet, days=6, hours=(6, 22), gap_hours=3)
         last = self.potty(pet, ago(minutes=20)).time
         pee = [p for p in next_walk_card(pet, now=NOW)["predictions"] if p["kind"] == "Pee"][0]
-        self.assertIn("usually", pee["reason"])
+        self.assertIn("worked", pee["reason"])
         self.assertLess(abs((pee["time"] - last) - datetime.timedelta(hours=3)), datetime.timedelta(minutes=5))
 
     def test_very_irregular_schedule_still_predicts(self):
@@ -120,8 +120,8 @@ class PredictionTests(TestCase):
         pet = self.pet(months=36)
         self.potty(pet, ago(hours=1))
         meal = Meal.objects.create(pet=pet, time=ago(minutes=10))
-        pee = next_walk_card(pet, now=NOW)["predictions"][0]
-        self.assertIn("meal at", pee["reason"])
+        pee = next(p for p in next_walk_card(pet, now=NOW)["predictions"] if p["key"] == "pee")
+        self.assertIn("ate or drank at", pee["reason"])
         self.assertEqual(pee["time"], meal.time + Rules().meal_delay["pee"])
 
     def test_bowl_fill_is_not_a_meal(self):
@@ -137,18 +137,32 @@ class PredictionTests(TestCase):
         self.potty(pet, ago(hours=1), pee=True, poop=True)
         Meal.objects.create(pet=pet, time=ago(minutes=10), food=False, water=True)
         by_kind = {p["kind"]: p for p in next_walk_card(pet, now=NOW)["predictions"]}
-        self.assertIn("meal at", by_kind["Pee"]["reason"])
-        self.assertNotIn("meal at", by_kind["Poop"]["reason"])
+        self.assertIn("ate or drank at", by_kind["Pee"]["reason"])
+        self.assertNotIn("Poop", by_kind)  # poops only come into it after food
 
-    def test_learned_meal_delay(self):
-        pet = self.pet(months=12)
-        for d in range(1, 5):
-            meal = Meal.objects.create(pet=pet, time=ago(days=d, hours=2))
-            self.potty(pet, meal.time + datetime.timedelta(minutes=45))
-        self.potty(pet, ago(hours=1))
-        meal = Meal.objects.create(pet=pet, time=ago(minutes=5))
-        pee = next_walk_card(pet, now=NOW)["predictions"][0]
-        self.assertEqual(pee["time"], meal.time + datetime.timedelta(minutes=45))
+    def test_usual_gap_is_the_average_of_gaps_that_worked_by_part_of_day(self):
+        """Outdoor pee to outdoor pee only; top-ups (under 30m), long gaps (over 4h) and accidents left out;
+        each part of the day averaged on its own."""
+        pet = self.pet(months=6)
+
+        def at(days, hour, minute=0):
+            day = timezone.localdate() - datetime.timedelta(days=days)
+            return timezone.make_aware(datetime.datetime.combine(day, datetime.time(hour, minute)), LA)
+
+        for d in (1, 2, 3):
+            # Morning: 7:00, a 7:10 top-up, 10:00 (2h 50m), an accident at 11:00. Evening: 2-hour gaps.
+            for h, m in ((7, 0), (7, 10), (10, 0), (13, 0), (17, 30), (19, 30), (21, 30)):
+                self.potty(pet, at(d, h, m))
+            self.potty(pet, at(d, 11), location=PottyBreak.INSIDE)
+        self.potty(pet, at(0, 8))
+        plain = Rules(learn_from_accidents=False)  # the usual gap alone (accident learning has its own test)
+        morning = next(p for p in next_walk_card(pet, now=at(0, 8, 5), rules=plain)["predictions"] if p["key"] == "pee")
+        self.assertIn("morning pees that worked", morning["reason"])
+        self.assertEqual(morning["time"] - at(0, 8), datetime.timedelta(hours=2, minutes=50))
+        self.potty(pet, at(0, 17, 30))
+        evening = next(p for p in next_walk_card(pet, now=at(0, 17, 35), rules=plain)["predictions"] if p["key"] == "pee")
+        self.assertIn("evening pees that worked", evening["reason"])
+        self.assertEqual(evening["time"] - at(0, 17, 30), datetime.timedelta(hours=2))
 
     # --- several pets ----------------------------------------------------------------------
     def test_pets_keep_their_own_routines(self):
@@ -198,9 +212,11 @@ class PredictionTests(TestCase):
         # 01:30 PDT and 01:30 PST on 2026-11-01 are an hour apart, not zero.
         first = datetime.datetime(2026, 11, 1, 1, 30, tzinfo=LA)
         second = datetime.datetime(2026, 11, 1, 1, 30, fold=1, tzinfo=LA)
-        events = [first, second]
-        result = insights._predict("pee", events, [], [], None, second, Night([], second), learned=False)
-        self.assertIsNone(result)  # no fallback, no learned gaps: nothing to say, and no crash
+        pet = self.pet(months=6)
+        self.potty(pet, first)
+        self.potty(pet, second)
+        card = next_walk_card(pet, now=second + datetime.timedelta(minutes=1))  # no crash
+        self.assertGreater(card["predictions"][0]["time"], second)
 
     # --- settings ----------------------------------------------------------------------------
     def test_rules_load_defaults(self):
@@ -214,7 +230,7 @@ class PredictionTests(TestCase):
 
     def test_needs_close_together_share_a_walk(self):
         pet = self.pet(months=36)
-        self.potty(pet, ago(hours=1), pee=True, poop=True)
+        self.potty(pet, ago(hours=2), pee=True, poop=True)
         Meal.objects.create(pet=pet, time=ago(minutes=5))
         card = next_walk_card(pet, now=NOW)
         self.assertTrue(all(p["this_walk"] for p in card["predictions"]))  # pee +20m, poop +30m: one walk
@@ -316,12 +332,36 @@ class AccidentLearningTests(TestCase):
         self.assertIn("earlier than expected", review["accident_rows"][0]["relation"])
         self.assertIn("2 of 2", review["accident_summary"])
 
-    def test_predictions_move_earlier_after_early_accidents(self):
-        self.early_accidents(3)
-        PottyBreak.objects.create(pet=self.pet, time=self.noon - datetime.timedelta(minutes=30), pee=True)
-        pee = [p for p in next_walk_card(self.pet, now=self.noon)["predictions"] if p["key"] == "pee"][0]
-        self.assertLess(pee["time"], pee["raw_time"])
-        self.assertIn("recent accidents came before the prediction", pee["reason"])
+    def test_progress_shows_parts_of_the_day(self):
+        evening = self.noon + datetime.timedelta(hours=7)  # 7 pm
+        for back in (1, 2, 3):
+            day = evening - datetime.timedelta(days=back)
+            PottyBreak.objects.create(pet=self.pet, time=day - datetime.timedelta(hours=2), pee=True)
+            PottyBreak.objects.create(pet=self.pet, time=day, pee=True, location=PottyBreak.INSIDE)
+        parts = insights.by_part_of_day(self.pet, now=evening)
+        self.assertEqual([r["key"] for r in parts["rows"]], ["morning", "afternoon", "evening"])
+        self.assertEqual(parts["rows"][2]["pee_accidents"], 3)
+        self.assertIn("Most pee accidents are in the evening: 3 of 3", parts["headline"])
+        self.client.force_login(self.user)
+        page = self.client.get(f"/pets/{self.pet.slug}/progress/")
+        self.assertContains(page, "By part of the day")
+        self.assertContains(page, "3 pee · 0 poop")
+
+    def test_accidents_in_a_part_of_the_day_shorten_its_gap(self):
+        self.early_accidents(3)  # morning accidents 2 hours after a pee
+        last = self.noon - datetime.timedelta(hours=2, minutes=30)  # 9:30, a morning pee
+        PottyBreak.objects.create(pet=self.pet, time=last, pee=True)
+        now = last + datetime.timedelta(minutes=5)
+        pee = next(p for p in next_walk_card(self.pet, now=now)["predictions"] if p["key"] == "pee")
+        self.assertIn("morning accidents came ~2h 0m after a pee", pee["reason"])
+        self.assertEqual(pee["time"] - last, datetime.timedelta(hours=1, minutes=45))  # 15 minutes before
+        off = next_walk_card(self.pet, now=now, rules=Rules(learn_from_accidents=False))
+        self.assertGreater(off["predictions"][0]["time"], pee["time"])
+        afternoon = self.noon + datetime.timedelta(hours=2)
+        PottyBreak.objects.create(pet=self.pet, time=afternoon, pee=True)
+        later = next(p for p in next_walk_card(self.pet, now=afternoon + datetime.timedelta(minutes=5))["predictions"]
+                     if p["key"] == "pee")
+        self.assertNotIn("accidents came", later["reason"])  # only that part of the day
 
     def test_learning_can_be_switched_off(self):
         self.early_accidents(3)

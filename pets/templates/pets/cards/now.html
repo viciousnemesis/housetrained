@@ -1,6 +1,6 @@
 {% extends "pets/cards/_base.html" %}
 {% load i18n pets_tags %}
-{% block header %}{% trans "Now" %}{% help_bubble _("When to head out, from this pet's own routine (gaps, meals, waking up, bedtime, recent accidents), and the latest of everything. Not veterinary advice.") %}{% endblock %}
+{% block header %}{% trans "Now" %}{% help_bubble _("When to head out: the last pee plus the gap between pees that has worked at this time of day (sooner after eating, drinking or waking up, and where accidents keep coming early). Details on the Progress page. Not veterinary advice.") %}{% endblock %}
 {% block title %}
     {% if predictions %}
         <div class="fs-3">{% blocktrans with time=head_out|clock %}Head out ~{{ time }}{% endblocktrans %}</div>

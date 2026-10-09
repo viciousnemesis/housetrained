@@ -288,7 +288,9 @@ class PredictionScenarioTests(TestCase):
             accident.save()
         self.potty(pet, self.at(10))
         now = self.at(10, 30)
-        learned, plain = self.times(pet, now), self.times(pet, now, learn=False)
+        learned = self.times(pet, now)
+        plain = {p["key"]: p["time"] for p in next_walk_card(
+            pet, now=now, rules=Rules(learn_from_accidents=False))["predictions"]}
         for kind in plain:
             self.assertLessEqual(learned[kind], plain[kind])
 
@@ -310,6 +312,18 @@ class PredictionScenarioTests(TestCase):
         head_out = self.head_out(pet, self.at(18, 14))
         self.assertGreaterEqual(head_out, self.at(18, 18))  # 10 minutes after the poop, at the earliest
         self.assertGreaterEqual(head_out, self.at(18, 13))  # and not before the meal was logged
+
+    def test_no_poop_expected_from_a_meal_right_after_a_poop(self):
+        """Pooped at 6:08, ate at 6:12: don't expect another poop ~6:40."""
+        pet = self.pet()
+        self.history(pet)
+        self.potty(pet, self.at(17, 38))
+        self.potty(pet, self.at(18, 8), pee=False, poop=True)
+        self.meal(pet, self.at(18, 12))
+        self.assertNotIn("poop", self.times(pet, self.at(18, 14)))
+        self.potty(pet, self.at(19, 0), pee=False, poop=True)  # but a meal well after a poop does
+        self.meal(pet, self.at(20, 30))
+        self.assertIn("poop", self.times(pet, self.at(20, 31)))
 
     # --- rule 6: a pee moves the next pee ------------------------------------------------------------
     def test_logging_a_pee_moves_the_estimate_past_it(self):

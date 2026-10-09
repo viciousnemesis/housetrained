@@ -92,7 +92,7 @@ def page(pet):
     # Always room for WEEKS bars, so one week of data doesn't become one giant bar.
     chart = {"bars": bars, "width": WEEKS * (BAR_W + GAP) - GAP, "plot_h": PLOT_H,
              "height": PLOT_H + LABEL_H, "label_y": PLOT_H + LABEL_H - 3}
-    from .insights import averages
+    from .insights import averages, by_part_of_day
 
     return {"streak": streak(pet), "weeks": rows, "chart": chart if bars else None, "patterns": patterns(pet),
-            "averages": averages(pet)}
+            "averages": averages(pet), "parts": by_part_of_day(pet)}
