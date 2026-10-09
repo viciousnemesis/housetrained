@@ -252,3 +252,39 @@ def coach(pet, now=None):
                 "A week without a %(kind)s accident at every %(every)s. Try %(longer)s?") % {
                 "kind": labels[kind], "every": fmt_minutes(current[kind]), "longer": fmt_minutes(suggested)}}
     return None
+
+
+def _today_at(at):
+    return timezone.make_aware(datetime.datetime.combine(timezone.localdate(), at))
+
+
+def setup_steps(pet, user):
+    """The first-run checklist for a pet's page (PUP-118): what's left to set up, each with where to do it. Empty
+    once everything is done, skipped or the list is hidden."""
+    from django.urls import reverse
+
+    from .forms import bowl_warnings
+    from .models import PushSubscription
+
+    household = pet.household
+    done = set(household.setup_done or [])
+    if "all" in done:
+        return []
+    steps = [
+        ("schedule", pet.schedule_checked,
+         _("Check %(pet)s's schedule: pee every %(pee)s, poop every %(poop)s (started from %(pet)s's age).") % {
+             "pet": pet.name, "pee": fmt_minutes(pet.pee_minutes), "poop": fmt_minutes(pet.poop_minutes)},
+         reverse("pets:edit", args=["pet", pet.pk])),
+        ("quiet", "quiet" in done,
+         _("Set your quiet hours (now %(bed)s to %(wake)s): no walks are due in between.") % {
+             "bed": fmt_time(_today_at(household.bedtime)), "wake": fmt_time(_today_at(household.wake_time))},
+         reverse("pets:household-edit")),
+        ("bowls", "bowls" in done or not bowl_warnings([pet]),
+         _("Set up %(pet)s's food and water bowls and how much each holds.") % {"pet": pet.name},
+         reverse("pets:setup")),
+        ("notifications", "notifications" in done or PushSubscription.objects.filter(user=user).exists(),
+         _("Turn on reminders on your phone, so you hear when it's time to head out."),
+         reverse("pets:notifications")),
+    ]
+    left = [{"key": key, "text": text, "url": url} for key, ok, text, url in steps if not ok]
+    return left

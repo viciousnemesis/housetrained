@@ -2,9 +2,11 @@
 
 # Housetrained
 
-Track your pets' potty breaks, walks, meals, water, sleep and supplies, and get a guess at when the next walk
-is due. Built for puppy house-training first, and works for cats and other pets too. Self-hosted, private,
-works on phones.
+Track your pets' potty breaks, walks, meals, water, sleep and supplies, and follow a simple walk schedule you
+set, with a coach that suggests changes from the accidents. Built for puppy house-training first, and works for
+cats and other pets too. Self-hosted, private, works on phones.
+
+**One household per install**, and **English only** for now (Baby Buddy's own pages keep their translations).
 
 Housetrained is a fork of [Baby Buddy](https://github.com/babybuddy/babybuddy). New puppy *and* a new baby?
 Turn on baby mode and track both in one place: babies sit next to the pets on the home page, with all of
@@ -23,12 +25,15 @@ Baby Buddy's baby tracking (feedings, diapers, sleep, pumping, growth) under the
   changes from the accidents. See [how it works](docs/housetrained/schedule.md).
 - **Food, water and litter**: what went into bowls, feeders and litter boxes, what each pet ate and drank, how
   much is left in each bag and when to buy more.
-- **Sleep, weight, height, notes**, charts of the past two weeks, a day-by-day timeline.
+- **Sleep, weight, height, notes**, charts of the past two weeks, and a Progress page: accident-free streaks,
+  week by week, where and when accidents happen.
 - **Households**: everyone in the home logs together; owners, members and read-only people.
 - **Phones first**: big buttons, forms that only show what applies, light and dark themes, metric or imperial.
-- **Reminders** as phone or browser notifications, if you allow them: when a walk is due, when it's time to
-  buy more food or litter (see [Private by design](#private-by-design)).
-- **CSV import** for past records and a [REST API](docs/housetrained/api.md).
+- **Reminders** as phone or browser notifications, if you allow them: when a walk is due, a second one if
+  nobody's out 10 minutes later (each can be turned off), when it's time to buy more food or litter (see
+  [Private by design](#private-by-design)).
+- **First-run checklist** on each pet's page: schedule, quiet hours, bowls, reminders.
+- **Export everything** as CSV (Setup > Export), **import** past records, and a [REST API](docs/housetrained/api.md).
 
 <br clear="right">
 
@@ -90,7 +95,8 @@ site) and adds them to the household (Setup > Members), where their role is set.
 
 Everything lives in the `config` folder: the database (`data/db.sqlite3`), pet photos (`media`) and the
 server's generated keys and settings. Stop
-the container and copy that folder to back up; copy it back to restore. To update, pull the new version and
+the container and copy that folder to back up; copy it back to restore. To take your records anywhere else,
+Setup > Export downloads them all as CSV files (the same layout Import reads). To update, pull the new version and
 run `docker compose up -d --build` again; database changes apply on start.
 
 ## Private by design

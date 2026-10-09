@@ -250,6 +250,38 @@ class ScheduleTests(TestCase):
         page = self.client.get(f"/pets/{self.ruby.slug}/")
         self.assertContains(page, "Schedule: pee every 2h 30m, poop every 5h, out 15 min after a meal.")
 
+    # --- first-run checklist (PUP-118) ----------------------------------------------------------------
+    def test_setup_checklist_until_done(self):
+        from pets.schedule import setup_steps
+
+        self.client.force_login(self.user)
+        page = self.client.get(f"/pets/{self.ruby.slug}/")
+        self.assertContains(page, "Finish setting up")
+        self.assertEqual([s["key"] for s in setup_steps(self.ruby, self.user)],
+                         ["schedule", "quiet", "bowls", "notifications"])
+        # Saving the pet's form checks the schedule; saving the household sets the quiet hours.
+        self.client.post(f"/log/pet/{self.ruby.pk}/", {"name": self.ruby.name, "type": "dog", "pee_every": "150",
+                                                      "poop_every": "300", "after_meal": "15", "active": "on"})
+        response = self.client.post(f"/pets/setup/household/?next=/pets/{self.ruby.slug}/", {
+            "name": "Home", "units": "metric", "time_zone": "", "minutes_to_outside": "10", "bedtime": "23:45",
+            "wake_time": "06:00", "water_cutoff_hours": "2"})
+        self.assertEqual(response.url, f"/pets/{self.ruby.slug}/")  # back to the pet
+        self.ruby.refresh_from_db()
+        self.assertEqual([s["key"] for s in setup_steps(self.ruby, self.user)], ["bowls", "notifications"])
+        self.client.post("/pets/setup/skip/", {"step": "bowls"})
+        self.ruby.household.refresh_from_db()
+        self.assertEqual([s["key"] for s in setup_steps(self.ruby, self.user)], ["notifications"])
+        self.client.post("/pets/setup/skip/", {"step": "all"})
+        self.assertNotContains(self.client.get(f"/pets/{self.ruby.slug}/"), "Finish setting up")
+
+    def test_checking_the_schedule_doesnt_quiet_the_coach(self):
+        self.client.force_login(self.user)
+        self.client.post(f"/log/pet/{self.ruby.pk}/", {"name": self.ruby.name, "type": "dog", "pee_every": "150",
+                                                      "poop_every": "300", "after_meal": "15", "active": "on"})
+        self.ruby.refresh_from_db()
+        self.assertTrue(self.ruby.schedule_checked)
+        self.assertIsNone(self.ruby.schedule_changed_at)  # unchanged: the coach keeps counting
+
     # --- the coach -----------------------------------------------------------------------------------
     def test_coach_suggests_shorter_after_accidents(self):
         for days in (2, 3):  # pee accidents ~2h 10m after a pee

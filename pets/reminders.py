@@ -19,13 +19,17 @@ from .models import Household, NotificationPreference, PushSubscription, Reminde
 
 log = logging.getLogger(__name__)
 INTERVAL = 60  # seconds between checks: a walk reminder is at most this late
+OVERDUE_AFTER = datetime.timedelta(minutes=10)  # "still not out" this long after head-out
 WALK_LATE_LIMIT = datetime.timedelta(hours=2)  # a walk due longer ago than this isn't announced any more
 
 
-def _claim(key):
+def _claim(key, now=None):
+    """Claim a reminder so it goes out once; stamped with the check's time (`now`) when given."""
     try:
         with transaction.atomic():
-            ReminderLog.objects.create(key=key)
+            log = ReminderLog.objects.create(key=key)
+            if now:
+                ReminderLog.objects.filter(pk=log.pk).update(created=now)
         return True
     except IntegrityError:
         return False
@@ -73,12 +77,27 @@ def walk_reminders(household, now):
             if not (now - WALK_LATE_LIMIT <= due <= now + _walk_lead(user)):
                 continue
             # One reminder per walk and person: the key changes once a potty break moves it on.
-            if not _claim(f"walk:{pet.pk}:{due:%Y%m%d%H%M}:{user.pk}"):
+            if not _claim(f"walk:{pet.pk}:{due:%Y%m%d%H%M}:{user.pk}", now):
                 continue
             with _in_user_zone(user):
                 body = _("Head out ~%(time)s · %(what)s expected") % {
                     "time": show_time(due), "what": card["expect"] or _("potty")}
             title = _("%(pet)s: time for a walk") % {"pet": pet.name}
+            sent += push.send(user, title, body, url=f"/pets/{pet.slug}/", tag=f"walk-{pet.pk}")
+        # Still not out 10 minutes after head-out, and 10 minutes after the first reminder: one more nudge
+        # (replacing the first on the device). Never both at once.
+        for user in _people(household, "walk_overdue"):
+            if not (due + OVERDUE_AFTER <= now <= due + WALK_LATE_LIMIT):
+                continue
+            first = ReminderLog.objects.filter(key=f"walk:{pet.pk}:{due:%Y%m%d%H%M}:{user.pk}").first()
+            if user in people and (first is None or first.created > now - OVERDUE_AFTER):
+                continue
+            if not _claim(f"walk:{pet.pk}:{due:%Y%m%d%H%M}:{user.pk}:overdue", now):
+                continue
+            with _in_user_zone(user):
+                body = _("It was time to head out at %(time)s · %(what)s expected") % {
+                    "time": show_time(due), "what": card["expect"] or _("potty")}
+            title = _("%(pet)s: still not out") % {"pet": pet.name}
             sent += push.send(user, title, body, url=f"/pets/{pet.slug}/", tag=f"walk-{pet.pk}")
     return sent
 
@@ -94,7 +113,7 @@ def close_walk_reminders(pets, now=None):
     closed = 0
     for pet in pets:
         sent = ReminderLog.objects.filter(key__startswith=f"walk:{pet.pk}:", created__gte=now - WALK_LATE_LIMIT)
-        users = {key.rsplit(":", 1)[1] for key in sent.values_list("key", flat=True) if key.count(":") == 3}
+        users = {key.split(":")[3] for key in sent.values_list("key", flat=True) if key.count(":") in (3, 4)}
         for user in pet.household.members.filter(pk__in=[int(u) for u in users if u.isdigit()]):
             if _claim(f"walk-close:{pet.pk}:{user.pk}:{now:%Y%m%d%H%M}"):
                 closed += push.close(user, f"walk-{pet.pk}")

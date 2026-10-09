@@ -766,6 +766,7 @@ class PetForm(HouseholdOwnedForm):
             from django.utils import timezone
 
             self.instance.schedule_changed_at = timezone.now()  # the coach starts counting again
+        self.instance.schedule_checked = True  # seen and saved: the setup checklist's schedule step is done
         pet = super().save(commit=commit)
         if commit:
             crop = self.cleaned_data.get("picture_crop")

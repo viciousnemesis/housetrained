@@ -11,6 +11,7 @@
         <a class="btn btn-sm btn-outline-light" href="{% url 'pets:household-edit' %}">{% trans "Household settings" %}</a>
         <a class="btn btn-sm btn-outline-light" href="{% url 'pets:members' %}">{% trans "Members" %}</a>
         {% if pets_can_edit %}<a class="btn btn-sm btn-outline-light" href="{% url 'pets:import' %}">{% trans "Import" %}</a>{% endif %}
+        <a class="btn btn-sm btn-outline-light" href="{% url 'pets:export' %}">{% trans "Export" %}</a>
     </h1>
     <p class="text-body-secondary small">{% trans "Units" %}: {{ household.get_units_display }}</p>
     <div class="row">

@@ -50,6 +50,11 @@
                     <label for="walk_lead_minutes" class="text-body-secondary">{% trans "minutes before it's time to head out" %}</label>
                 </div>
             </div>
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" name="walk_overdue" id="walk_overdue" {% if prefs.walk_overdue %}checked{% endif %}>
+                <label class="form-check-label" for="walk_overdue">{% trans "When still not out" %}
+                    <span class="d-block small text-body-secondary">{% trans "One more reminder if nobody has gone out 10 minutes after it was time to head out." %}</span></label>
+            </div>
             <div class="form-check mb-3">
                 <input class="form-check-input" type="checkbox" name="low_supply" id="low_supply" {% if prefs.low_supply %}checked{% endif %}>
                 <label class="form-check-label" for="low_supply">{% trans "When it's time to buy more" %}
