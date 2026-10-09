@@ -14,7 +14,7 @@ Baby Buddy's baby tracking (feedings, diapers, sleep, pumping, growth) under the
 
 ![Pet dashboard](docs/screenshots/pet-dashboard.jpg)
 
-<img src="docs/screenshots/fill-bowl-phone.jpg" width="260" align="right" alt="Filling a bowl on a phone">
+<img src="docs/screenshots/pet-phone.jpg" width="260" align="right" alt="A pet's page on a phone, light theme">
 
 ## What it does
 
