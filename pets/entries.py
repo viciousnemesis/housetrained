@@ -98,6 +98,30 @@ def row(kind, entry):
             "pets": pet_names(kind, entry), "edit_url": reverse("pets:edit", args=[kind, entry.pk])}
 
 
+# Recent activity colours, as on the charts: outdoor potties green, accidents yellow (pee) and red (poop), meals
+# blue, sleep purple, walks green. Shown as a faint tint with a coloured edge.
+COLOURS = {"pee": "143,209,138", "poop": "46,125,50", "accident_pee": "245,211,63", "accident_poop": "167,36,49",
+           "walk": "76,175,80", "meal": "74,144,226", "sleep": "142,108,200", "nothing": "150,150,150"}
+
+
+def _tags(kind, entry):
+    """What the Recent activity filters match: pee, poop, accident, nothing, walk, meal, sleep, fill, other."""
+    if kind == "potty":
+        tags = [t for t, flag in (("pee", entry.pee), ("poop", entry.poop)) if flag] or ["nothing"]
+        return tags + (["accident"] if entry.location == PottyBreak.INSIDE else [])
+    return [kind] if kind in ("walk", "meal", "sleep", "fill") else ["other"]
+
+
+def _colour(kind, entry):
+    if kind == "potty":
+        if not entry.pee and not entry.poop:
+            return COLOURS["nothing"]
+        if entry.location == PottyBreak.INSIDE:
+            return COLOURS["accident_poop" if entry.poop else "accident_pee"]
+        return COLOURS["poop" if entry.poop else "pee"]
+    return COLOURS.get(kind)
+
+
 def for_pet(kind, queryset, pet):
     if kind == "walk":
         return queryset.filter(pets=pet)
@@ -106,8 +130,23 @@ def for_pet(kind, queryset, pet):
     return queryset.filter(pet=pet)
 
 
-def recent_activity(pet, limit=20):
-    rows = []
+def recent_activity(pet, limit=40):
+    """The pet's latest entries, newest first. Potty breaks on a walk are listed inside it (children)."""
+    rows, on_walks = [], {}
     for kind, (field, _summary, qs) in KINDS.items():
-        rows += [row(kind, e) for e in for_pet(kind, qs(pet.household), pet).order_by(f"-{field}")[:limit]]
+        for e in for_pet(kind, qs(pet.household), pet).order_by(f"-{field}")[:limit]:
+            r = {**row(kind, e), "tags": _tags(kind, e), "colour": _colour(kind, e), "children": []}
+            if kind == "walk":
+                r["walk_pk"] = e.pk
+            if kind == "potty" and e.walk_id:
+                on_walks.setdefault(e.walk_id, []).append(r)
+            rows.append(r)
+    walks = {r["walk_pk"]: r for r in rows if "walk_pk" in r}
+    nested = []
+    for walk_id, potties in on_walks.items():
+        if walk_id in walks:
+            walks[walk_id]["children"] = sorted(potties, key=lambda r: r["time"])
+            walks[walk_id]["tags"] = sorted(set(walks[walk_id]["tags"]).union(*(p["tags"] for p in potties)))
+            nested += potties
+    rows = [r for r in rows if not any(r is n for n in nested)]
     return sorted(rows, key=lambda r: r["time"], reverse=True)[:limit]

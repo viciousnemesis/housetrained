@@ -21,7 +21,7 @@ def _card(name, builder):
 
 
 for _name, _builder in (
-    ("now", insights.now_card),
+    ("status", insights.status_card),
     ("today", insights.today_card),
     ("potty_bars", insights.potty_bars_card),
     ("accidents", insights.accidents_chart),

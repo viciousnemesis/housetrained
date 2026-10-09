@@ -135,9 +135,7 @@ def potty_bars_card(pet):
     legend = [("pee_ok", "#8fd18a", _("Pee outside") if dog else _("Pee")),
               ("poop_ok", "#2e7d32", _("Poop outside") if dog else _("Poop")),
               ("pee_in", "#f5d33f", _("Pee accident")), ("poop_in", "#a72431", _("Poop accident"))]
-    from .progress import streak
-
-    return {"days": days, "legend": legend, "empty": not breaks, "show_walks": bool(walks), "streak": streak(pet)}
+    return {"days": days, "legend": legend, "empty": not breaks, "show_walks": bool(walks)}
 
 
 # --- Day x hour charts ---------------------------------------------------------------------
@@ -236,8 +234,8 @@ def health_alerts(pet, now=None):
 
 
 # --- Pet page summary cards (PUP-80) ---------------------------------------------------------------
-def now_card(pet, now=None):
-    """Next walk plus the latest of everything, in one card: head-out time, last pee/poop/meal, sleep."""
+def status_card(pet, now=None):
+    """Where things stand: when to head out, the accident-free stretch, the last pee, poop and meal, sleep."""
     now = now or timezone.now()
     from .schedule import coach, next_walk
 
@@ -246,14 +244,13 @@ def now_card(pet, now=None):
     last_poop = pet.potty_breaks.filter(poop=True, time__lte=now).order_by("-time").first()
     last_meal = Meal.objects.filter(pet=pet, food=True, time__lte=now).order_by("-time").first()
     asleep = pet.sleeps.filter(end=None).order_by("-start").first()
-    latest = []
-    if last_pee:
-        latest.append((_("pee"), last_pee.time, f"/log/potty/{last_pee.pk}/"))
-    if last_poop:
-        latest.append((_("poop"), last_poop.time, f"/log/potty/{last_poop.pk}/"))
-    if last_meal:
-        latest.append((_("ate"), last_meal.time, f"/log/meal/{last_meal.pk}/"))
-    return {**card, "latest": latest, "asleep": asleep, "coach": coach(pet, now=now),
+    from .progress import streak
+
+    latest = [(label, entry.time, url) for label, entry, url in (
+        (_("Pee"), last_pee, last_pee and f"/log/potty/{last_pee.pk}/"),
+        (_("Poop"), last_poop, last_poop and f"/log/potty/{last_poop.pk}/"),
+        (_("Ate"), last_meal, last_meal and f"/log/meal/{last_meal.pk}/")) if entry]
+    return {**card, "latest": latest, "asleep": asleep, "coach": coach(pet, now=now), "streak": streak(pet, now=now),
             "pee_every": pet.pee_minutes, "poop_every": pet.poop_minutes}
 
 
@@ -266,12 +263,15 @@ def today_card(pet, now=None):
     breaks = potty(pet, today, until=now)
     meals = Meal.objects.filter(pet=pet, food=True, time__gte=today, time__lte=now)
     eaten = meals.aggregate(s=Sum("amount"))["s"]
+    pees, poops = sum(b.pee for b in breaks), sum(b.poop for b in breaks)
+    accidents, count = sum(1 for b in breaks if is_accident(b)), meals.count()
     return {"tiles": [
-        (_("Walks"), str(len(walks)), fmt_duration(walk_time) if walks else ""),
-        (_("Pees"), str(sum(b.pee for b in breaks)), ""),
-        (_("Poops"), str(sum(b.poop for b in breaks)), ""),
-        (_("Accidents"), str(sum(1 for b in breaks if is_accident(b))), ""),
-        (_("Eaten"), units.show(eaten, "mass", pet.household), "") if eaten else (_("Meals"), str(meals.count()), ""),
+        (ngettext("Walk", "Walks", len(walks)), str(len(walks)), fmt_duration(walk_time) if walks else ""),
+        (ngettext("Pee", "Pees", pees), str(pees), ""),
+        (ngettext("Poop", "Poops", poops), str(poops), ""),
+        (ngettext("Accident", "Accidents", accidents), str(accidents), ""),
+        (_("Eaten"), units.show(eaten, "mass", pet.household), "") if eaten else
+        (ngettext("Meal", "Meals", count), str(count), ""),
     ]}
 
 

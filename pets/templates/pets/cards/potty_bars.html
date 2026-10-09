@@ -1,9 +1,10 @@
 {% extends "pets/cards/_base.html" %}
 {% load i18n %}
-{% block header %}{% trans "Potty Breaks" %}{% endblock %}
-{% block title %}
-    {% if streak %}{{ streak.title }}{% else %}{% trans "None" %}{% endif %}
-    <small class="d-block fs-6 fw-normal"><a href="{% url 'pets:progress' pet.slug %}">{% trans "Progress" %}</a></small>
+{% block header %}
+    <div class="d-flex justify-content-between align-items-center">
+        <span>{% trans "Potty Breaks" %}</span>
+        <a class="fs-6" href="{% url 'pets:progress' pet.slug %}">{% trans "Progress" %} ›</a>
+    </div>
 {% endblock %}
 {% block content %}
     <div class="small mb-2">
@@ -11,14 +12,13 @@
             <span class="me-3 text-nowrap d-inline-block"><span class="d-inline-block rounded-1 me-1" style="width:.8rem;height:.8rem;background:{{ color }}"></span>{{ label }}</span>
         {% endfor %}
     </div>
-    {% if show_walks %}
-        <div class="d-flex gap-2 small text-body-secondary">
-            <div class="flex-grow-1"></div>
-            <div class="text-end" style="width: 3rem">{% trans "Walks" %}</div>
-        </div>
-    {% endif %}
+    <div class="d-flex gap-2 small text-body-secondary">
+        <div class="text-end" style="width: 3.5rem">{% trans "Day" %}</div>
+        <div class="flex-grow-1">{% trans "Potty breaks" %}</div>
+        {% if show_walks %}<div class="text-end" style="width: 3rem">{% trans "Walks" %}</div>{% endif %}
+    </div>
     {% for d in days %}
-        <div class="d-flex align-items-center gap-2 {% if forloop.first and show_walks %}mt-1{% else %}mt-2{% endif %}">
+        <div class="d-flex align-items-center gap-2 {% if forloop.first %}mt-1{% else %}mt-2{% endif %}">
             <div class="small text-nowrap text-end" style="width: 3.5rem">{{ d.label }}</div>
             <div class="progress flex-grow-1 bg-transparent" style="height: 1.4rem">
                 {% if d.pee_ok %}<div class="progress-bar" style="width: {{ d.pee_ok_pct|safe }}%; background: #8fd18a; color: #000">{{ d.pee_ok }}</div>{% endif %}

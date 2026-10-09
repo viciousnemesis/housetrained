@@ -13,7 +13,7 @@
     {% include "pets/_buttons.html" %}
     <div class="row">
         <div class="col-lg-4">
-            {% card_now pet %}
+            {% card_status pet %}
             {% card_today pet %}
             {% card_potty_bars pet %}
         </div>
@@ -24,21 +24,72 @@
             {% card_supplies pet low_only=True %}
             <div class="card card-dashboard">
                 <div class="card-header">{% trans "Recent activity" %}</div>
-                <div class="list-group list-group-flush small overflow-auto" style="max-height: 24rem">
+                <div class="d-flex flex-wrap gap-1 px-2 pt-2" id="activity-filters">
+                    {% for key, label in activity_filters %}
+                        <button type="button" class="btn btn-sm {% if forloop.first %}btn-primary{% else %}btn-outline-light{% endif %} py-0 px-2" data-filter="{{ key }}">{{ label }}</button>
+                    {% endfor %}
+                </div>
+                <div class="list-group list-group-flush small overflow-auto mt-2" style="max-height: 28rem" id="activity">
                     {% for item in recent %}
-                        <a class="list-group-item list-group-item-action d-flex justify-content-between gap-2" href="{{ item.edit_url }}?next={{ request.path|urlencode }}">
-                            <span>{{ item.summary }}</span>
-                            <span class="text-body-secondary text-nowrap">{{ item.time|clock_dt }}</span>
-                        </a>
+                        <div class="list-group-item p-0" data-tags="{{ item.tags|join:' ' }}"
+                             {% if item.colour %}style="background: rgba({{ item.colour }}, .12); border-left: 4px solid rgba({{ item.colour }}, .75)"{% endif %}>
+                            <a class="d-flex justify-content-between gap-2 px-3 py-2 text-reset text-decoration-none" href="{{ item.edit_url }}?next={{ request.path|urlencode }}">
+                                <span>{{ item.summary }}</span>
+                                <span class="text-body-secondary text-nowrap">{{ item.time|clock_dt }}</span>
+                            </a>
+                            {% if item.children %}
+                                <div class="px-2 pb-2 d-grid gap-1">
+                                    {% for child in item.children %}
+                                        <a class="d-flex justify-content-between gap-2 px-2 py-1 rounded text-reset text-decoration-none" data-child data-tags="{{ child.tags|join:' ' }}"
+                                           style="background: rgba({{ child.colour }}, .18); border-left: 3px solid rgba({{ child.colour }}, .8)"
+                                           href="{{ child.edit_url }}?next={{ request.path|urlencode }}">
+                                            <span>{{ child.summary }}</span>
+                                            <span class="text-body-secondary text-nowrap">{{ child.time|clock }}</span>
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
                     {% empty %}
                         <div class="list-group-item">{% trans "Nothing logged yet." %}</div>
                     {% endfor %}
+                    <div class="list-group-item text-body-secondary d-none" id="activity-none">{% trans "None recently." %}</div>
                 </div>
             </div>
         </div>
     </div>
 {% endblock %}
 {% block javascript %}
+    <script>
+        // Recent activity filters: one kind at a time; a walk shows with just the matching potties on it.
+        (function () {
+            var chips = document.querySelectorAll("#activity-filters [data-filter]");
+            var items = document.querySelectorAll("#activity > [data-tags]");
+            function apply(filter) {
+                var shown = 0;
+                items.forEach(function (item) {
+                    var match = filter === "all" || item.dataset.tags.split(" ").indexOf(filter) >= 0;
+                    item.classList.toggle("d-none", !match);
+                    shown += match ? 1 : 0;
+                    item.querySelectorAll("[data-child]").forEach(function (child) {
+                        var keep = filter === "all" || filter === "walk" || child.dataset.tags.split(" ").indexOf(filter) >= 0;
+                        child.classList.toggle("d-none", !keep);
+                    });
+                });
+                document.getElementById("activity-none").classList.toggle("d-none", shown > 0 || !items.length);
+                chips.forEach(function (chip) {
+                    var on = chip.dataset.filter === filter;
+                    chip.classList.toggle("btn-primary", on);
+                    chip.classList.toggle("btn-outline-light", !on);
+                });
+                try { localStorage.setItem("activityFilter", filter); } catch (e) {}
+            }
+            chips.forEach(function (chip) { chip.addEventListener("click", function () { apply(chip.dataset.filter); }); });
+            var saved = null;
+            try { saved = localStorage.getItem("activityFilter"); } catch (e) {}
+            if (saved && document.querySelector('#activity-filters [data-filter="' + saved + '"]')) { apply(saved); }
+        })();
+    </script>
     {% if user.settings.dashboard_refresh_rate %}
         <script type="application/javascript">
             BabyBuddy.Dashboard.watch('view-pets:pet', {{ user.settings.dashboard_refresh_rate_milliseconds }});
