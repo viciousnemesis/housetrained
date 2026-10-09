@@ -77,6 +77,9 @@
 
     .card {
         --bs-card-bg: #fff;
+        // Card titles: a touch darker than the page so they stand apart from the white body.
+        --bs-card-cap-bg: #ece6d8;
+        --bs-card-border-color: rgba(0, 0, 0, 0.14);
     }
 
     .table {
