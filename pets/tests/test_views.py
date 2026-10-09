@@ -248,7 +248,7 @@ class CardTests(PetTestCase):
     def test_pet_page_cards_render(self):
         PottyBreak.objects.create(pet=self.ruby, time=timezone.now(), pee=True)
         page = self.client.get("/pets/ruby/")
-        for title in ("Now", "Today", "Potty Breaks", "Recent activity", "Not veterinary advice"):
+        for title in ("Status", "Today", "Potty Breaks", "Recent activity", "Not veterinary advice", "Progress ›"):
             self.assertContains(page, title)
         for gone in ("Statistics", "Last Potty Break", "Last Meal", "+ Measurement", "Meal Times"):
             self.assertNotContains(page, gone)
@@ -263,7 +263,30 @@ class CardTests(PetTestCase):
         PottyBreak.objects.create(pet=self.ruby, time=now, pee=True, poop=True)
         PottyBreak.objects.create(pet=self.ruby, time=now, pee=True, location=PottyBreak.INSIDE)
         tiles = {label: value for label, value, _sub in insights.today_card(self.ruby)["tiles"]}
-        self.assertEqual((tiles["Pees"], tiles["Poops"], tiles["Accidents"]), ("2", "1", "1"))
+        self.assertEqual((tiles["Pees"], tiles["Poop"], tiles["Accident"]), ("2", "1", "1"))  # 1 Poop, 2 Pees
+        self.assertIn("Meals", tiles)  # 0 Meals
+
+    @mock.patch("django.utils.timezone.now", lambda: datetime.datetime.combine(
+        datetime.date.today(), datetime.time(12), tzinfo=datetime.timezone.utc))
+    def test_recent_activity_nests_potties_on_their_walk_and_has_filters(self):
+        now = timezone.now()
+        walk = Walk.objects.create(household=self.household, start=now - datetime.timedelta(minutes=20),
+                                   end=now - datetime.timedelta(minutes=5))
+        walk.pets.set([self.ruby])
+        PottyBreak.objects.create(pet=self.ruby, time=now - datetime.timedelta(minutes=15), pee=True, walk=walk)
+        PottyBreak.objects.create(pet=self.ruby, time=now - datetime.timedelta(minutes=2), pee=True,
+                                  location=PottyBreak.INSIDE)
+        from pets.entries import recent_activity
+        rows = recent_activity(self.ruby)
+        walk_row = next(r for r in rows if r["kind"] == "walk")
+        self.assertEqual([c["summary"] for c in walk_row["children"]], ["Pee, outside"])
+        self.assertIn("pee", walk_row["tags"])
+        self.assertEqual(sum(1 for r in rows if r["kind"] == "potty"), 1)  # the walk's pee is only inside it
+        accident = next(r for r in rows if r["kind"] == "potty")
+        self.assertEqual((accident["colour"], accident["tags"]), ("245,211,63", ["pee", "accident"]))
+        page = self.client.get("/pets/ruby/")
+        self.assertContains(page, 'data-filter="accident"')
+        self.assertContains(page, "data-child")
 
 
 class DeleteTests(PetTestCase):

@@ -429,7 +429,10 @@ class PetDashboard(HouseholdMixin, TemplateView):
     def get_context_data(self, **kwargs):
         pet = get_object_or_404(Pet, household=self.household, slug=self.kwargs["slug"])
         more = [(kind, ENTRIES[kind].title) for kind in ("walk", "sleep", "meal", "measurement", "note")]
-        return super().get_context_data(pet=pet, recent=recent_activity(pet), more_entries=more, **kwargs)
+        filters = [("all", _("All")), ("walk", _("Walks")), ("pee", _("Pees")), ("poop", _("Poops")),
+                   ("accident", _("Accidents")), ("meal", _("Meals")), ("sleep", _("Sleep"))]
+        return super().get_context_data(pet=pet, recent=recent_activity(pet), more_entries=more,
+                                        activity_filters=filters, **kwargs)
 
 
 class EntryList(HouseholdMixin, TemplateView):
