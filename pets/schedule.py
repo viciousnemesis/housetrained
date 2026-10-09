@@ -226,16 +226,19 @@ def coach(pet, now=None):
 
     for kind in ("pee", "poop"):
         of_kind = [b for b in breaks if getattr(b, kind)]
+        # Only accidents that came before the walk was due say the interval is too long; ones after it was due
+        # were missed walks, which a shorter interval wouldn't fix.
         soon = [b.time - a.time for a, b in zip(of_kind, of_kind[1:])
-                if b.location == PottyBreak.INSIDE and not b.found_later and b.time >= since]
+                if b.location == PottyBreak.INSIDE and not b.found_later and b.time >= since
+                and (b.due_at or remember_due(b) or b.time) > b.time]
         if len(soon) >= 2:
             typical = median(soon)
             suggested = int((typical.total_seconds() / 60 - 15) // 15 * 15)
             suggested = max(min(suggested, current[kind] - 15), 30)
             if suggested < current[kind]:
                 return {"kind": kind, "current": current[kind], "suggested": suggested, "text": _(
-                    "%(n)d %(kind)s accidents this week came ~%(soon)s after the last %(kind)s. "
-                    "Try every %(every)s?") % {"n": len(soon), "kind": labels[kind], "soon": fmt_span(typical),
+                    "%(n)d %(kind)s accidents this week came before the walk was due, ~%(soon)s after the last "
+                    "%(kind)s. Try every %(every)s?") % {"n": len(soon), "kind": labels[kind], "soon": fmt_span(typical),
                                                 "every": fmt_minutes(suggested)}}
 
     first = breaks[0].time if breaks else None

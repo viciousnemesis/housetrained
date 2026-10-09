@@ -257,7 +257,14 @@ class ScheduleTests(TestCase):
             self.potty(self.at(11, 10, days=days), inside=True)
         tip = coach(self.ruby, now=self.at(12))
         self.assertEqual((tip["kind"], tip["suggested"]), ("pee", 105))  # 2h 10m - 15m, down to 15 minutes
-        self.assertIn("2 pee accidents this week came ~2h 10m after the last pee", tip["text"])
+        self.assertIn("2 pee accidents this week came before the walk was due, ~2h 10m after the last pee", tip["text"])
+
+    def test_coach_ignores_accidents_after_the_walk_was_due(self):
+        for days in (2, 3):  # due at 11:30, accidents at 11:50: missed walks, not a too-long interval
+            self.potty(self.at(9, days=days))
+            self.potty(self.at(11, 50, days=days), inside=True)
+        tip = coach(self.ruby, now=self.at(12))
+        self.assertIsNone(tip)
 
     def test_coach_suggests_longer_after_a_clean_week(self):
         for days in range(8, 0, -1):
