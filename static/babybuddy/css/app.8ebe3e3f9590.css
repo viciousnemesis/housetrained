@@ -12517,6 +12517,8 @@ textarea.form-control-lg {
 }
 [data-bs-theme=light] .card {
   --bs-card-bg: #fff;
+  --bs-card-cap-bg: #ece6d8;
+  --bs-card-border-color: rgba(0, 0, 0, 0.14);
 }
 [data-bs-theme=light] .table {
   --bs-table-striped-bg: rgba(0, 0, 0, 0.03);

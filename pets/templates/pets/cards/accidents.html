@@ -7,7 +7,7 @@
     {% if not dots %}{% trans "None" %}{% endif %}
 {% endblock %}
 {% block content %}
-    <div class="small mb-1">
+    <div class="small mb-2 pb-1 border-bottom">
         <span class="me-2"><span class="d-inline-block rounded-circle me-1" style="width:.6rem;height:.6rem;background:#f5d33f"></span>{% trans "Pee inside" %}</span>
         <span class="me-2"><span class="d-inline-block rounded-circle me-1" style="width:.6rem;height:.6rem;background:#a72431"></span>{% trans "Poop inside" %}</span>
         <span class="me-2"><span class="d-inline-block me-1" style="width:.6rem;height:.6rem;background:#4a90e2"></span>{% trans "Meal" %}</span>
@@ -26,7 +26,7 @@
         {% endfor %}
     </svg>
     {% if dots %}
-        <div class="small mt-2 mb-1">{% trans "Accidents by hour (past 2 weeks)" %}</div>
+        <div class="small mt-2 mb-2 pb-1 border-bottom">{% trans "Accidents by hour (past 2 weeks)" %}</div>
         <svg viewBox="0 0 {{ chart.width }} 40" class="w-100" role="img" aria-label="{% trans 'Accidents by hour of day' %}">
             {% for bar in hist %}
                 {% if bar.n %}
