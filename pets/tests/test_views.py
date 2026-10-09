@@ -147,6 +147,44 @@ class AllPetsLoggingTests(PetTestCase):
                                             "eaten_now": "on"})
         self.assertEqual(Meal.objects.get().amount, 60)
 
+    def test_meal_portion_of_the_bowl_becomes_grams(self):
+        """Filled 60 g, she ate a quarter of it: 15 g. Water the same way, from the water bowl's size."""
+        food = Container.objects.create(household=self.household, name="Food bowl", kind=Container.FOOD_BOWL)
+        water = Container.objects.create(household=self.household, name="Water bowl", kind=Container.WATER_BOWL,
+                                         amount_per_bowl=500)
+        food.pets.set([self.ruby])
+        water.pets.set([self.ruby])
+        Fill.objects.create(container=food, time=timezone.now() - datetime.timedelta(minutes=10), contents=Fill.FOOD,
+                            amount=60)
+        self.client.post("/log/meal/add/", {"pets": [self.ruby.pk], "time": self.now, "food": "on", "water": "on",
+                                            "portion": "0.25", "water_portion": "0.5"})
+        meal = Meal.objects.get()
+        self.assertEqual((meal.portion, meal.amount, meal.water_amount), (0.25, 15, 250))
+        from pets.entries import _meal
+        self.assertEqual(_meal(meal), "Ate ¼ bowl (15 g), Drank ½ bowl (250 ml)")
+
+    def test_exact_amount_wins_over_the_portion(self):
+        food = Container.objects.create(household=self.household, name="Food bowl", kind=Container.FOOD_BOWL,
+                                        amount_per_bowl=60)
+        food.pets.set([self.ruby])
+        self.client.post("/log/meal/add/", {"pets": [self.ruby.pk], "time": self.now, "food": "on",
+                                            "portion": "1.0", "amount": "52", "unit": "g"})
+        self.assertEqual(Meal.objects.get().amount, 52)
+
+    def test_meal_form_warns_when_a_bowl_size_is_missing(self):
+        food = Container.objects.create(household=self.household, name="Ruby's bowl", kind=Container.FOOD_BOWL)
+        food.pets.set([self.ruby])
+        page = self.client.get("/log/meal/add/?pet=ruby")
+        self.assertContains(page, "Ruby&#x27;s bowl: how much a full bowl holds isn&#x27;t set.")
+        self.assertContains(page, f'href="/log/container/{food.pk}/">Set it</a>')
+        self.assertContains(page, "Ruby has no water bowl set up")
+        self.assertContains(page, 'href="/log/container/add/">Add one</a>')
+
+    def test_grams_and_millilitres_show_whole(self):
+        from pets import units
+        self.assertEqual(units.show(15.4, "mass", self.household), "15 g")
+        self.assertEqual(units.show(249.6, "volume", self.household), "250 ml")
+
     def test_potty_locations_follow_each_pet(self):
         page = self.client.get("/log/potty/add/").content.decode()
         found = re.search(r'<script id="potty-locations"[^>]*>([^<]*)', page).group(1)

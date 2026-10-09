@@ -13,6 +13,9 @@
             <a href="{% url 'babybuddy:user-settings' %}">{% trans "Set your name" %}</a>
         </p>
     {% endif %}
+    {% for text, url, link in form.warnings %}
+        <div class="alert alert-warning py-2 small">{{ text }} <a href="{{ url }}">{{ link }}</a></div>
+    {% endfor %}
     {% if kind == "fill" and form.has_uncalibrated %}
         <p class="text-body-secondary small">
             {% trans "Bowls marked not calibrated can't turn bowls into grams yet, so bag estimates stay rough. Calibrate in Setup: tare the bowl, fill it as usual, weigh it." %}
