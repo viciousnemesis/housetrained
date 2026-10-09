@@ -33,4 +33,9 @@ def show(value, kind, household, digits=1):
     """A stored value as text in the household's units, e.g. show(907, "mass", h) -> "32 oz"."""
     unit = DEFAULTS[household.units][kind]
     value = from_stored(value, unit, TABLES[kind])
-    return f"{value:.{digits}f}".rstrip("0").rstrip(".") + f" {unit}"
+    if unit in ("g", "ml") and digits == 1:
+        digits = 0  # to the nearest gram or millilitre
+    text = f"{value:.{digits}f}"
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return f"{text} {unit}"

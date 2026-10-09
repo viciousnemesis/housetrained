@@ -51,10 +51,18 @@ def _fill(f):
 
 def _meal(m):
     parts = []
-    if m.food:
-        parts.append(_("Ate") + (f" {units.show(m.amount, 'mass', m.pet.household)}" if m.amount else ""))
-    if m.water:
-        parts.append(_("Drank") + (f" {units.show(m.water_amount, 'volume', m.pet.household)}" if m.water_amount else ""))
+    portions = dict(Meal.PORTIONS)
+    for had, verb, portion, amount, kind in ((m.food, _("Ate"), m.portion, m.amount, "mass"),
+                                              (m.water, _("Drank"), m.water_portion, m.water_amount, "volume")):
+        if not had:
+            continue
+        text = verb
+        if portion:
+            text += " " + (_("all of the bowl") if portion == 1 else _("%(part)s bowl") % {"part": portions[portion]})
+        if amount:
+            shown = units.show(amount, kind, m.pet.household)
+            text += f" ({shown})" if portion else f" {shown}"
+        parts.append(text)
     return ", ".join(parts) + (f" · {m.notes[:40]}" if m.notes else "")
 
 

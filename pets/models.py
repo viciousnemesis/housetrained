@@ -415,6 +415,9 @@ class Meal(Logged):
     food = models.BooleanField(_("food"), default=True)
     water = models.BooleanField(_("water"), default=False)
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    PORTIONS = [(0.25, "¼"), (0.5, "½"), (0.75, "¾"), (1.0, _("All"))]
+    portion = models.FloatField(_("how much of the bowl"), null=True, blank=True, choices=PORTIONS)
+    water_portion = models.FloatField(_("how much of the bowl"), null=True, blank=True, choices=PORTIONS)
     amount = models.FloatField(_("amount eaten (g)"), null=True, blank=True)
     water_amount = models.FloatField(_("amount drunk (ml)"), null=True, blank=True)
     fill = models.ForeignKey(
