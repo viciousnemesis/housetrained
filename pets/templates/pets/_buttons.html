@@ -6,6 +6,16 @@
         <button class="btn btn-lg btn-primary flex-fill" type="button" data-bs-toggle="collapse" data-bs-target="#potty-panel"
                 aria-expanded="false" aria-controls="potty-panel">{% trans "Potty" %}</button>
         {% if a.walk %}
+            <script>
+                // Out on a walk: this device's "time for a walk" reminder has done its job.
+                if ("serviceWorker" in navigator) {
+                    navigator.serviceWorker.getRegistration("/").then(function (reg) {
+                        if (!reg || !reg.getNotifications) return;
+                        {% for p in a.walk.pets.all %}reg.getNotifications({tag: "walk-{{ p.pk }}"}).then(function (shown) { shown.forEach(function (n) { n.close(); }); });
+                        {% endfor %}
+                    });
+                }
+            </script>
             <form class="flex-fill d-flex m-0" method="post" action="{% url 'pets:stop' 'walk' a.walk.pk 'end' %}">
                 {% csrf_token %}
                 <button class="btn btn-lg btn-primary flex-fill" type="submit">{% trans "End walk" %}</button>

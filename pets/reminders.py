@@ -47,7 +47,13 @@ def _in_user_zone(user):
     return timezone.override(zone) if zone else timezone.override(timezone.get_current_timezone())
 
 
+def _walk_lead(user):
+    prefs = NotificationPreference.objects.filter(user=user).first()
+    return datetime.timedelta(minutes=prefs.walk_lead_minutes if prefs else 5)
+
+
 def walk_reminders(household, now):
+    """Each person gets it their chosen minutes before the head-out time (default 5), once per predicted walk."""
     from . import push
     from .clock import show_time
     from .insights import next_walk_card
@@ -63,19 +69,36 @@ def walk_reminders(household, now):
         if not card["predictions"]:
             continue
         due = card["head_out"]  # when to leave, which is a little before the pet needs to go
-        if not (now - WALK_LATE_LIMIT <= due <= now):
-            continue
-        # One reminder per predicted walk: the key changes once a potty break moves the prediction on.
-        if not _claim(f"walk:{pet.pk}:{due:%Y%m%d%H%M}"):
-            continue
         for user in people:
+            if not (now - WALK_LATE_LIMIT <= due <= now + _walk_lead(user)):
+                continue
+            # One reminder per predicted walk and person: the key changes once a potty break moves it on.
+            if not _claim(f"walk:{pet.pk}:{due:%Y%m%d%H%M}:{user.pk}"):
+                continue
             with _in_user_zone(user):
-                body = _("%(what)s expected ~%(time)s") % {
-                    "what": (card["expect"] or _("potty")).capitalize(),
-                    "time": show_time(card["predictions"][0]["time"])}
+                body = _("Head out ~%(time)s · %(what)s expected") % {
+                    "time": show_time(due), "what": card["expect"] or _("potty")}
             title = _("%(pet)s: time for a walk") % {"pet": pet.name}
             sent += push.send(user, title, body, url=f"/pets/{pet.slug}/", tag=f"walk-{pet.pk}")
     return sent
+
+
+def close_walk_reminders(pets, now=None):
+    """A walk started (or a potty break was logged): take that pet's walk reminder off everyone's devices it went
+    to in the past couple of hours. Each device is told once."""
+    from . import push
+
+    now = now or timezone.now()
+    if not push.allowed():
+        return 0
+    closed = 0
+    for pet in pets:
+        sent = ReminderLog.objects.filter(key__startswith=f"walk:{pet.pk}:", created__gte=now - WALK_LATE_LIMIT)
+        users = {key.rsplit(":", 1)[1] for key in sent.values_list("key", flat=True) if key.count(":") == 3}
+        for user in pet.household.members.filter(pk__in=[int(u) for u in users if u.isdigit()]):
+            if _claim(f"walk-close:{pet.pk}:{user.pk}:{now:%Y%m%d%H%M}"):
+                closed += push.close(user, f"walk-{pet.pk}")
+    return closed
 
 
 def supply_reminders(household, now):
@@ -96,24 +119,6 @@ def supply_reminders(household, now):
         title = _("Buy more %(product)s") % {"product": item.product.name}
         for user in people:
             sent += push.send(user, title, body, url="/pets/", tag=f"supply-{item.pk}")
-    return sent
-
-
-def retry_reminders(household, now):
-    """Taken out, nothing happened: a nudge when it's time to try again."""
-    from . import push
-
-    people = _people(household, "walk_due")
-    if not people:
-        return 0
-    sent = 0
-    for pet in household.pets.filter(active=True, retry_at__lte=now, retry_at__gte=now - WALK_LATE_LIMIT):
-        if not _claim(f"retry:{pet.pk}:{pet.retry_at:%Y%m%d%H%M}"):
-            continue
-        title = _("%(pet)s: try again") % {"pet": pet.name}
-        for user in people:
-            sent += push.send(user, title, _("Time for another potty trip."), url=f"/pets/{pet.slug}/",
-                              tag=f"walk-{pet.pk}")
     return sent
 
 
@@ -207,7 +212,6 @@ def check(now=None):
                     sent += walk_reminders(household, now)
                     sent += supply_reminders(household, now)
                     sent += weekly_reminders(household, now)
-                    sent += retry_reminders(household, now)
                     sent += water_reminders(household, now)
                 except Exception:
                     log.exception("Reminders for %s failed", household)

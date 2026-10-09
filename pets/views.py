@@ -272,6 +272,10 @@ class Notifications(HouseholdMixin, View):
         elif action == "prefs":
             prefs, _created = NotificationPreference.objects.get_or_create(user=request.user)
             prefs.walk_due = bool(request.POST.get("walk_due"))
+            try:
+                prefs.walk_lead_minutes = min(max(int(request.POST.get("walk_lead_minutes", 5)), 0), 120)
+            except ValueError:
+                pass
             prefs.low_supply = bool(request.POST.get("low_supply"))
             prefs.weekly_progress = bool(request.POST.get("weekly_progress"))
             prefs.water_cutoff = bool(request.POST.get("water_cutoff"))
@@ -302,7 +306,7 @@ class Progress(HouseholdMixin, TemplateView):
         return super().get_context_data(pet=pet, **progress.page(pet), **kwargs)
 
 
-RETRY_AFTER = datetime.timedelta(minutes=15)
+RETRY_AFTER = datetime.timedelta(minutes=15)  # the page's "try again" banner; Next Walk uses Rules.retry_after
 
 
 class Disregard(HouseholdMixin, View):
@@ -529,6 +533,9 @@ class ActivityStart(HouseholdMixin, View):
             self.require("add", Walk)
             walk = Walk.objects.create(household=self.household, start=start, walker=request.user, logged_by=request.user)
             walk.pets.set(pets)
+            from .reminders import close_walk_reminders
+
+            close_walk_reminders(pets)  # the reminder was to get going: done
         elif kind == "sleep":
             self.require("add", Sleep)
             for p in pets:
