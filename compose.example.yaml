@@ -4,14 +4,14 @@ name: housetrained
 services:
   housetrained:
     container_name: housetrained
-    build: .                        # or, once published: image: ghcr.io/OWNER/housetrained:latest
+    image: ghcr.io/viciousnemesis/housetrained:1     # or build it yourself: replace this line with "build: ."
     environment:
       - PUID=1000                   # user and group that own ./config
       - PGID=1000
       - TZ=Etc/UTC                  # your time zone, e.g. Europe/London
       - ALLOWED_HOSTS=*             # your hostname(s), comma-separated, e.g. pets.example.com
       - CSRF_TRUSTED_ORIGINS=http://localhost:8000   # every address you open it at, e.g. https://pets.example.com
-      # - SECURE_PROXY_SSL_HEADER=True   # behind a reverse proxy that terminates HTTPS
+      # - SECURE_PROXY_SSL_HEADER=True   # behind a reverse proxy that handles HTTPS (cookies become HTTPS-only)
       # - ADMIN_PASSWORD=change-me       # first admin password; otherwise a random one is printed in the log
       # - BABY_MODE=True                 # track babies alongside pets
       # - PUSH_CONTACT=mailto:you@example.com   # sent with reminder notifications

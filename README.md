@@ -55,8 +55,11 @@ You need Docker. Copy [`compose.example.yaml`](compose.example.yaml) to `compose
 the address you'll open it at, then:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
+
+It runs the published image (`ghcr.io/viciousnemesis/housetrained`, for amd64 and arm64). To build from this
+code instead, replace the `image:` line with `build: .` and add `--build`.
 
 Open `http://localhost:8000` and sign in as `admin` with the password printed in the log
 (`docker compose logs housetrained`), or the one you set as `ADMIN_PASSWORD`. Change it under user menu >
@@ -78,7 +81,8 @@ docker compose exec -w /app/www/public housetrained /lsiopy/bin/python3 manage.p
 | `TZ` | Server time zone (each person can pick their own in user settings) |
 | `ALLOWED_HOSTS` | Hostnames it answers to, comma-separated |
 | `CSRF_TRUSTED_ORIGINS` | Every address you open it at, e.g. `https://pets.example.com` |
-| `SECURE_PROXY_SSL_HEADER` | `True` behind a reverse proxy that handles HTTPS |
+| `SECURE_PROXY_SSL_HEADER` | `True` behind a reverse proxy that handles HTTPS; cookies then go over HTTPS only |
+| `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` | Override the cookie setting above (`False` to also sign in over plain HTTP) |
 | `ADMIN_PASSWORD` | Password for the first admin (otherwise random, shown once in the log) |
 | `BABY_MODE` | `True` to track babies alongside pets (also a switch in Site Settings) |
 | `PUSH_CONTACT` | Your `mailto:` address, sent with notifications so push services can reach you |
@@ -86,7 +90,16 @@ docker compose exec -w /app/www/public housetrained /lsiopy/bin/python3 manage.p
 | `HOUSETRAINED_SOURCE_URL` | Link shown as "Source Code" in the user menu |
 
 Baby Buddy's other settings (database, email, sign-in options) still work; see
-[Baby Buddy's configuration docs](docs/configuration). Security notes: [docs/housetrained/security.md](docs/housetrained/security.md).
+[Baby Buddy's configuration docs](https://docs.baby-buddy.net/configuration/environment/). Security notes:
+[docs/housetrained/security.md](docs/housetrained/security.md).
+
+### Behind a reverse proxy (HTTPS)
+
+Put it behind a proxy that handles HTTPS (Caddy, Nginx Proxy Manager, Traefik...) rather than opening port 8000
+to the internet. Set `SECURE_PROXY_SSL_HEADER=True`, list the address in `CSRF_TRUSTED_ORIGINS` (e.g.
+`https://pets.example.com`) and in `ALLOWED_HOSTS`, and make sure the proxy sends `X-Forwarded-Proto: https`.
+Chained proxies (one handling HTTPS in front of another) must pass that header through; otherwise signing in fails
+with a CSRF error. Reachable from the internet? Use strong passwords; a login rate limit is built in.
 
 People: the admin creates accounts (user menu > Users; tick "Site admin" only for people who should manage the
 site) and adds them to the household (Setup > Members), where their role is set. Roles cover pets and babies.
@@ -127,6 +140,11 @@ pipenv run python manage.py test
 
 The pet code lives in `pets/`; design notes in [docs/housetrained](docs/housetrained). The theme is built from
 `babybuddy/static_src` ([styles](docs/housetrained/styles.md)). Changes: [CHANGELOG.md](CHANGELOG.md).
+
+## Support
+
+If Housetrained helps, you can [buy me a coffee](https://buymeacoffee.com/brandonsmith.io). And please support
+[Baby Buddy](https://github.com/babybuddy/babybuddy), which it's built on.
 
 ## License and credits
 

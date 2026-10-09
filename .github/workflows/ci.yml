@@ -1,59 +1,30 @@
+# Housetrained CI (PUP-121): the test suite and a missing-migration check on every push and pull request.
 name: CI
 on:
   push:
-    branches:
-      - master
+    branches: [main]
   pull_request:
-    branches:
-      - master
+    branches: [main]
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.12", "3.13"]
+    env:
+      DJANGO_SETTINGS_MODULE: babybuddy.settings.test
+      SECRET_KEY: ci-only-not-secret
     steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: npm install --location=global gulp-cli
-      - run: npm install
-      - run: gulp lint
-      - run: gulp coverage
-      - name: Submit results to Coveralls
-        uses: AndreMiras/coveralls-python-action@develop
-        with:
-          github-token: ${{ secrets.github_token }}
-          flag-name: test-python-${{ matrix.python-version }}
-          parallel: true
-  coveralls-finish:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Coveralls Finished
-        uses: AndreMiras/coveralls-python-action@develop
-        with:
-          github-token: ${{ secrets.github_token }}
-          parallel-finished: true
-  deploy-docs:
-    needs: test
-    runs-on: ubuntu-latest
-    environment:
-      name: documentation
-      url: https://docs.baby-buddy.net
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
-    steps:
-      - uses: actions/checkout@v6
-      - name: Get changed files
-        id: changed-files
-        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96
-        with:
-          files: |
-            docs/**
-      - name: Deploy docs
-        if: steps.changed-files.outputs.any_changed == 'true'
-        uses: mhausenblas/mkdocs-deploy-gh-pages@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.github_token }}
-          REQUIREMENTS: docs/requirements.txt
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: pip install -r requirements.txt
+      - name: No missing migrations
+        run: python manage.py makemigrations pets --check --dry-run
+      - name: Tests
+        run: python manage.py test --parallel 1

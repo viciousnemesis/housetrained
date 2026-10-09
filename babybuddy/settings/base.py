@@ -40,7 +40,7 @@ HOUSETRAINED_REMINDERS = bool(strtobool(os.environ.get("REMINDERS") or "True"))
 HOUSETRAINED_REMINDER_THREAD = HOUSETRAINED_REMINDERS  # the background checker (off in tests)
 HOUSETRAINED_PUSH_CONTACT = os.environ.get("PUSH_CONTACT") or "mailto:noreply@example.com"
 # Where people can find Housetrained's source (shown in the user menu when set).
-HOUSETRAINED_SOURCE_URL = os.environ.get("HOUSETRAINED_SOURCE_URL", "")
+HOUSETRAINED_SOURCE_URL = os.environ.get("HOUSETRAINED_SOURCE_URL", "https://github.com/viciousnemesis/housetrained")
 
 # Applications
 # https://docs.djangoproject.com/en/5.0/ref/applications/
@@ -316,18 +316,20 @@ if os.environ.get("EMAIL_HOST"):
 # Security
 
 # https://docs.djangoproject.com/en/5.0/ref/settings/#secure-proxy-ssl-header
-if os.environ.get("SECURE_PROXY_SSL_HEADER"):
+BEHIND_HTTPS_PROXY = bool(strtobool(os.environ.get("SECURE_PROXY_SSL_HEADER") or "False"))
+if BEHIND_HTTPS_PROXY:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # https://docs.djangoproject.com/en/5.0/topics/http/sessions/#settings
 SESSION_COOKIE_HTTPONLY = True
+# Housetrained: behind an HTTPS proxy, cookies are HTTPS-only unless set otherwise.
 SESSION_COOKIE_SECURE = bool(
-    strtobool(os.environ.get("SESSION_COOKIE_SECURE") or "False")
+    strtobool(os.environ.get("SESSION_COOKIE_SECURE") or str(BEHIND_HTTPS_PROXY))
 )
 
 # https://docs.djangoproject.com/en/5.0/ref/csrf/#settings
 CSRF_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SECURE = bool(strtobool(os.environ.get("CSRF_COOKIE_SECURE") or "False"))
+CSRF_COOKIE_SECURE = bool(strtobool(os.environ.get("CSRF_COOKIE_SECURE") or str(BEHIND_HTTPS_PROXY)))
 CSRF_FAILURE_VIEW = "babybuddy.views.csrf_failure"
 CSRF_TRUSTED_ORIGINS = list(
     filter(None, os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(","))
