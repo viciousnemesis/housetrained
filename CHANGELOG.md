@@ -2,7 +2,7 @@
 
 Housetrained's releases. Baby Buddy's own history is in its repository and in this repository's git log.
 
-## 0.1.0 (unreleased)
+## 1.0.0 (2026-10-09)
 
 First version of Housetrained, forked from Baby Buddy 2.11.0.
 
