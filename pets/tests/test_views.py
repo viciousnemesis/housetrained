@@ -286,10 +286,11 @@ class CardTests(PetTestCase):
     def test_pet_page_cards_render(self):
         PottyBreak.objects.create(pet=self.ruby, time=timezone.now(), pee=True)
         page = self.client.get("/pets/ruby/")
-        for title in ("Status", "Today", "Potty Breaks", "Recent activity", "Not veterinary advice", "Progress ›"):
+        for title in ("Status", "Today", "Potty Breaks", "Recent activity", "Not veterinary advice", "Most recent"):
             self.assertContains(page, title)
         for gone in ("Statistics", "Last Potty Break", "Last Meal", "+ Measurement", "Meal Times"):
             self.assertNotContains(page, gone)
+        self.assertNotContains(page, "{#")  # a template comment that leaked onto the page
 
     def test_empty_cards_hide(self):
         page = self.client.get("/pets/rex/")  # nothing logged for Rex
