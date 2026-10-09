@@ -182,6 +182,40 @@ class ScheduleTests(TestCase):
         self.potty(self.at(10), inside=True)
         self.assertEqual(self.need(self.at(10, 5), "pee")["time"], self.at(12, 30))
 
+    # --- accidents vs the schedule --------------------------------------------------------------------
+    def test_an_accident_remembers_when_the_schedule_said_to_go(self):
+        from pets.entries import _potty
+
+        self.potty(self.at(9))
+        accident = self.potty(self.at(11, 10), inside=True)  # due 11:30
+        accident.refresh_from_db()
+        self.assertEqual(accident.due_at, self.at(11, 30))
+        self.assertEqual(_potty(accident), "Pee, inside · 20m before due")
+        late = self.potty(self.at(14, 15), inside=True)  # due 1:40 PM (2h 30m after 11:10)
+        late.refresh_from_db()
+        self.assertEqual(_potty(late), "Pee, inside · 35m overdue")
+        self.ruby.pee_every = 60
+        self.ruby.save()
+        accident.refresh_from_db()
+        self.assertEqual(accident.due_at, self.at(11, 30))  # as the schedule stood then
+
+    def test_moving_an_accident_outside_clears_it(self):
+        self.potty(self.at(9))
+        accident = self.potty(self.at(11), inside=True)
+        accident.location = PottyBreak.OUTSIDE
+        accident.save()
+        accident.refresh_from_db()
+        self.assertIsNone(accident.due_at)
+
+    def test_older_accidents_are_filled_in_when_shown(self):
+        from pets.entries import recent_activity
+
+        self.potty(self.at(9))
+        accident = self.potty(self.at(11, 10), inside=True)
+        PottyBreak.objects.filter(pk=accident.pk).update(due_at=None)  # logged before this was kept
+        row = next(r for r in recent_activity(self.ruby) if "inside" in r["summary"])
+        self.assertIn("20m before due", row["summary"])
+
     # --- prefill and settings -------------------------------------------------------------------------
     def test_age_rule_prefills_pee_every(self):
         weeks = lambda n: self.today - datetime.timedelta(weeks=n)  # noqa: E731

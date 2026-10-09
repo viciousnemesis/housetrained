@@ -369,6 +369,8 @@ class PottyBreak(Logged):
         _("found it later"), default=False,
         help_text=_("Didn't see it happen, so the time is only when it was found. Next Walk doesn't count it."),
     )
+    # For accidents: when the schedule said to go out for it, as it stood just before (see schedule.due_before).
+    due_at = models.DateTimeField(null=True, blank=True, editable=False)
     container = models.ForeignKey(
         Container, on_delete=models.SET_NULL, null=True, blank=True, related_name="potty_breaks",
         help_text=_("Which litter box, e.g. the litter robot."),

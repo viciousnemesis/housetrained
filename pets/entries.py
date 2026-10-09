@@ -24,7 +24,19 @@ def _potty(b):
              b.get_poop_consistency_display(), b.get_poop_colour_display()]
     unusual = [f.lower() for f, raw in zip(flags, (b.pee_amount, b.pee_colour, b.poop_amount, b.poop_consistency,
                                                     b.poop_colour)) if raw]
-    return text + (" · " + ", ".join(unusual) if unusual else "")
+    return text + (" · " + ", ".join(unusual) if unusual else "") + _vs_schedule(b)
+
+
+def _vs_schedule(b):
+    """For an accident: how it compared with when the schedule said to go out ("25m before due")."""
+    if b.location != PottyBreak.INSIDE or not b.due_at:
+        return ""
+    from .schedule import fmt_minutes
+
+    mins = round((b.due_at - b.time).total_seconds() / 60)
+    if abs(mins) < 5:
+        return " · " + _("as due")
+    return " · " + (_("%(time)s before due") if mins > 0 else _("%(time)s overdue")) % {"time": fmt_minutes(abs(mins))}
 
 
 def _walk(w):
@@ -140,9 +152,13 @@ def for_pet(kind, queryset, pet):
 
 def recent_activity(pet, limit=40):
     """The pet's latest entries, newest first. Potty breaks on a walk are listed inside it (children)."""
+    from .schedule import remember_due
+
     rows, on_walks = [], {}
     for kind, (field, _summary, qs) in KINDS.items():
         for e in for_pet(kind, qs(pet.household), pet).order_by(f"-{field}")[:limit]:
+            if kind == "potty" and e.location == PottyBreak.INSIDE and e.due_at is None and not e.found_later:
+                remember_due(e)  # logged before this was kept: work it out once
             r = {**row(kind, e), "tags": _tags(kind, e), "colour": _colour(kind, e), "children": []}
             if kind == "walk":
                 r["walk_pk"] = e.pk
