@@ -10,10 +10,10 @@
         <a class="btn btn-sm btn-outline-light" href="{% url 'pets:list' 'potty' %}">{% trans "Logs" %}</a>
         <a class="btn btn-sm btn-outline-light" href="{% url 'pets:setup' %}">{% trans "Setup" %}</a>
     </div>
-    <div class="row">
+    <div class="row gx-3">
         <div class="col-lg-4">{% card_supplies %}</div>
     </div>
-    <div class="row">
+    <div class="row gx-3">
         {% for pet in pets %}
             <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
                 <a class="card text-reset text-decoration-none h-100" href="{% url 'pets:pet' pet.slug %}">

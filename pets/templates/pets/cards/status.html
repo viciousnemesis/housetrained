@@ -20,6 +20,7 @@
             </div>
             {% if latest %}
                 <div class="text-nowrap" style="font-variant-numeric: tabular-nums">
+                    <div class="small text-body-secondary border-bottom mb-1 pb-1">{% trans "Most recent" %}</div>
                     {% for label, time, url in latest %}
                         <a class="d-flex justify-content-between gap-3 text-reset text-decoration-none" href="{{ url }}?next={{ request.path|urlencode }}">
                             <span class="text-body-secondary">{{ label }}</span><span>{{ time|clock }}</span>
