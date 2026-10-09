@@ -21,16 +21,10 @@ def _card(name, builder):
 
 
 for _name, _builder in (
-    ("next_walk", insights.next_walk_card),
     ("now", insights.now_card),
     ("today", insights.today_card),
-    ("statistics", insights.statistics_card),
-    ("walks", insights.walks_card),
-    ("last_potty", insights.last_potty_card),
     ("potty_bars", insights.potty_bars_card),
     ("accidents", insights.accidents_chart),
-    ("last_fed", insights.last_fed_card),
-    ("sleep", insights.sleep_card),
 ):
     _card(_name, _builder)
 
@@ -77,6 +71,14 @@ def clock(dt):
 def clock_dt(dt):
     """Month, day and time in the user's 12- or 24-hour format."""
     return show_datetime(dt)
+
+
+@register.filter
+def minutes(value):
+    """150 -> "2h 30m"."""
+    from ..schedule import fmt_minutes
+
+    return fmt_minutes(value) if value is not None else ""
 
 
 @register.filter

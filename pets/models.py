@@ -3,13 +3,15 @@
 Amounts are stored in canonical units: grams for food and litter, millilitres for water, kilograms for weight and
 centimetres for lengths. Conversion for entry and display happens outside the models.
 """
+import datetime
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
-from .site_settings import PlatformSettings, PredictionSettings
+from .site_settings import PlatformSettings
 
 
 # --- Households -------------------------------------------------------------------
@@ -30,6 +32,10 @@ class Household(models.Model):
         help_text=_("Minutes from deciding to go to standing outside (leash, shoes, stairs or elevator). "
                     "Next Walk tells you to head out this much before the pet is expected to need to go."),
     )
+    bedtime = models.TimeField(
+        _("bedtime"), default=datetime.time(23, 0),
+        help_text=_("Quiet hours start: after the bedtime walk, the next one is at wake-up."))
+    wake_time = models.TimeField(_("wake-up"), default=datetime.time(6, 30), help_text=_("Quiet hours end."))
     members = models.ManyToManyField(settings.AUTH_USER_MODEL, through="Membership", related_name="households")
     created = models.DateTimeField(auto_now_add=True)
 
@@ -87,6 +93,18 @@ class Pet(models.Model):
         null=True, blank=True, editable=False,
         help_text="Disregard on the Now card: meals and wake-ups up to this time no longer drive Next Walk.",
     )
+    # The schedule (PUP-93): set by the people, suggested by the coach. Blank pee every: from the pet's age.
+    EVERY = [(m, f'{m // 60}h {m % 60:02d}m' if m % 60 and m >= 60 else (f'{m // 60}h' if m >= 60 else f'{m}m')) for m in range(30, 12 * 60 + 1, 15)]
+    pee_every = models.PositiveSmallIntegerField(
+        _("pee every"), null=True, blank=True, choices=EVERY,
+        help_text=_("Head out this long after the last pee. Blank: from age (age in months + 1 hour)."))
+    poop_every = models.PositiveSmallIntegerField(
+        _("poop every"), null=True, blank=True, choices=EVERY,
+        help_text=_("Expect a poop this long after the last one. Blank: twice pee every."))
+    after_meal = models.PositiveSmallIntegerField(
+        _("out after a meal"), default=15, help_text=_("Minutes after eating or drinking to go out."))
+    schedule_changed_at = models.DateTimeField(null=True, blank=True, editable=False)
+    coach_snoozed_until = models.DateTimeField(null=True, blank=True, editable=False)
     potty_locations = models.JSONField(
         _("potty locations"), default=list, blank=True,
         help_text=_("Where this pet goes. Only these show when logging a potty break."),
@@ -143,7 +161,21 @@ class Pet(models.Model):
             self.CAT: [PottyBreak.LITTER_BOX, PottyBreak.INSIDE],
         }.get(self.type, [code for code, _label in PottyBreak.LOCATIONS])
 
+    @property
+    def pee_minutes(self):
+        from .schedule import age_rule
+
+        return self.pee_every or age_rule(self.birth_date)
+
+    @property
+    def poop_minutes(self):
+        return self.poop_every or min(self.pee_minutes * 2, 12 * 60)
+
     def save(self, *args, **kwargs):
+        if not self.pk and self.pee_every is None:
+            from .schedule import age_rule
+
+            self.pee_every = age_rule(self.birth_date)  # prefilled once; the coach suggests changes from there
         if not self.slug:
             base = slugify(self.name) or "pet"
             slug, n = base, 2
@@ -293,7 +325,7 @@ class Walk(Logged):
 
 
 class PottyBreakManager(models.Manager):
-    """Real potty breaks only: "nothing" entries (no pee, no poop) never count towards stats or predictions."""
+    """Real potty breaks only: "nothing" entries (no pee, no poop) never count towards stats or Next Walk."""
 
     def get_queryset(self):
         return super().get_queryset().exclude(pee=False, poop=False)
@@ -302,7 +334,6 @@ class PottyBreakManager(models.Manager):
 class PottyBreak(Logged):
     OUTSIDE, INSIDE, PAD, LITTER_BOX = "outside", "inside", "pad", "litter_box"
     LOCATIONS = [(OUTSIDE, _("Outside")), (INSIDE, _("Inside")), (PAD, _("Pad")), (LITTER_BOX, _("Litter box"))]
-    prediction_settings = PredictionSettings()  # Next Walk rules, on the Site Settings page
 
     pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name="potty_breaks")
     time = models.DateTimeField(_("time"), default=timezone.now)
@@ -336,13 +367,8 @@ class PottyBreak(Logged):
     poop_colour = models.CharField(_("poop colour"), max_length=10, blank=True, choices=POOP_COLOURS)
     found_later = models.BooleanField(
         _("found it later"), default=False,
-        help_text=_("Didn't see it happen, so the time is only when it was found. Predictions don't learn from it."),
+        help_text=_("Didn't see it happen, so the time is only when it was found. Next Walk doesn't count it."),
     )
-    # For accidents (inside): the Next Walk prediction just before it happened. `expected_at` is what the app
-    # showed; `expected_raw_at` is the prediction before any accident adjustment, which is what it learns from.
-    expected_at = models.DateTimeField(null=True, blank=True, editable=False)
-    expected_raw_at = models.DateTimeField(null=True, blank=True, editable=False)
-    expected_reason = models.CharField(max_length=255, blank=True, editable=False)
     container = models.ForeignKey(
         Container, on_delete=models.SET_NULL, null=True, blank=True, related_name="potty_breaks",
         help_text=_("Which litter box, e.g. the litter robot."),
@@ -381,7 +407,7 @@ class Sleep(Logged):
 
 
 class Meal(Logged):
-    """A pet ate and/or drank. What it takes in drives potty predictions. Separate from filling a bowl (a Fill),
+    """A pet ate and/or drank. Next Walk goes out a set time after it. Separate from filling a bowl (a Fill),
     which is what left the bag."""
 
     pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name="meals")
@@ -497,7 +523,7 @@ class NotificationPreference(models.Model):
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notification_prefs")
     walk_due = models.BooleanField(_("Walk due"), default=True,
-                                   help_text=_("When a pet's next walk is due, from the Next Walk prediction."))
+                                   help_text=_("When a pet's next walk is due, from its schedule."))
     walk_lead_minutes = models.PositiveSmallIntegerField(
         _("minutes before"), default=5, help_text=_("How long before the head-out time the walk reminder comes."))
     low_supply = models.BooleanField(_("Buy more"), default=True,

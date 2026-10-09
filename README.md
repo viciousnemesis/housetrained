@@ -19,8 +19,8 @@ Baby Buddy's baby tracking (feedings, diapers, sleep, pumping, growth) under the
 - **Potty breaks**: pee, poop, where (outside, inside, pad, litter box; each pet has its own list), linked to
   the walk they happened on.
 - **Walks**: one tap to start, one to end; for one pet or several; who walked, how far.
-- **Next walk**: a prediction from the pet's own routine: usual gaps by time of day, time after meals and waking
-  up, its bedtime. See [how it works](docs/housetrained/predictions.md).
+- **Next walk**: a simple schedule you set (pee every, poop every, out after a meal), with a coach that suggests
+  changes from the accidents. See [how it works](docs/housetrained/schedule.md).
 - **Food, water and litter**: what went into bowls, feeders and litter boxes, what each pet ate and drank, how
   much is left in each bag and when to buy more.
 - **Sleep, weight, height, notes**, charts of the past two weeks, a day-by-day timeline.
@@ -34,12 +34,11 @@ Baby Buddy's baby tracking (feedings, diapers, sleep, pumping, growth) under the
 
 ## Fill Bowl or Log Meal?
 
-They're two different things, and that matters for the predictions:
+They're two different things, and that matters for the schedule:
 
 - **Fill Bowl**: food, water or litter went into a bowl, feeder or litter box. It counts toward the bag, so you
   know how much is left. It says nothing about who ate it, or when.
-- **Log Meal**: a pet ate or drank. Meals are what the Next Walk prediction uses: food leads to poops, food and
-  water to pees.
+- **Log Meal**: a pet ate or drank. Meals are what Next Walk uses: out a set time after eating or drinking.
 
 Feed set portions that get eaten straight away (most dogs)? Tick **Eaten right away** when filling the bowl and
 both are logged at once; the form remembers your usual amount for each bowl. Pets that graze from a bowl or

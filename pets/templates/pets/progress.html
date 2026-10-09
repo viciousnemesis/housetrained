@@ -1,5 +1,5 @@
 {% extends "babybuddy/page.html" %}
-{% load i18n %}
+{% load i18n pets_tags %}
 {% block title %}{% blocktrans with name=pet.name %}{{ name }}: progress{% endblocktrans %}{% endblock %}
 {% block breadcrumbs %}
     <li class="breadcrumb-item"><a href="{% url 'pets:pet' pet.slug %}">{{ pet.name }}</a></li>
@@ -64,27 +64,41 @@
                 {% endif %}
             </div>
         {% endif %}
-        {% if parts.rows %}
-            <h2 class="h6 text-body-secondary mt-4">{% trans "By part of the day" %}</h2>
-            {% if parts.headline %}<p class="small mb-2 text-warning">{{ parts.headline }}</p>{% endif %}
+        {% if hold %}
+            <h2 class="h6 text-body-secondary mt-4">{% trans "Time since the last pee" %}</h2>
             <table class="table table-sm table-borderless small mb-0" style="max-width: 32rem">
                 <thead><tr class="text-body-secondary">
                     <th class="ps-0 fw-normal"></th>
-                    <th class="fw-normal text-end">{% trans "Usual gap" %}</th>
-                    <th class="fw-normal text-end">{% trans "Accidents" %}</th>
-                    <th class="pe-0 fw-normal text-end">{% trans "Plan" %}</th>
+                    <th class="fw-normal text-end">{% trans "Outside" %}</th>
+                    <th class="pe-0 fw-normal text-end">{% trans "Accidents" %}</th>
                 </tr></thead>
-                {% for r in parts.rows %}
+                {% for r in hold %}
                     <tr>
-                        <td class="ps-0">{{ r.part|capfirst }}</td>
-                        <td class="text-end">{{ r.usual|default:"–" }}</td>
-                        <td class="text-end">{% blocktrans with pee=r.pee_accidents poop=r.poop_accidents %}{{ pee }} pee · {{ poop }} poop{% endblocktrans %}</td>
-                        <td class="pe-0 text-end fw-bold{% if r.shortened %} text-warning{% endif %}">{{ r.planned }}</td>
+                        <td class="ps-0">{{ r.label }}</td>
+                        <td class="text-end">{{ r.outside }}</td>
+                        <td class="pe-0 text-end{% if r.accidents %} text-warning fw-bold{% endif %}">{{ r.accidents }}</td>
                     </tr>
                 {% endfor %}
             </table>
-            <p class="small text-body-secondary mt-1 mb-0">{% blocktrans %}Usual gap: outdoor pee to outdoor pee, past week. Plan is shorter (yellow) where accidents came sooner.{% endblocktrans %}</p>
+            <p class="small text-body-secondary mt-1 mb-0">{% blocktrans with every=pet.pee_minutes|minutes %}Past two weeks: how long after a pee the next one came, and where. Pee every is set to {{ every }}.{% endblocktrans %}</p>
         {% endif %}
+        <h2 class="h6 text-body-secondary mt-4">{% trans "By part of the day" %}</h2>
+        {% if parts.headline %}<p class="small mb-2 text-warning">{{ parts.headline }}</p>{% endif %}
+        <table class="table table-sm table-borderless small mb-0" style="max-width: 32rem">
+            <thead><tr class="text-body-secondary">
+                <th class="ps-0 fw-normal"></th>
+                <th class="fw-normal text-end">{% trans "Usual gap" %}</th>
+                <th class="pe-0 fw-normal text-end">{% trans "Accidents" %}</th>
+            </tr></thead>
+            {% for r in parts.rows %}
+                <tr>
+                    <td class="ps-0">{{ r.part|capfirst }}</td>
+                    <td class="text-end">{{ r.usual|default:"–" }}</td>
+                    <td class="pe-0 text-end">{% blocktrans with pee=r.pee_accidents poop=r.poop_accidents %}{{ pee }} pee · {{ poop }} poop{% endblocktrans %}</td>
+                </tr>
+            {% endfor %}
+        </table>
+        <p class="small text-body-secondary mt-1 mb-0">{% blocktrans %}Usual gap: average from one outdoor pee to the next, past two weeks.{% endblocktrans %}</p>
         {% if averages %}
             <h2 class="h6 text-body-secondary mt-4">{% trans "Past 2 weeks" %}</h2>
             <table class="table table-sm table-borderless small mb-0" style="max-width: 32rem">
