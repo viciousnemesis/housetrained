@@ -13,9 +13,15 @@ def link_new_baby(sender, instance, created, raw=False, **kwargs):
 
 
 def end_retry(sender, instance, raw=False, created=False, **kwargs):
-    """Any new potty break ends a "try again" countdown."""
-    if not raw and created and instance.pet.retry_at:
+    """Any new potty break ends a "try again" countdown. An accident remembers when the schedule said to go out."""
+    if raw:
+        return
+    if created and instance.pet.retry_at:
         type(instance.pet).objects.filter(pk=instance.pet_id).update(retry_at=None)
+    if instance.location == "inside" or instance.due_at:
+        from .schedule import remember_due
+
+        remember_due(instance)
 
 
 class PetsConfig(AppConfig):

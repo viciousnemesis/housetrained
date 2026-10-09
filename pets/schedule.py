@@ -191,6 +191,25 @@ def next_walk(pet, now=None):
             "to_outside": fmt_span(to_outside) if to_outside else None}
 
 
+def due_before(accident):
+    """When the schedule said to go out for this accident's kind (poop if it was one), from what was logged before
+    it. None if there was nothing to go on yet."""
+    card = next_walk(accident.pet, now=accident.time)
+    key = "poop" if accident.poop else "pee"
+    need = next((n for n in card["needs"] if n["key"] == key), None) or (card["needs"][0] if card["needs"] else None)
+    return need["time"] if need else None
+
+
+def remember_due(accident):
+    """Store (or clear) an accident's due time; returns it."""
+    due = None
+    if accident.location == PottyBreak.INSIDE and not accident.found_later and (accident.pee or accident.poop):
+        due = due_before(accident)
+    PottyBreak.everything.filter(pk=accident.pk).update(due_at=due)
+    accident.due_at = due
+    return due
+
+
 def coach(pet, now=None):
     """One suggestion at most: shorter after accidents, longer after a clean week. Returns None or
     {kind, current, suggested, text}."""
