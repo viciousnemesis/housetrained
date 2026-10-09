@@ -1,0 +1,28 @@
+<script>
+    // Keep a status page fresh (PUP-113): phones show a tab from memory when you come back to it, so reload when
+    // it's restored, when it comes back after a minute away, and every 5 minutes while open. Never while you're
+    // typing, have a panel or menu open, or are reading a "Why?".
+    (function () {
+        var loaded = Date.now(), AWAY = 60 * 1000, EVERY = 5 * 60 * 1000;
+        function busy() {
+            var active = document.activeElement;
+            if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return true;
+            if (document.querySelector(".collapse.show, .dropdown-menu.show, details[open], .modal.show")) return true;
+            return Array.prototype.some.call(document.querySelectorAll("input[type=text], textarea"), function (el) {
+                return el.value;
+            });
+        }
+        function refresh() {
+            if (!busy()) window.location.reload();
+        }
+        window.addEventListener("pageshow", function (event) {
+            if (event.persisted) refresh();  // restored from the back/forward cache
+        });
+        document.addEventListener("visibilitychange", function () {
+            if (document.visibilityState === "visible" && Date.now() - loaded > AWAY) refresh();
+        });
+        setInterval(function () {
+            if (document.visibilityState === "visible" && Date.now() - loaded > EVERY) refresh();
+        }, 30 * 1000);
+    })();
+</script>

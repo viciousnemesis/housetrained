@@ -291,6 +291,9 @@ class CardTests(PetTestCase):
         for gone in ("Statistics", "Last Potty Break", "Last Meal", "+ Measurement", "Meal Times"):
             self.assertNotContains(page, gone)
         self.assertNotContains(page, "{#")  # a template comment that leaked onto the page
+        self.assertContains(page, "restored from the back/forward cache")  # refreshes itself when stale
+        for path in ("/pets/", "/pets/ruby/progress/"):
+            self.assertContains(self.client.get(path), "restored from the back/forward cache", msg_prefix=path)
 
     def test_empty_cards_hide(self):
         page = self.client.get("/pets/rex/")  # nothing logged for Rex
