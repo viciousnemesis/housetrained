@@ -90,7 +90,8 @@ def next_walk(pet, now=None):
     household = pet.household
     quiet = QuietHours(household)
     to_outside = datetime.timedelta(minutes=household.minutes_to_outside)
-    after_meal = datetime.timedelta(minutes=pet.after_meal)
+    # "Out after a meal" is when to head out, so the need is that plus the time to get outside.
+    after_meal = datetime.timedelta(minutes=pet.after_meal) + to_outside
     cleared = pet.triggers_cleared_at if pet.triggers_cleared_at and pet.triggers_cleared_at <= now else None
     since = now - datetime.timedelta(days=3)
     # Accidents found later have no reliable time, so they don't count.
@@ -141,7 +142,7 @@ def next_walk(pet, now=None):
             if t > start and max(t + after_meal, ready(t, logged)) < due:
                 due, source = max(t + after_meal, ready(t, logged)), "meal"
                 reason = _("ate or drank at %(time)s; out %(after)s later") % {
-                    "time": fmt_time(t), "after": fmt_span(after_meal)}
+                    "time": fmt_time(t), "after": fmt_span(after_meal - to_outside)}
         for t, logged in naps:
             if t > start and ready(t, logged, wake=True) < due:
                 due, source = ready(t, logged, wake=True), "wake"
@@ -164,7 +165,8 @@ def next_walk(pet, now=None):
         fed = [(t, logged) for t, food, logged in meals if food and t > start]
         if fed and max(fed[0][0] + after_meal, ready(*fed[0])) < due:
             due, source = max(fed[0][0] + after_meal, ready(*fed[0])), "meal"
-            reason = _("ate at %(time)s; out %(after)s later") % {"time": fmt_time(fed[0][0]), "after": fmt_span(after_meal)}
+            reason = _("ate at %(time)s; out %(after)s later") % {"time": fmt_time(fed[0][0]),
+                                                                   "after": fmt_span(after_meal - to_outside)}
         # Out since it was due and no poop: it doesn't keep its own walk, it's expected on the next one.
         back = out_since(due - TOGETHER, "poop")
         if back and back > due - TOGETHER:

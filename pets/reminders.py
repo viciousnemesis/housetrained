@@ -40,8 +40,9 @@ def _people(household, preference):
     users = household.members.filter(push_subscriptions__isnull=False, is_active=True).distinct()
     wanted = []
     for user in users:
-        prefs = NotificationPreference.objects.filter(user=user).first()
-        if prefs is None or getattr(prefs, preference):
+        # Never saved their choices: each reminder's own default (weekly progress and water are off).
+        prefs = NotificationPreference.objects.filter(user=user).first() or NotificationPreference(user=user)
+        if getattr(prefs, preference):
             wanted.append(user)
     return wanted
 
