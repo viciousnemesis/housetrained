@@ -107,7 +107,8 @@ class ScheduleTests(TestCase):
         self.potty(self.at(8, 30), poop=True)
         self.meal(self.at(10))
         card = self.card(self.at(10, 1))
-        self.assertEqual(card["needs"][0]["time"], self.at(10, 15))
+        self.assertEqual(card["head_out"], self.at(10, 15))  # out after a meal: 15 minutes after eating
+        self.assertEqual(card["needs"][0]["time"], self.at(10, 25))  # + 10 minutes to get outside
         self.assertEqual(card["source"], "meal")
         self.assertEqual(card["expect"], "pee + poop")
 

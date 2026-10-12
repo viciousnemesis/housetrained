@@ -80,6 +80,13 @@ class NotificationTests(TestCase):
         self.assertFalse(PushSubscription.objects.exists())
 
     @mock.patch("pywebpush.webpush")
+    def test_reminders_that_default_off_stay_off_until_chosen(self, webpush):
+        self.subscribe()
+        self.assertEqual(reminders._people(self.home, "walk_due"), [self.user])  # on by default
+        self.assertEqual(reminders._people(self.home, "weekly_progress"), [])  # off by default
+        self.assertEqual(reminders._people(self.home, "water_cutoff"), [])
+
+    @mock.patch("pywebpush.webpush")
     def test_walk_due_once(self, webpush):
         self.subscribe()
         noon = timezone.make_aware(datetime.datetime.combine(timezone.localdate(), datetime.time(12)))
