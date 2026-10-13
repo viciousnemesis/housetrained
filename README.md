@@ -78,7 +78,7 @@ docker compose exec -w /app/www/public housetrained /lsiopy/bin/python3 manage.p
 | Variable | What it does |
 |---|---|
 | `TZ` | Server time zone (each person can pick their own in user settings) |
-| `ALLOWED_HOSTS` | Hostnames it answers to, comma-separated |
+| `ALLOWED_HOSTS` | **Required.** Every hostname you open it at, comma-separated (e.g. `pets.example.com,localhost`) |
 | `CSRF_TRUSTED_ORIGINS` | Every address you open it at, e.g. `https://pets.example.com` |
 | `SECURE_PROXY_SSL_HEADER` | `True` behind a reverse proxy that handles HTTPS; cookies then go over HTTPS only |
 | `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` | Override the cookie setting above (`False` to also sign in over plain HTTP) |

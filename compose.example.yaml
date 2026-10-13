@@ -9,7 +9,7 @@ services:
       - PUID=1000                   # user and group that own ./config
       - PGID=1000
       - TZ=Etc/UTC                  # your time zone, e.g. Europe/London
-      - ALLOWED_HOSTS=*             # your hostname(s), comma-separated, e.g. pets.example.com
+      - ALLOWED_HOSTS=localhost     # required: every hostname you open it at, comma-separated, e.g. pets.example.com
       - CSRF_TRUSTED_ORIGINS=http://localhost:8000   # every address you open it at, e.g. https://pets.example.com
       # - SECURE_PROXY_SSL_HEADER=True   # behind a reverse proxy that handles HTTPS (cookies become HTTPS-only)
       # - ADMIN_PASSWORD=change-me       # first admin password; otherwise a random one is printed in the log

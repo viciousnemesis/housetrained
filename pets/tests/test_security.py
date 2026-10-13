@@ -235,3 +235,28 @@ class UserFormTests(TestCase):
         self.client.post("/users/add/", {"username": "boss", "password1": "Sup3r-secret-pw",
                                          "password2": "Sup3r-secret-pw", "is_staff": "on", "is_active": "on"})
         self.assertTrue(get_user_model().objects.get(username="boss").is_superuser)
+
+
+class CsrfOriginPageTests(TestCase):
+    """Baby Buddy's fix after 2.11.0: the CSRF error page shows the Origin header escaped (PUP-131)."""
+
+    def test_origin_is_escaped(self):
+        from django.test import Client
+
+        client = Client(enforce_csrf_checks=True)
+        evil = "https://x<script>alert(1)</script>"
+        response = client.post("/login/", {"username": "a", "password": "b"}, HTTP_ORIGIN=evil)
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn("<script>alert(1)</script>", response.content.decode())
+        self.assertIn("&lt;script&gt;", response.content.decode())
+
+    def test_no_allowed_hosts_by_default(self):
+        import os
+        import subprocess
+        import sys
+
+        env = {k: v for k, v in os.environ.items() if k != "ALLOWED_HOSTS"}
+        env.update(DJANGO_SETTINGS_MODULE="babybuddy.settings.base", SECRET_KEY="x")
+        out = subprocess.run([sys.executable, "-c", "import django; django.setup(); from django.conf import settings; "
+                              "print(settings.ALLOWED_HOSTS)"], capture_output=True, text=True, env=env)
+        self.assertEqual(out.stdout.strip(), "[]", out.stderr[-500:])

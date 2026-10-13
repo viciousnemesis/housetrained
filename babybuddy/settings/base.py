@@ -26,7 +26,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 load_dotenv(find_dotenv())
 
 # Required settings
-ALLOWED_HOSTS = [x.strip() for x in os.environ.get("ALLOWED_HOSTS", "*").split(",")]
+# No default: list the hostnames it answers to (Baby Buddy security fix after 2.11.0).
+ALLOWED_HOSTS = [x.strip() for x in os.environ.get("ALLOWED_HOSTS", "").split(",") if x.strip()]
 SECRET_KEY = os.environ.get("SECRET_KEY") or None
 DEBUG = bool(strtobool(os.environ.get("DEBUG") or "False"))
 
