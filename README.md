@@ -1,6 +1,6 @@
-<img src="babybuddy/static_src/logo/icon.png" height="110" align="left">
+<p align="center"><img src="babybuddy/static_src/logo/icon.png" height="110" alt=""></p>
 
-# Housetrained
+<h1 align="center">Housetrained</h1>
 
 Track your pets' potty breaks, walks, meals, water, sleep and supplies, and follow a simple walk schedule you
 set, with a coach that suggests changes from the accidents. Built for puppy house-training first, and works for
