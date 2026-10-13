@@ -13,8 +13,8 @@ Turn on baby mode and track both in one place: babies sit next to the pets on th
 Baby Buddy's baby tracking (feedings, diapers, sleep, pumping, growth) under the Baby menu.
 
 <p align="center">
-  <img src="docs/screenshots/pet-dashboard.jpg" width="72%" alt="A pet's page on a computer">
-  <img src="docs/screenshots/pet-phone.jpg" width="24%" alt="The same page on a phone">
+  <img src="docs/screenshots/pet-dark.jpg" width="73.5%" alt="A pet's page on a computer">
+  <img src="docs/screenshots/pet-phone-dark.jpg" width="24.5%" alt="The same page on a phone">
 </p>
 
 ## What it does
