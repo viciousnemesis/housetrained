@@ -270,6 +270,19 @@ def link_walk(entry):
     )
 
 
+def relink_walk(walk):
+    """A walk logged or changed afterwards (back-dated, longer, other pets) takes in the potty breaks that now fall
+    within it, and lets go of ones that no longer do (PUP-129). Same rule as link_walk."""
+    end = walk.end or timezone.now()
+    nearby = PottyBreak.everything.filter(
+        Q(walk=walk) | Q(pet__in=walk.pets.all(), time__gte=walk.start, time__lte=end)).distinct()
+    for entry in nearby:
+        before = entry.walk_id
+        link_walk(entry)
+        if entry.walk_id != before:
+            PottyBreak.everything.filter(pk=entry.pk).update(walk=entry.walk)
+
+
 OTHER_WALKER = "other"
 
 

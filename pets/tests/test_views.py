@@ -541,6 +541,24 @@ class QuickPottyTests(PetTestCase):
         self.ruby.refresh_from_db()
         self.assertIsNone(self.ruby.retry_at)
 
+    def test_back_dated_walk_takes_in_the_pee_logged_first(self):
+        now = timezone.now().replace(second=0, microsecond=0)
+        pee = PottyBreak.objects.create(pet=self.ruby, time=now - datetime.timedelta(minutes=10), pee=True)
+        walk = Walk.objects.create(household=self.household, start=now - datetime.timedelta(minutes=12),
+                                   end=now - datetime.timedelta(minutes=2))
+        walk.pets.set([self.ruby])
+        pee.refresh_from_db()
+        self.assertEqual(pee.walk, walk)  # nested in Recent activity
+        walk.end = now - datetime.timedelta(minutes=11)  # shortened: the pee was after it
+        walk.save()
+        pee.refresh_from_db()
+        self.assertIsNone(pee.walk)
+        other = Walk.objects.create(household=self.household, start=now - datetime.timedelta(minutes=12),
+                                    end=now - datetime.timedelta(minutes=2))
+        other.pets.set([self.rex])  # another pet's walk doesn't take Ruby's pee
+        pee.refresh_from_db()
+        self.assertIsNone(pee.walk)
+
     def test_quick_break_joins_a_running_walk(self):
         self.client.post("/log/walk/start/", {"pet": "ruby"})
         self.assertContains(self.client.get("/pets/ruby/"), ">End walk<")
