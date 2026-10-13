@@ -12,9 +12,10 @@ Housetrained is a fork of [Baby Buddy](https://github.com/babybuddy/babybuddy). 
 Turn on baby mode and track both in one place: babies sit next to the pets on the home page, with all of
 Baby Buddy's baby tracking (feedings, diapers, sleep, pumping, growth) under the Baby menu.
 
-![Pet dashboard](docs/screenshots/pet-dashboard.jpg)
-
-<img src="docs/screenshots/pet-phone.jpg" width="260" align="right" alt="A pet's page on a phone, light theme">
+<p align="center">
+  <img src="docs/screenshots/pet-dashboard.jpg" width="72%" alt="A pet's page on a computer">
+  <img src="docs/screenshots/pet-phone.jpg" width="24%" alt="The same page on a phone">
+</p>
 
 ## What it does
 
@@ -34,8 +35,6 @@ Baby Buddy's baby tracking (feedings, diapers, sleep, pumping, growth) under the
   [Private by design](#private-by-design)).
 - **First-run checklist** on each pet's page: schedule, quiet hours, bowls, reminders.
 - **Export everything** as CSV (Setup > Export), **import** past records, and a [REST API](docs/housetrained/api.md).
-
-<br clear="right">
 
 ## Fill Bowl or Log Meal?
 
