@@ -36,7 +36,7 @@
                     {% endfor %}
                     {% if to_outside %}<div class="mt-1 text-body-secondary">{% blocktrans %}Head out includes {{ to_outside }} to get outside.{% endblocktrans %}</div>{% endif %}
                     <div class="mt-1 text-body-secondary">
-                        {% blocktrans with pee=pee_every|minutes poop=poop_every|minutes meal=pet.after_meal %}Schedule: pee every {{ pee }}, poop every {{ poop }}, out {{ meal }} min after a meal.{% endblocktrans %}
+                        {% trans "Schedule" %}: {% trans "pee every" %} {{ pee_every|minutes }}{% if actual.pee %} ({% blocktrans with time=actual.pee %}past week ~{{ time }}{% endblocktrans %}){% endif %}, {% trans "poop every" %} {{ poop_every|minutes }}{% if actual.poop %} ({% blocktrans with time=actual.poop %}past week ~{{ time }}{% endblocktrans %}){% endif %}, {% blocktrans with meal=pet.after_meal %}out {{ meal }} min after a meal.{% endblocktrans %}
                         {% if pets_can_edit %}<a href="{% url 'pets:edit' 'pet' pet.pk %}?next={{ request.path|urlencode }}">{% trans "Change" %}</a>{% endif %}
                     </div>
                 </details>

@@ -250,7 +250,9 @@ def status_card(pet, now=None):
         (_("Pee"), last_pee, last_pee and f"/log/potty/{last_pee.pk}/"),
         (_("Poop"), last_poop, last_poop and f"/log/potty/{last_poop.pk}/"),
         (_("Ate"), last_meal, last_meal and f"/log/meal/{last_meal.pk}/")) if entry]
+    actual = {r["key"]: r["actual"] for r in schedule_vs_actual(pet, now=now)}
     return {**card, "latest": latest, "asleep": asleep, "coach": coach(pet, now=now), "streak": streak(pet, now=now),
+            "actual": actual,
             "pee_every": pet.pee_minutes, "poop_every": pet.poop_minutes}
 
 
@@ -316,6 +318,32 @@ def pee_gaps(pet, now):
     pees = [b for b in potty(pet, window_start(), until=now) if b.pee and not b.found_later]
     return [(a.time, b.time - a.time, is_accident(b)) for a, b in zip(pees, pees[1:])
             if not quiet.is_bedtime(a.time) and GAP_MIN <= b.time - a.time <= GAP_MAX]
+
+
+def schedule_vs_actual(pet, now=None, days=7):
+    """Pee every and poop every next to how far apart they really were over the past week (PUP-132). Top-ups (under
+    30 minutes), the overnight gap and missed entries (pee over 6 hours, poop over 12) are left out; an average
+    needs 3 gaps. Returns [{key, label, set, actual, diff, shorter}]."""
+    from .schedule import QuietHours, fmt_minutes, fmt_span
+
+    now = now or timezone.now()
+    quiet = QuietHours(pet.household)
+    breaks = [b for b in potty(pet, now - datetime.timedelta(days=days), until=now) if not b.found_later]
+    rows = []
+    for key, label, every, longest in (("pee", _("Pee"), pet.pee_minutes, 6), ("poop", _("Poop"), pet.poop_minutes, 12)):
+        times = [b.time for b in breaks if getattr(b, key)]
+        gaps = [b - a for a, b in zip(times, times[1:])
+                if not quiet.is_bedtime(a) and GAP_MIN <= b - a <= datetime.timedelta(hours=longest)]
+        actual = sum(gaps, datetime.timedelta()) / len(gaps) if len(gaps) >= 3 else None
+        diff = shorter = None
+        if actual:
+            minutes = round(actual.total_seconds() / 60) - every
+            shorter = minutes < 0
+            diff = (_("about the same") if abs(minutes) < 10 else
+                    (_("%(time)s shorter") if shorter else _("%(time)s longer")) % {"time": fmt_minutes(abs(minutes))})
+        rows.append({"key": key, "label": label, "set": fmt_minutes(every), "actual": fmt_span(actual) if actual else None,
+                     "diff": diff, "shorter": shorter})
+    return rows
 
 
 def by_part_of_day(pet, now=None):

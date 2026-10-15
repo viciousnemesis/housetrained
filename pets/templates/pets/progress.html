@@ -16,6 +16,26 @@
             {% else %}{% blocktrans with best=streak.best_text %}Best so far: {{ best }}.{% endblocktrans %}{% endif %}
         </p>
 
+        {% if vs_actual %}
+            <h2 class="h6 text-body-secondary mt-4">{% trans "Schedule vs. actual (past week)" %}</h2>
+            <table class="table table-sm table-borderless small mb-0" style="max-width: 32rem">
+                <thead><tr class="text-body-secondary">
+                    <th class="ps-0 fw-normal"></th>
+                    <th class="fw-normal text-end">{% trans "Set" %}</th>
+                    <th class="fw-normal text-end">{% trans "Actual" %}</th>
+                    <th class="pe-0 fw-normal text-end"></th>
+                </tr></thead>
+                {% for r in vs_actual %}
+                    <tr>
+                        <td class="ps-0">{{ r.label }}</td>
+                        <td class="text-end">{{ r.set }}</td>
+                        <td class="text-end fw-bold">{{ r.actual }}</td>
+                        <td class="pe-0 text-end text-body-secondary">{{ r.diff }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+            <p class="small text-body-secondary mt-1 mb-0">{% if pets_can_edit %}<a href="{% url 'pets:edit' 'pet' pet.pk %}?next={{ request.path|urlencode }}">{% trans "Change the schedule" %}</a>{% endif %}</p>
+        {% endif %}
         {% if chart %}
             <h2 class="h6 text-body-secondary mt-4">{% trans "In the right place, week by week" %}</h2>
             <svg viewBox="0 -12 {{ chart.width }} {{ chart.height|add:12 }}" class="w-100" style="max-width: 32rem"

@@ -251,6 +251,24 @@ class ScheduleTests(TestCase):
         page = self.client.get(f"/pets/{self.ruby.slug}/")
         self.assertContains(page, "Schedule: pee every 2h 30m, poop every 5h, out 15 min after a meal.")
 
+    # --- schedule vs. actual (PUP-132) ----------------------------------------------------------------
+    def test_actual_gaps_next_to_the_schedule(self):
+        from pets.insights import schedule_vs_actual
+
+        for days in (1, 2):
+            # Pees 2 hours apart, one top-up 10 minutes after; poops 5 hours apart; bedtime pee then morning.
+            for h, m in ((7, 0), (9, 0), (9, 10), (11, 10), (13, 10), (15, 10), (22, 50)):
+                self.potty(self.at(h, m, days=days), poop=(h, m) in ((7, 0), (13, 10)))
+        rows = {r["key"]: r for r in schedule_vs_actual(self.ruby, now=self.at(12))}
+        self.assertEqual(rows["pee"]["actual"], "2h")  # top-up, overnight and the long evening gap left out
+        self.assertEqual((rows["pee"]["set"], rows["pee"]["diff"]), ("2h 30m", "30m shorter"))
+        self.assertTrue(rows["pee"]["shorter"])
+        self.assertIsNone(rows["poop"]["actual"])  # fewer than 3 gaps: no average yet
+        self.client.force_login(self.user)
+        self.assertContains(self.client.get(f"/pets/{self.ruby.slug}/progress/"), "Schedule vs. actual (past week)")
+        self.potty(timezone.now() - datetime.timedelta(minutes=20))
+        self.assertContains(self.client.get(f"/pets/{self.ruby.slug}/"), "pee every 2h 30m (past week ~2h)")
+
     # --- first-run checklist (PUP-118) ----------------------------------------------------------------
     def test_setup_checklist_until_done(self):
         from pets.schedule import setup_steps
