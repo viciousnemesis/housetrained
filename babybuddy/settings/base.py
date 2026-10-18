@@ -397,7 +397,7 @@ IMPORT_EXPORT_USE_TRANSACTIONS = True
 
 AXES_COOLOFF_TIME = 1
 
-AXES_FAILURE_LIMIT = 5
+AXES_FAILURE_LIMIT = 3
 
 # `None` makes Axes use the default precedence order set by django-ipware.
 # See: https://github.com/un33k/django-ipware#precedence-order
