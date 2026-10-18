@@ -22,6 +22,14 @@ class Household(models.Model):
     units = models.CharField(
         _("display units"), max_length=10, choices=[(METRIC, _("Metric")), (IMPERIAL, _("Imperial"))], default=METRIC
     )
+    same_units = models.BooleanField(_("all units"), default=True,
+                                     help_text=_("One system for everything. Switch off to pick a unit for each kind."))
+    unit_mass = models.CharField(_("food"), max_length=10, blank=True)
+    unit_volume = models.CharField(_("water"), max_length=10, blank=True)
+    unit_weight = models.CharField(_("pet weight"), max_length=10, blank=True)
+    unit_length = models.CharField(_("pet height and length"), max_length=10, blank=True)
+    unit_distance = models.CharField(_("walk distance"), max_length=10, blank=True)
+    unit_bag = models.CharField(_("food bags"), max_length=10, blank=True)
     time_zone = models.CharField(_("default time zone"), max_length=100, blank=True)
     water_cutoff_hours = models.PositiveSmallIntegerField(
         _("pick up water before bed"), default=2,

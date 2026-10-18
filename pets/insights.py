@@ -397,14 +397,13 @@ def measurements_card(pet):
     from .models import Measurement
 
     household = pet.household
-    system = units.DEFAULTS[household.units]
     entries = list(pet.measurements.order_by("date", "pk"))
     series = []
     for key, label in Measurement.KINDS:
         rows = [m for m in entries if m.kind == key]
         if not rows:
             continue
-        unit = system["weight" if key == Measurement.WEIGHT else "length"]
+        unit = units.unit_for(household, "weight" if key == Measurement.WEIGHT else "length")
         table = units.WEIGHT if key == Measurement.WEIGHT else units.LENGTH
         values = [units.from_stored(float(m.value), unit, table) for m in rows]
         lo, hi = min(values), max(values)

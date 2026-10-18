@@ -60,6 +60,30 @@
     {% if form.container_info %}{{ form.container_info|json_script:"fill-containers" }}{% endif %}
     {% if form.show_when_json %}{{ form.show_when_json|json_script:"show-when" }}{% endif %}
     {% if form.unit_pairs_json %}{{ form.unit_pairs_json|json_script:"unit-pairs" }}{% endif %}
+    {% if form.unit_defaults_json %}{{ form.unit_defaults_json|json_script:"unit-defaults" }}{% endif %}
+    <script>
+        // Household units: kinds never picked follow the system choice until they're saved (PUP-140).
+        (function () {
+            var info = document.getElementById("unit-defaults");
+            if (!info) return;
+            info = JSON.parse(info.textContent);
+            var follow = function () {
+                var system = document.querySelector("input[name=units]:checked");
+                if (!system) return;
+                info.unsaved.forEach(function (name) {
+                    var kind = name.replace("unit_", "");
+                    var pick = document.querySelector("input[name=" + name + "][value='" + info.defaults[system.value][kind] + "']");
+                    if (pick) pick.checked = true;
+                });
+            };
+            document.querySelectorAll("input[name=units]").forEach(function (r) { r.addEventListener("change", follow); });
+            info.unsaved.forEach(function (name) {
+                document.querySelectorAll("input[name=" + name + "]").forEach(function (r) {
+                    r.addEventListener("change", function () { info.unsaved = info.unsaved.filter(function (n) { return n !== name; }); });
+                });
+            });
+        })();
+    </script>
     <script>
         (function () {
             // Units sit inside their amount box: [ 60 | oz ].

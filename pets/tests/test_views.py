@@ -641,3 +641,68 @@ class MeasurementTests(PetTestCase):
         page = self.client.get("/pets/ruby/").content.decode()
         self.assertIn("Measurements", page)
         self.assertIn('data-tags="measurement"', page)
+
+
+class UnitsAndZoneTests(PetTestCase):
+    """PUP-140/141: one system or a unit per kind; time zones by UTC offset."""
+
+    def save(self, **data):
+        return self.client.post("/pets/setup/household/", {"name": "Home", "minutes_to_outside": "10",
+                                                           "water_cutoff_hours": "2", **data})
+
+    def test_one_system(self):
+        self.save(same_units="on", units="imperial", time_zone="America/New_York")
+        self.household.refresh_from_db()
+        from pets import units
+        self.assertEqual([units.unit_for(self.household, k) for k in units.KINDS], ["oz", "fl oz", "lb", "in", "mi", "lb"])
+
+    def test_a_unit_per_kind_and_the_rest_follow_the_system(self):
+        self.household.units = "imperial"
+        self.household.save()
+        self.save(unit_weight="kg", unit_length="cm", unit_mass="oz", unit_volume="fl oz", unit_distance="mi",
+                  unit_bag="lb", time_zone="America/New_York")
+        self.household.refresh_from_db()
+        self.assertFalse(self.household.same_units)
+        self.assertEqual(self.household.units, "imperial")  # kept while hidden
+        self.assertEqual((self.household.unit_weight, self.household.unit_length), ("kg", "cm"))
+
+    def test_units_reach_entries_and_displays(self):
+        from pets import units
+        from pets.models import Measurement
+        self.household.same_units, self.household.unit_weight = False, "lb"
+        self.household.save()
+        Measurement.objects.create(pet=self.ruby, kind="weight", value=4.5359237, date=timezone.localdate())
+        self.assertEqual(units.show(4.5359237, "weight", self.household), "10 lb")
+        self.assertIn("10 lb", self.client.get("/pets/ruby/").content.decode())
+        self.assertIn('value="lb" selected', self.client.get("/log/measurement/add/").content.decode().replace("\n", ""))
+
+    def test_switching_back_keeps_the_per_kind_picks(self):
+        self.save(unit_weight="lb", unit_mass="g", unit_volume="ml", unit_length="cm", unit_distance="km",
+                  unit_bag="kg", time_zone="America/New_York")
+        self.save(same_units="on", units="metric", time_zone="America/New_York")
+        self.household.refresh_from_db()
+        self.assertTrue(self.household.same_units)
+        self.assertEqual(self.household.unit_weight, "lb")  # remembered for next time
+        page = self.client.get("/pets/setup/household/").content.decode()
+        self.assertIn('id="unit-defaults"', page)
+
+    def test_time_zones_west_to_east_with_a_guess(self):
+        from babybuddy import time_zones
+        names = [name for name, _label in time_zones.choices()]
+        self.assertLess(names.index("Pacific/Honolulu"), names.index("America/New_York"))
+        self.assertLess(names.index("America/New_York"), names.index("UTC"))
+        self.assertLess(names.index("UTC"), names.index("Asia/Tokyo"))
+        self.assertNotIn("US/Pacific", names)
+        self.household.time_zone = ""
+        self.household.save()
+        page = self.client.get("/pets/setup/household/").content.decode()
+        self.assertIn("start from this device", page)  # empty: the device's zone is filled in
+        self.save(same_units="on", units="metric", time_zone="Europe/London")
+        self.household.refresh_from_db()
+        self.assertEqual(self.household.time_zone, "Europe/London")
+        self.assertNotIn("start from this device", self.client.get("/pets/setup/household/").content.decode())
+
+    def test_fallback_zone(self):
+        from babybuddy import time_zones
+        with override_settings(TIME_ZONE="UTC"):
+            self.assertEqual(time_zones.default(), "America/New_York")

@@ -57,7 +57,7 @@ class PetsForm(forms.ModelForm):
         ]
 
     def default_unit(self, kind):
-        return units.DEFAULTS[self.household.units][kind]
+        return units.unit_for(self.household, kind)
 
     @staticmethod
     def _as_text(value):
@@ -866,7 +866,7 @@ class ProductForm(HouseholdOwnedForm):
         super().__init__(*args, **kwargs)
         self.fieldsets = [{"fields": ["name", "brand", "category", "package_size", "size_unit", "reorder_days"],
                            "layout": "default"}]
-        unit = "lb" if self.household.units == "imperial" else "kg"
+        unit = units.unit_for(self.household, "bag")
         self.fields["size_unit"].initial = unit
         if self.instance.pk and self.instance.package_size:
             self.initial["package_size"] = round(units.from_stored(self.instance.package_size, unit, units.MASS), 2)
@@ -893,7 +893,7 @@ class SupplyItemForm(PetsForm):
         self.fields["size"].required = False
         self.fieldsets = [{"fields": ["product", "size", "size_unit", "opened", "finished", "price", "pets"],
                            "layout": "default"}]
-        unit = "lb" if self.household.units == "imperial" else "kg"
+        unit = units.unit_for(self.household, "bag")
         self.fields["size_unit"].initial = unit
         if not self.instance.pk:
             self.initial.setdefault("opened", timezone.localdate())
@@ -913,20 +913,57 @@ class SupplyItemForm(PetsForm):
 
 
 class HouseholdForm(forms.ModelForm):
+    PER_KIND = [f"unit_{kind}" for kind in units.KINDS]
+
     class Meta:
         model = Household
-        fields = ["name", "units", "time_zone", "minutes_to_outside", "bedtime", "wake_time", "water_cutoff_hours"]
+        fields = ["name", "same_units", "units", *[f"unit_{kind}" for kind in units.KINDS], "time_zone",
+                  "minutes_to_outside", "bedtime", "wake_time", "water_cutoff_hours"]
         widgets = {"units": PillRadioSelect(), "bedtime": TimeInput(), "wake_time": TimeInput()}
+        labels = {"units": _("Units")}
+        help_texts = {"units": _("Metric shows g, kg, ml, cm, km; imperial shows oz, lb, fl oz, in, mi.")}
 
     def __init__(self, *args, **kwargs):
+        from babybuddy import time_zones
+
         super().__init__(*args, **kwargs)
         for name in ("bedtime", "wake_time"):  # left blank: keep what's set
             self.fields[name].required = False
+        # Units (PUP-140): one system, or one unit per kind. Each kind starts at its last saved pick, else the system's.
+        self.fields["units"].required = False
+        for kind, name in zip(units.KINDS, self.PER_KIND):
+            saved = getattr(self.instance, name)
+            self.fields[name] = forms.ChoiceField(
+                label=self.fields[name].label[:1].upper() + self.fields[name].label[1:],
+                choices=units.choices(units.PER_KIND[kind]), required=False, widget=PillRadioSelect())
+            self.initial[name] = saved or units.DEFAULTS[self.instance.units][kind]
+        # Time zone (PUP-141): a dropdown by UTC offset; with nothing set yet, the device's zone (else the server's).
+        zone = self.instance.time_zone
+        self.fields["time_zone"] = forms.ChoiceField(
+            label=_("Default time zone"), choices=time_zones.choices(zone), required=False,
+            widget=time_zones.TimeZoneSelect(guess=not zone),
+            help_text=_("For reminders, and where new members start."))
+        self.initial["time_zone"] = zone or time_zones.default()
+
+    @property
+    def show_when_json(self):
+        return {"units": [["same_units", ["true"]]], **{name: [["same_units", ["false"]]] for name in self.PER_KIND}}
+
+    @property
+    def unit_defaults_json(self):
+        """For the page: kinds never picked follow the system choice until saved."""
+        return {"defaults": units.DEFAULTS,
+                "unsaved": [name for name in self.PER_KIND if not getattr(self.instance, name)]}
 
     def clean(self):
         data = super().clean()
         for name in ("bedtime", "wake_time"):
             if data.get(name) is None:
                 data[name] = getattr(self.instance, name)
+        # The hidden side isn't sent: keep what was saved there.
+        hidden = self.PER_KIND if data.get("same_units") else ["units"]
+        for name in hidden:
+            data[name] = getattr(self.instance, name)
+        if not data.get("units"):
+            data["units"] = self.instance.units
         return data
-        help_texts = {"units": _("Metric shows g, kg, ml, cm; imperial shows oz, lb, fl oz, in.")}

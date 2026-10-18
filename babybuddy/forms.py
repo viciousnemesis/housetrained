@@ -154,3 +154,11 @@ class UserSettingsForm(forms.ModelForm):
             "clock",
             "show_help",
         ]
+
+    def __init__(self, *args, **kwargs):
+        from . import time_zones
+
+        super().__init__(*args, **kwargs)
+        # A dropdown by UTC offset, west to east (PUP-141).
+        self.fields["timezone"].choices = time_zones.choices(self.instance.timezone)
+        self.fields["timezone"].widget = time_zones.TimeZoneSelect(choices=self.fields["timezone"].choices)

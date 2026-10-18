@@ -446,7 +446,7 @@ class Setup(HouseholdMixin, TemplateView):
         from .supplies import display_unit, status
 
         unit = display_unit(self.household)
-        bags = SupplyItem.objects.filter(product__household=self.household).select_related("product").prefetch_related("pets")
+        bags = SupplyItem.objects.filter(product__household=self.household).select_related("product__household").prefetch_related("pets")
         return super().get_context_data(
             household=self.household,
             pets=self.household.pets.all(),

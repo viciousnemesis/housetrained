@@ -1,0 +1,13 @@
+{% include "django/forms/widgets/select.html" %}
+{% if widget.guess %}
+    <script>
+        // Nothing picked yet: start from this device's time zone, if it's in the list.
+        (function () {
+            var select = document.getElementById("{{ widget.attrs.id }}");
+            try {
+                var zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                if (select && zone && select.querySelector('option[value="' + zone + '"]')) select.value = zone;
+            } catch (e) {}
+        })();
+    </script>
+{% endif %}

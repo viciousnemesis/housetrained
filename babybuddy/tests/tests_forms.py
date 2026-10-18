@@ -420,7 +420,7 @@ class FormsTestCase(TestCase):
 
         self.assertEqual(timezone.get_default_timezone_name(), "UTC")
         params = self.settings_template.copy()
-        params["timezone"] = "US/Pacific"
+        params["timezone"] = "America/Los_Angeles"
         page = self.c.post("/user/settings/", data=params, follow=True)
         self.assertEqual(page.status_code, 200)
         self.assertEqual(timezone.get_current_timezone_name(), params["timezone"])
