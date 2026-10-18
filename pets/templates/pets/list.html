@@ -31,7 +31,7 @@
             <tbody>
                 {% for r in rows %}
                     <tr>
-                        <td class="text-nowrap"><a href="{{ r.edit_url }}?next={{ request.get_full_path|urlencode }}">{{ r.time|clock_dt }}</a></td>
+                        <td class="text-nowrap"><a href="{{ r.edit_url }}?next={{ request.get_full_path|urlencode }}">{% if r.date_only %}{{ r.time|date:"M j" }}{% else %}{{ r.time|clock_dt }}{% endif %}</a></td>
                         <td>{{ r.pets }}</td>
                         <td>{{ r.summary }}</td>
                     </tr>

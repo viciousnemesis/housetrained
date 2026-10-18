@@ -115,13 +115,15 @@ def pet_names(kind, entry):
 def row(kind, entry):
     field, summary, _qs = KINDS[kind]
     return {"time": _when(getattr(entry, field)), "kind": kind, "summary": summary(entry),
-            "pets": pet_names(kind, entry), "edit_url": reverse("pets:edit", args=[kind, entry.pk])}
+            "pets": pet_names(kind, entry), "edit_url": reverse("pets:edit", args=[kind, entry.pk]),
+            "date_only": field == "date"}  # measurements have a day, not a time
 
 
 # Recent activity colours, as on the charts: outdoor potties green, accidents yellow (pee) and red (poop), meals
 # blue, sleep purple, walks green. Shown as a faint tint with a coloured edge.
 COLOURS = {"pee": "143,209,138", "poop": "46,125,50", "accident_pee": "245,211,63", "accident_poop": "167,36,49",
-           "walk": "76,175,80", "meal": "74,144,226", "sleep": "142,108,200", "nothing": "150,150,150"}
+           "walk": "76,175,80", "meal": "74,144,226", "sleep": "142,108,200", "nothing": "150,150,150",
+           "measurement": "23,162,184"}
 
 
 def _tags(kind, entry):
@@ -129,7 +131,7 @@ def _tags(kind, entry):
     if kind == "potty":
         tags = [t for t, flag in (("pee", entry.pee), ("poop", entry.poop)) if flag] or ["nothing"]
         return tags + (["accident"] if entry.location == PottyBreak.INSIDE else [])
-    return [kind] if kind in ("walk", "meal", "sleep", "fill") else ["other"]
+    return [kind] if kind in ("walk", "meal", "sleep", "fill", "measurement") else ["other"]
 
 
 def _colour(kind, entry):

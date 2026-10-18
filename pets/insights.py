@@ -385,3 +385,47 @@ def hold_table(pet, now=None):
             rows.append({"label": f"{fmt_duration(lo)}–{fmt_duration(hi)}", "outside": here.count(False),
                          "accidents": here.count(True)})
     return rows
+
+
+# --- Measurements chart (PUP-135) ---------------------------------------------------------------------------
+M_W, M_H, M_LEFT, M_TOP, M_BOTTOM = 300, 150, 44, 10, 20  # SVG units: width, height, left labels, margins
+
+
+def measurements_card(pet):
+    """Weight, the two heights and length over time, one line each; the card shows one at a time (a dropdown picks
+    which, Weight first). Each point links to its entry. Only kinds that have been logged."""
+    from .models import Measurement
+
+    household = pet.household
+    system = units.DEFAULTS[household.units]
+    entries = list(pet.measurements.order_by("date", "pk"))
+    series = []
+    for key, label in Measurement.KINDS:
+        rows = [m for m in entries if m.kind == key]
+        if not rows:
+            continue
+        unit = system["weight" if key == Measurement.WEIGHT else "length"]
+        table = units.WEIGHT if key == Measurement.WEIGHT else units.LENGTH
+        values = [units.from_stored(float(m.value), unit, table) for m in rows]
+        lo, hi = min(values), max(values)
+        pad = (hi - lo) * 0.1 or max(hi * 0.05, 0.5)
+        lo, hi = lo - pad, hi + pad
+        first, last = rows[0].date, rows[-1].date
+        span = (last - first).days
+        plot_w, plot_h = M_W - M_LEFT - 8, M_H - M_TOP - M_BOTTOM
+        points = []
+        for m, v in zip(rows, values):
+            x = M_LEFT + ((m.date - first).days / span * plot_w if span else plot_w / 2)  # all on one day: centred
+            y = M_TOP + (hi - v) / (hi - lo) * plot_h
+            points.append({"x": round(x, 1), "y": round(y, 1), "pk": m.pk,
+                           "label": f"{formats.date_format(m.date, 'M j')}: {units.fmt(v, unit)}"})
+        series.append({
+            "key": key, "label": label, "unit": unit, "points": points,
+            "line": " ".join(f"{p['x']},{p['y']}" for p in points),
+            "top": f"{hi - pad:.1f}", "bottom": f"{lo + pad:.1f}",
+            "top_y": round(M_TOP + pad / (hi - lo) * plot_h, 1), "bottom_y": round(M_TOP + (hi - lo - pad) / (hi - lo) * plot_h, 1),
+            "first": formats.date_format(first, "M j"), "last": formats.date_format(last, "M j"),
+            "latest": points[-1]["label"].split(": ", 1)[1],
+        })
+    return {"series": series, "width": M_W, "height": M_H, "left": M_LEFT, "axis_y": M_H - 4,
+            "right": M_W - 8, "empty": not series, "hide_empty": True}

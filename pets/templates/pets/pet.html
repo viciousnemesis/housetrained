@@ -44,6 +44,7 @@
         </div>
         <div class="col-lg-4">
             {% card_accidents pet %}
+            {% card_measurements pet %}
         </div>
         <div class="col-lg-4">
             {% card_supplies pet low_only=True %}
@@ -60,7 +61,7 @@
                              {% if item.colour %}style="background: rgba({{ item.colour }}, .12); border-left: 4px solid rgba({{ item.colour }}, .75)"{% endif %}>
                             <a class="d-flex justify-content-between gap-2 px-3 py-2 text-reset text-decoration-none" href="{{ item.edit_url }}?next={{ request.path|urlencode }}">
                                 <span>{{ item.summary }}</span>
-                                <span class="text-body-secondary text-nowrap">{{ item.time|clock_dt }}</span>
+                                <span class="text-body-secondary text-nowrap">{% if item.date_only %}{{ item.time|date:"M j" }}{% else %}{{ item.time|clock_dt }}{% endif %}</span>
                             </a>
                             {% if item.children %}
                                 <div class="px-2 pb-2 d-grid gap-1">

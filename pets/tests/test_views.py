@@ -569,3 +569,75 @@ class QuickPottyTests(PetTestCase):
         self.login(self.viewer)
         self.assertEqual(self.quick("pee").status_code, 403)
         self.assertNotContains(self.client.get("/pets/ruby/"), "potty-panel")
+
+
+class WalkBannerTests(PetTestCase):
+    """PUP-133/134/136: during a walk the banner holds everything; date and time are picked separately."""
+
+    def test_row_order_and_add_measurement(self):
+        page = self.client.get("/pets/ruby/").content.decode()
+        self.assertLess(page.index(">Walk<"), page.index('data-bs-target="#potty-panel"'))
+        self.assertLess(page.index('data-bs-target="#potty-panel"'), page.index(">More<"))
+        self.assertIn("/log/measurement/add/?pet=ruby", page)
+
+    def test_walk_banner_replaces_the_row(self):
+        PottyBreak.objects.create(pet=self.ruby, time=timezone.now() - datetime.timedelta(hours=3), pee=True,
+                                  location="outside")
+        self.client.post("/log/walk/start/", {"pet": "ruby"})
+        page = self.client.get("/pets/ruby/").content.decode()
+        self.assertNotIn('data-bs-target="#potty-panel"', page)
+        self.assertNotIn(">More<", page)
+        self.assertIn("Expecting", page)
+        self.assertIn(">End walk<", page)
+        self.assertIn("btn-outline-danger", page)  # the trash can
+        self.assertIn('name="what" value="pee"', page)
+        self.assertIn('name="what" value="poop"', page)
+
+    def test_date_and_time_are_separate_fields(self):
+        page = self.client.get("/log/potty/add/").content.decode()
+        self.assertIn('name="time_date"', page)
+        self.assertIn('name="time_time"', page)
+        self.client.post("/log/potty/add/", {"pets": [self.ruby.pk], "time_date": "2026-10-01", "time_time": "07:15",
+                                             "pee": "on", "location": "outside"})
+        b = PottyBreak.objects.get()
+        self.assertEqual(timezone.localtime(b.time).strftime("%Y-%m-%d %H:%M"), "2026-10-01 07:15")
+
+    def test_a_time_alone_is_today(self):
+        self.client.post("/log/potty/add/", {"pets": [self.ruby.pk], "time_date": "", "time_time": "07:15",
+                                             "pee": "on", "location": "outside"})
+        self.assertEqual(timezone.localtime(PottyBreak.objects.get().time).date(), timezone.localdate())
+
+
+class MeasurementTests(PetTestCase):
+    """PUP-135/137/138: two heights, a chart that links to each entry, and a Recent Activity filter."""
+
+    def add(self, kind, value, date):
+        from pets.models import Measurement
+        return Measurement.objects.create(pet=self.ruby, kind=kind, value=value, date=date)
+
+    def test_two_heights(self):
+        page = self.client.get("/log/measurement/add/").content.decode()
+        self.assertIn("Height (shoulder)", page)
+        self.assertIn("Height (head)", page)
+
+    def test_chart_hidden_until_logged(self):
+        self.assertNotIn('id="measure-pick"', self.client.get("/pets/ruby/").content.decode())
+        self.assertNotIn("measure-series", self.client.get("/pets/ruby/").content.decode())
+
+    def test_chart_points_link_to_entries(self):
+        today = timezone.localdate()
+        w1 = self.add("weight", 5, today - datetime.timedelta(days=14))
+        w2 = self.add("weight", 6, today)
+        self.add("height_head", 30, today)
+        card = insights.measurements_card(self.ruby)
+        self.assertEqual([s["key"] for s in card["series"]], ["weight", "height_head"])  # weight first, unlogged left out
+        page = self.client.get("/pets/ruby/").content.decode()
+        self.assertIn('id="measure-pick"', page)
+        self.assertIn(f"/log/measurement/{w1.pk}/?next=/pets/ruby/", page)
+        self.assertIn(f"/log/measurement/{w2.pk}/?next=/pets/ruby/", page)
+
+    def test_recent_activity_filter(self):
+        self.add("weight", 5, timezone.localdate())
+        page = self.client.get("/pets/ruby/").content.decode()
+        self.assertIn("Measurements", page)
+        self.assertIn('data-tags="measurement"', page)

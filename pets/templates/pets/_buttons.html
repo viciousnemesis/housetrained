@@ -1,40 +1,37 @@
 {% load i18n pets_tags %}
 {% if pets_can_edit %}
     {% pet_actions pet as a %}
-    {# One row: Potty (quick panel), Walk (start/end), More; same grid as the cards so they line up. #}
+    {% if a.walk %}
+        {# Out on a walk: the walk banner at the top has Pee, Poop and End walk, so no button row here. #}
+        <script>
+            // This device's "time for a walk" reminder has done its job.
+            if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.getRegistration("/").then(function (reg) {
+                    if (!reg || !reg.getNotifications) return;
+                    {% for p in a.walk.pets.all %}reg.getNotifications({tag: "walk-{{ p.pk }}"}).then(function (shown) { shown.forEach(function (n) { n.close(); }); });
+                    {% endfor %}
+                });
+            }
+        </script>
+    {% else %}
+    {# One row: Walk, Potty (quick panel), More; same grid as the cards so they line up. #}
     <div class="row gx-3 mb-3">
+        <form class="col-4 d-flex m-0" method="post" action="{% url 'pets:start' 'walk' %}">
+            {% csrf_token %}
+            {% if pet %}<input type="hidden" name="pet" value="{{ pet.slug }}">{% endif %}
+            <button class="btn btn-lg btn-primary flex-fill" type="submit">{% trans "Walk" %}</button>
+        </form>
         <div class="col-4 d-flex">
             <button class="btn btn-lg btn-primary flex-fill" type="button" data-bs-toggle="collapse" data-bs-target="#potty-panel"
                     aria-expanded="false" aria-controls="potty-panel">{% trans "Potty" %}</button>
         </div>
-        {% if a.walk %}
-            <script>
-                // Out on a walk: this device's "time for a walk" reminder has done its job.
-                if ("serviceWorker" in navigator) {
-                    navigator.serviceWorker.getRegistration("/").then(function (reg) {
-                        if (!reg || !reg.getNotifications) return;
-                        {% for p in a.walk.pets.all %}reg.getNotifications({tag: "walk-{{ p.pk }}"}).then(function (shown) { shown.forEach(function (n) { n.close(); }); });
-                        {% endfor %}
-                    });
-                }
-            </script>
-            <form class="col-4 d-flex m-0" method="post" action="{% url 'pets:stop' 'walk' a.walk.pk 'end' %}">
-                {% csrf_token %}
-                <button class="btn btn-lg btn-primary flex-fill" type="submit">{% trans "End walk" %}</button>
-            </form>
-        {% else %}
-            <form class="col-4 d-flex m-0" method="post" action="{% url 'pets:start' 'walk' %}">
-                {% csrf_token %}
-                {% if pet %}<input type="hidden" name="pet" value="{{ pet.slug }}">{% endif %}
-                <button class="btn btn-lg btn-primary flex-fill" type="submit">{% trans "Walk" %}</button>
-            </form>
-        {% endif %}
         <div class="col-4 dropdown d-flex">
             <button class="btn btn-lg btn-outline-light flex-fill dropdown-toggle" type="button" data-bs-toggle="dropdown"
                     aria-expanded="false">{% trans "More" %}</button>
             <div class="dropdown-menu dropdown-menu-end">
                 <a class="dropdown-item" href="{% url 'pets:add' 'fill' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Fill bowl" %}</a>
                 <a class="dropdown-item" href="{% url 'pets:add' 'meal' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Log meal" %}</a>
+                <a class="dropdown-item" href="{% url 'pets:add' 'measurement' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Add measurement" %}</a>
                 {% if a.sleep %}
                     <form method="post" action="{% url 'pets:stop' 'sleep' a.sleep.pk 'end' %}" class="m-0">
                         {% csrf_token %}
@@ -90,4 +87,5 @@
             </div>
         </form>
     </div>
+    {% endif %}
 {% endif %}

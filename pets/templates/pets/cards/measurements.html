@@ -1,0 +1,53 @@
+{% extends "pets/cards/_base.html" %}
+{% load i18n %}
+{% block header %}
+    <div class="d-flex justify-content-between align-items-center gap-2">
+        <span>{% trans "Measurements" %}</span>
+        {% if series|length > 1 %}
+            <select class="form-select form-select-sm w-auto" id="measure-pick" aria-label="{% trans 'Which measurement' %}">
+                {% for s in series %}<option value="{{ s.key }}">{{ s.label }}</option>{% endfor %}
+            </select>
+        {% endif %}
+    </div>
+{% endblock %}
+{% block content %}
+    {% for s in series %}
+        <div class="measure-series{% if not forloop.first %} d-none{% endif %}" data-kind="{{ s.key }}">
+            <div class="small text-body-secondary mb-1">{% if series|length == 1 %}{{ s.label }} · {% endif %}{% blocktrans with value=s.latest %}latest {{ value }}{% endblocktrans %}</div>
+            <svg viewBox="0 0 {{ width }} {{ height }}" class="w-100" role="img" aria-label="{{ s.label }}">
+                <line x1="{{ left }}" x2="{{ right }}" y1="{{ s.top_y }}" y2="{{ s.top_y }}" stroke="currentColor" opacity=".12" />
+                <line x1="{{ left }}" x2="{{ right }}" y1="{{ s.bottom_y }}" y2="{{ s.bottom_y }}" stroke="currentColor" opacity=".12" />
+                <text x="{{ left|add:-6 }}" y="{{ s.top_y }}" dy="3.5" text-anchor="end" font-size="10" fill="currentColor" opacity=".7">{{ s.top }}</text>
+                <text x="{{ left|add:-6 }}" y="{{ s.bottom_y }}" dy="3.5" text-anchor="end" font-size="10" fill="currentColor" opacity=".7">{{ s.bottom }}</text>
+                <text x="{{ left }}" y="{{ axis_y }}" font-size="10" fill="currentColor" opacity=".7">{{ s.first }}</text>
+                <text x="{{ right }}" y="{{ axis_y }}" text-anchor="end" font-size="10" fill="currentColor" opacity=".7">{{ s.last }}</text>
+                {% if s.points|length > 1 %}<polyline points="{{ s.line }}" fill="none" stroke="#daa520" stroke-width="2" />{% endif %}
+                {% for p in s.points %}
+                    <a href="{% url 'pets:edit' 'measurement' p.pk %}?next={{ request.path|urlencode }}">
+                        <title>{{ p.label }}</title>
+                        <circle cx="{{ p.x }}" cy="{{ p.y }}" r="9" fill="transparent" />
+                        <circle cx="{{ p.x }}" cy="{{ p.y }}" r="3.5" fill="#daa520" />
+                    </a>
+                {% endfor %}
+            </svg>
+        </div>
+    {% endfor %}
+    {% if series|length > 1 %}
+        <script>
+            // Measurements: one at a time (Weight first); the choice is remembered on this device.
+            (function () {
+                var pick = document.getElementById("measure-pick");
+                function show(kind) {
+                    document.querySelectorAll(".measure-series").forEach(function (el) {
+                        el.classList.toggle("d-none", el.dataset.kind !== kind);
+                    });
+                    try { localStorage.setItem("measureKind", kind); } catch (e) {}
+                }
+                pick.addEventListener("change", function () { show(pick.value); });
+                var saved = null;
+                try { saved = localStorage.getItem("measureKind"); } catch (e) {}
+                if (saved && pick.querySelector('option[value="' + saved + '"]')) { pick.value = saved; show(saved); }
+            })();
+        </script>
+    {% endif %}
+{% endblock %}

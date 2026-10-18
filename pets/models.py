@@ -439,15 +439,18 @@ class Meal(Logged):
 
 
 class Measurement(Logged):
-    WEIGHT, HEIGHT, LENGTH = "weight", "height", "length"
-    UNITS = {WEIGHT: "kg", HEIGHT: "cm", LENGTH: "cm"}
+    # Height is measured two ways (PUP-137): at the shoulder ("height", what older entries are) and at the head.
+    WEIGHT, HEIGHT, HEIGHT_HEAD, LENGTH = "weight", "height", "height_head", "length"
+    UNITS = {WEIGHT: "kg", HEIGHT: "cm", HEIGHT_HEAD: "cm", LENGTH: "cm"}
+    KINDS = [(WEIGHT, _("Weight")), (HEIGHT, _("Height (shoulder)")), (HEIGHT_HEAD, _("Height (head)")),
+             (LENGTH, _("Length"))]
 
     pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name="measurements")
     date = models.DateField(_("date"), default=timezone.localdate)
     kind = models.CharField(
-        _("kind"), max_length=20, choices=[(WEIGHT, _("Weight")), (HEIGHT, _("Height")), (LENGTH, _("Length"))]
+        _("kind"), max_length=20, choices=KINDS
     )
-    value = models.FloatField(_("value"), help_text=_("Kilograms for weight, centimetres for height and length."))
+    value = models.FloatField(_("value"), help_text=_("Kilograms for weight, centimetres for heights and length."))
 
     class Meta:
         ordering = ["-date"]

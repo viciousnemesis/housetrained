@@ -645,7 +645,7 @@ class MeasurementForm(PerPetForm):
     length_unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.LENGTH))
     show_when = {
         "weight_unit": ("kind", [Measurement.WEIGHT]),
-        "length_unit": ("kind", [Measurement.HEIGHT, Measurement.LENGTH]),
+        "length_unit": ("kind", [Measurement.HEIGHT, Measurement.HEIGHT_HEAD, Measurement.LENGTH]),
     }
 
     fieldsets = [

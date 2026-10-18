@@ -466,7 +466,8 @@ class PetDashboard(HouseholdMixin, TemplateView):
         pet = get_object_or_404(Pet, household=self.household, slug=self.kwargs["slug"])
         more = [(kind, ENTRIES[kind].title) for kind in ("walk", "sleep", "meal", "measurement", "note")]
         filters = [("all", _("All")), ("walk", _("Walks")), ("pee", _("Pees")), ("poop", _("Poops")),
-                   ("accident", _("Accidents")), ("meal", _("Meals")), ("sleep", _("Sleep"))]
+                   ("accident", _("Accidents")), ("meal", _("Meals")), ("sleep", _("Sleep")),
+                   ("measurement", _("Measurements"))]
         from .schedule import setup_steps
 
         steps = setup_steps(pet, self.request.user) if can_edit(self.request.user, self.household) else []

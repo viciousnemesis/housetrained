@@ -25,6 +25,7 @@ for _name, _builder in (
     ("today", insights.today_card),
     ("potty_bars", insights.potty_bars_card),
     ("accidents", insights.accidents_chart),
+    ("measurements", insights.measurements_card),
 ):
     _card(_name, _builder)
 
@@ -145,9 +146,16 @@ def running_activities(context):
         return []
     household = current_household(user)
     running = []
+    from ..schedule import next_walk
+
     for walk in Walk.objects.filter(household=household, end=None).prefetch_related("pets"):
+        pets = list(walk.pets.all())
+        # What to expect on this walk (PUP-133): "pee + poop", or per pet when several are out.
+        expects = [(p.name, next_walk(p)["expect"]) for p in pets]
+        expects = [(name, e) for name, e in expects if e]
+        expect = expects[0][1] if len(pets) == 1 and expects else "; ".join(f"{n}: {e}" for n, e in expects)
         running.append({"kind": "walk", "label": "Walking", "id": walk.pk, "start": walk.start,
-                        "names": ", ".join(p.name for p in walk.pets.all())})
+                        "names": ", ".join(p.name for p in pets), "pets": [p.slug for p in pets], "expect": expect})
     groups = {}
     for sleep in Sleep.objects.filter(pet__household=household, end=None).select_related("pet").order_by("start", "pet__name"):
         groups.setdefault(sleep.start, []).append(sleep)
