@@ -19,8 +19,8 @@ from .models import Household, NotificationPreference, PushSubscription, Reminde
 
 log = logging.getLogger(__name__)
 INTERVAL = 60  # seconds between checks: a walk reminder is at most this late
-OVERDUE_AFTER = datetime.timedelta(minutes=10)  # "still not out" this long after head-out
-WALK_LATE_LIMIT = datetime.timedelta(hours=2)  # a walk due longer ago than this isn't announced any more
+CLOSE_WINDOW = datetime.timedelta(hours=12)  # walk reminders this recent are taken off devices when a walk starts
+WATER_WINDOW = datetime.timedelta(minutes=45)  # a water reminder still goes out this long after its time
 
 
 def _claim(key, now=None):
@@ -52,19 +52,22 @@ def _in_user_zone(user):
     return timezone.override(zone) if zone else timezone.override(timezone.get_current_timezone())
 
 
-def _walk_lead(user):
-    prefs = NotificationPreference.objects.filter(user=user).first()
-    return datetime.timedelta(minutes=prefs.walk_lead_minutes if prefs else 5)
+def _prefs(user):
+    """The person's reminder choices; the defaults if they never saved any (PUP-149)."""
+    return NotificationPreference.objects.filter(user=user).first() or NotificationPreference(user=user)
 
 
 def walk_reminders(household, now):
-    """Each person gets it their chosen minutes before the head-out time (default 5), once per walk."""
+    """Each person gets it their chosen minutes before the head-out time, once per walk; and, if they want it, one
+    more their chosen minutes after it when nobody has gone out. Late walks stop being announced after their chosen
+    hours."""
     from . import push
     from .clock import show_time
     from .schedule import next_walk
 
     people = _people(household, "walk_due")
-    if not people:
+    overdue_people = _people(household, "walk_overdue")
+    if not people and not overdue_people:
         return 0
     sent = 0
     for pet in household.pets.filter(active=True):
@@ -75,7 +78,9 @@ def walk_reminders(household, now):
             continue
         due = card["head_out"]  # when to leave, which is a little before the pet needs to go
         for user in people:
-            if not (now - WALK_LATE_LIMIT <= due <= now + _walk_lead(user)):
+            prefs = _prefs(user)
+            late = datetime.timedelta(hours=prefs.late_limit_hours)
+            if not (now - late <= due <= now + datetime.timedelta(minutes=prefs.walk_lead_minutes)):
                 continue
             # One reminder per walk and person: the key changes once a potty break moves it on.
             if not _claim(f"walk:{pet.pk}:{due:%Y%m%d%H%M}:{user.pk}", now):
@@ -85,13 +90,15 @@ def walk_reminders(household, now):
                     "time": show_time(due), "what": card["expect"] or _("potty")}
             title = _("%(pet)s: time for a walk") % {"pet": pet.name}
             sent += push.send(user, title, body, url=f"/pets/{pet.slug}/", tag=f"walk-{pet.pk}")
-        # Still not out 10 minutes after head-out, and 10 minutes after the first reminder: one more nudge
+        # Still not out the chosen minutes after head-out, and as long after the first reminder: one more nudge
         # (replacing the first on the device). Never both at once.
-        for user in _people(household, "walk_overdue"):
-            if not (due + OVERDUE_AFTER <= now <= due + WALK_LATE_LIMIT):
+        for user in overdue_people:
+            prefs = _prefs(user)
+            overdue = datetime.timedelta(minutes=prefs.overdue_minutes)
+            if not (due + overdue <= now <= due + datetime.timedelta(hours=prefs.late_limit_hours)):
                 continue
             first = ReminderLog.objects.filter(key=f"walk:{pet.pk}:{due:%Y%m%d%H%M}:{user.pk}").first()
-            if user in people and (first is None or first.created > now - OVERDUE_AFTER):
+            if user in people and (first is None or first.created > now - overdue):
                 continue
             if not _claim(f"walk:{pet.pk}:{due:%Y%m%d%H%M}:{user.pk}:overdue", now):
                 continue
@@ -113,7 +120,7 @@ def close_walk_reminders(pets, now=None):
         return 0
     closed = 0
     for pet in pets:
-        sent = ReminderLog.objects.filter(key__startswith=f"walk:{pet.pk}:", created__gte=now - WALK_LATE_LIMIT)
+        sent = ReminderLog.objects.filter(key__startswith=f"walk:{pet.pk}:", created__gte=now - CLOSE_WINDOW)
         users = {key.split(":")[3] for key in sent.values_list("key", flat=True) if key.count(":") in (3, 4)}
         for user in pet.household.members.filter(pk__in=[int(u) for u in users if u.isdigit()]):
             if _claim(f"walk-close:{pet.pk}:{user.pk}:{now:%Y%m%d%H%M}"):
@@ -153,7 +160,7 @@ def household_night(household, now):
 
 
 def water_reminders(household, now):
-    """Pick up the water bowl a few hours before bed; put it back after waking up."""
+    """Pick up the water bowl the household's hours before bed; put it back its minutes after waking up."""
     from . import push
     from .clock import show_time
 
@@ -167,7 +174,8 @@ def water_reminders(household, now):
         return 0
     bed, wake = times
     cutoff = bed - datetime.timedelta(hours=household.water_cutoff_hours)
-    window = datetime.timedelta(minutes=45)
+    back = wake + datetime.timedelta(minutes=household.water_back_minutes)
+    window = WATER_WINDOW
     sent = 0
     day = timezone.localdate(now)
     if cutoff <= now <= cutoff + window and _claim(f"water-up:{household.pk}:{day:%Y%m%d}"):
@@ -175,7 +183,7 @@ def water_reminders(household, now):
             with _in_user_zone(user):
                 body = _("Bedtime is ~%(time)s.") % {"time": show_time(bed)}
             sent += push.send(user, _("Pick up the water bowl"), body, url="/pets/", tag="water")
-    if wake <= now <= wake + window and _claim(f"water-down:{household.pk}:{day:%Y%m%d}"):
+    if back <= now <= back + window and _claim(f"water-down:{household.pk}:{day:%Y%m%d}"):
         for user in people:
             sent += push.send(user, _("Water bowl back down"), _("Good morning! Fresh water time."), url="/pets/",
                               tag="water")
@@ -183,24 +191,22 @@ def water_reminders(household, now):
 
 
 def weekly_reminders(household, now):
-    """Monday from 9 am (household time): each pet's week in one line."""
+    """On each person's chosen day, from their chosen hour (household time): each pet's week in one line."""
     from . import push
     from .progress import summary
 
     local = timezone.localtime(now)
-    if local.weekday() != 0 or local.hour < 9:
-        return 0
-    people = _people(household, "weekly_progress")
-    if not people:
-        return 0
-    sent = 0
     year, week, _day = local.isocalendar()
-    for pet in household.pets.filter(active=True):
-        text = summary(pet, now)
-        if not text or not _claim(f"weekly:{pet.pk}:{year}-{week}"):
+    sent = 0
+    for user in _people(household, "weekly_progress"):
+        prefs = _prefs(user)
+        if local.weekday() != prefs.weekly_day or local.hour < prefs.weekly_hour:
             continue
-        title = _("%(pet)s's week") % {"pet": pet.name}
-        for user in people:
+        for pet in household.pets.filter(active=True):
+            text = summary(pet, now)
+            if not text or not _claim(f"weekly:{pet.pk}:{year}-{week}:{user.pk}"):
+                continue
+            title = _("%(pet)s's week") % {"pet": pet.name}
             sent += push.send(user, title, text, url=f"/pets/{pet.slug}/progress/", tag=f"weekly-{pet.pk}")
     return sent
 

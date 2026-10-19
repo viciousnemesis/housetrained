@@ -1,0 +1,56 @@
+{% extends "babybuddy/page.html" %}
+{% load i18n pets_tags %}
+{% block title %}{% blocktrans with name=pet.name %}{{ name }}: training{% endblocktrans %}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{% url 'pets:pet' pet.slug %}">{{ pet.name }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Training" %}</li>
+{% endblock %}
+{% block content %}
+    {# Every command with how it's going: each day's average score, last 90 days (PUP-150). #}
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="mb-0">{% blocktrans with name=pet.name %}{{ name }}'s training{% endblocktrans %}</h1>
+        {% if pets_can_edit %}<a class="btn btn-primary" href="{% url 'pets:add' 'command' %}?pet={{ pet.slug }}&next={{ request.path|urlencode }}">+ {% trans "Command" %}</a>{% endif %}
+    </div>
+    <p class="small text-body-secondary mt-2">
+        {% for n, label in scores %}<span class="text-nowrap">{{ n }} {{ label }}</span>{% if not forloop.last %} · {% endif %}{% endfor %}
+        {% help_bubble scale_text %}
+    </p>
+    {% if not commands %}
+        <p class="text-body-secondary">{% trans "No commands yet." %}</p>
+    {% endif %}
+    <div class="row gx-3">
+        {% for c in commands %}
+            <div class="col-lg-6" id="command-{{ c.command.pk }}">
+                <div class="card card-dashboard">
+                    <div class="card-header d-flex justify-content-between align-items-center gap-2">
+                        <span>{{ c.command.name }}
+                            {% if c.command.status != "working" %}<span class="badge text-bg-secondary fs-6 fw-normal align-middle">{{ c.command.get_status_display }}</span>{% endif %}</span>
+                        {% if pets_can_edit %}<a class="fs-6 fw-normal" href="{% url 'pets:edit' 'command' c.command.pk %}?next={{ request.path|urlencode }}">{% trans "Edit" %}</a>{% endif %}
+                    </div>
+                    <div class="card-body">
+                        {% if c.command.how_to %}<p class="mb-2"><span class="text-body-secondary">{% trans "How:" %}</span> <span style="white-space: pre-line">{{ c.command.how_to }}</span></p>{% endif %}
+                        {% if c.command.when_to_use %}<p class="mb-2"><span class="text-body-secondary">{% trans "When:" %}</span> <span style="white-space: pre-line">{{ c.command.when_to_use }}</span></p>{% endif %}
+                        {% if c.empty %}
+                            <p class="text-body-secondary mb-0">{% trans "Nothing logged in the last 90 days." %}</p>
+                        {% else %}
+                            <svg viewBox="0 0 {{ c.width }} {{ c.height }}" class="w-100" role="img" aria-label="{{ c.command.name }}">
+                                {% for g in c.grid %}
+                                    <line x1="{{ c.left }}" x2="{{ c.right }}" y1="{{ g.y }}" y2="{{ g.y }}" stroke="currentColor" opacity=".1" />
+                                    <text x="{{ c.left|add:-6 }}" y="{{ g.y }}" dy="3.5" text-anchor="end" font-size="9" fill="currentColor" opacity=".7">{{ g.score }}</text>
+                                {% endfor %}
+                                <text x="{{ c.left }}" y="{{ c.axis_y }}" font-size="9" fill="currentColor" opacity=".7">{{ c.first }}</text>
+                                <text x="{{ c.right }}" y="{{ c.axis_y }}" text-anchor="end" font-size="9" fill="currentColor" opacity=".7">{{ c.last }}</text>
+                                {% if c.points|length > 1 %}<polyline points="{{ c.line }}" fill="none" stroke="#daa520" stroke-width="2" />{% endif %}
+                                {% for p in c.points %}<circle cx="{{ p.x }}" cy="{{ p.y }}" r="3" fill="#daa520"><title>{{ p.label }}</title></circle>{% endfor %}
+                            </svg>
+                            <div class="small text-body-secondary d-flex justify-content-between">
+                                <span>{% blocktrans count n=c.count %}{{ n }} try{% plural %}{{ n }} tries{% endblocktrans %}</span>
+                                <a href="{% url 'pets:list' 'training' %}?pet={{ pet.slug }}">{% trans "All logs" %}</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}

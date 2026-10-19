@@ -2,15 +2,28 @@
 {% block messages %}
     {% if messages %}
         {% for message in messages %}
-            <div class="alert{% if message.tags %} alert-{{ message.tags }}{% endif %} alert-dismissible fade show"
+            <div class="alert alert-{{ message.level_tag }} alert-dismissible fade show"
                  role="alert">
                 {{ message }}
+                {% if message.extra_tags|slice:":5" == "undo-" %}
+                    {# Quick logs (PUP-151): Undo for 10 seconds. #}
+                    <form class="d-inline m-0 ms-2 undo-form" method="post" action="{% url 'pets:undo' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="token" value="{{ message.extra_tags|slice:"5:" }}">
+                        <button class="btn btn-sm btn-outline-light py-0" type="submit">{% trans "Undo" %}</button>
+                    </form>
+                {% endif %}
                 <button type="button"
                         class="btn-close"
                         data-bs-dismiss="alert"
                         aria-label="Close"></button>
             </div>
         {% endfor %}
+        <script>
+            setTimeout(function () {
+                document.querySelectorAll(".undo-form").forEach(function (form) { form.remove(); });
+            }, 10000);
+        </script>
     {% endif %}
     {% if form %}
         {% if form.non_field_errors %}

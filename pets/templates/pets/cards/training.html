@@ -1,0 +1,91 @@
+{% extends "pets/cards/_base.html" %}
+{% load i18n pets_tags %}
+{% block header %}
+    <div class="d-flex justify-content-between align-items-center">
+        <span>{% trans "Training" %}{% help_bubble scale_text %}</span>
+        <span class="fs-6 fw-normal">
+            <a href="{% url 'pets:training' pet.slug %}">{% trans "Progress" %}</a>
+            {% if pets_can_edit %}<a class="ms-3" href="{% url 'pets:add' 'command' %}?pet={{ pet.slug }}&next={{ request.path|urlencode }}">+ {% trans "Command" %}</a>{% endif %}
+        </span>
+    </div>
+{% endblock %}
+{% block body %}
+    {# Each command: its last score and this week's average, and 1-5 buttons that log a try with one tap (PUP-150). #}
+    {% if not working and not known %}
+        <div class="card-body text-body-secondary">{% trans "Add the commands you're teaching, then log each try with one tap." %}</div>
+    {% else %}
+        <div class="list-group list-group-flush">
+            {% for r in working %}{% include "pets/cards/_training_row.html" %}{% endfor %}
+        </div>
+        {% if known %}
+            <details class="border-top">
+                <summary class="px-3 py-2 small text-body-secondary">{% blocktrans count n=known|length %}Known ({{ n }}){% plural %}Known ({{ n }}){% endblocktrans %}</summary>
+                <div class="list-group list-group-flush">
+                    {% for r in known %}{% include "pets/cards/_training_row.html" %}{% endfor %}
+                </div>
+            </details>
+        {% endif %}
+    {% endif %}
+{% endblock %}
+{% block listgroup %}
+    {% if pets_can_edit and working or pets_can_edit and known %}
+        <div class="position-fixed bottom-0 start-50 translate-middle-x p-3 w-100 d-none" style="max-width: 28rem; z-index: 1080" id="training-toast">
+            <div class="alert alert-success d-flex align-items-center gap-2 mb-0 shadow" role="status">
+                <span class="me-auto" data-text></span>
+                <form class="m-0" method="post" action="{% url 'pets:undo' %}" data-undo>
+                    {% csrf_token %}
+                    <input type="hidden" name="token">
+                    <button class="btn btn-sm btn-outline-light py-0" type="submit">{% trans "Undo" %}</button>
+                </form>
+            </div>
+        </div>
+        <script>
+            // A tap logs it without leaving the page; a popup at the bottom says so, with Undo for 10 seconds.
+            (function () {
+                var toast = document.getElementById("training-toast"), timer = null;
+                var text = toast.querySelector("[data-text]"), undoForm = toast.querySelector("[data-undo]");
+                var show = function (message, token) {
+                    text.textContent = message;
+                    undoForm.classList.toggle("d-none", !token);
+                    undoForm.token.value = token || "";
+                    toast.classList.remove("d-none");
+                    clearTimeout(timer);
+                    timer = setTimeout(function () { toast.classList.add("d-none"); }, 10000);
+                };
+                var send = function (form, data) {
+                    return fetch(form.action, {method: "POST", body: data, credentials: "same-origin",
+                                               headers: {"X-Requested-With": "fetch"}}).then(function (r) { return r.json(); });
+                };
+                // Taps are handled here (no form submit), so the page's double-tap guard stays out of it.
+                document.querySelectorAll(".training-form").forEach(function (form) {
+                    form.querySelectorAll("button[name=score]").forEach(function (button) {
+                        button.addEventListener("click", function (event) {
+                            event.preventDefault();
+                            var data = new FormData(form);
+                            data.set("score", button.value);
+                            var buttons = form.querySelectorAll("button");
+                            buttons.forEach(function (b) { b.disabled = true; });
+                            send(form, data).then(function (reply) {
+                                show(reply.text, reply.ok && reply.token);
+                                if (reply.ok) {
+                                    var last = form.closest(".list-group-item").querySelector("[data-last]");
+                                    last.dataset.before = last.textContent;
+                                    last.textContent = "{% trans 'last' %} " + reply.score;
+                                    undoForm.lastCell = last;
+                                }
+                            }).catch(function () { show("{% trans 'Not logged. Check the connection and try again.' %}", null); })
+                              .finally(function () { buttons.forEach(function (b) { b.disabled = false; }); });
+                        });
+                    });
+                });
+                undoForm.querySelector("button").addEventListener("click", function (event) {
+                    event.preventDefault();
+                    send(undoForm, new FormData(undoForm)).then(function (reply) {
+                        if (reply.ok && undoForm.lastCell) undoForm.lastCell.textContent = undoForm.lastCell.dataset.before;
+                        show(reply.text, null);
+                    });
+                });
+            })();
+        </script>
+    {% endif %}
+{% endblock %}

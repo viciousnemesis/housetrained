@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.http import Http404, HttpResponse, HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils import timezone
@@ -17,7 +17,11 @@ from babybuddy.mixins import LoginRequiredMixin
 
 from . import forms
 from .households import add_member, can_edit, current_household, is_owner
-from .models import AccidentSpot, Container, Fill, Meal, Measurement, Membership, Note, Pet, PottyBreak, Product, Sleep, SupplyItem, Walk
+from .models import (
+    AccidentSpot, Command, Container, Fill, Meal, Measurement, Membership, Note, Pet, PottyBreak, Product, Sleep, SupplyItem,
+    TrainingLog, Walk,
+)
+from . import undo
 from .entries import KINDS, LIST_TITLES, activity, for_pet, row
 
 
@@ -37,6 +41,8 @@ ENTRIES = {
     "meal": Entry(Meal, forms.MealForm, _("Meal"), "pet__household"),
     "measurement": Entry(Measurement, forms.MeasurementForm, _("Measurement"), "pet__household"),
     "note": Entry(Note, forms.NoteForm, _("Note"), "household"),
+    "training": Entry(TrainingLog, forms.TrainingLogForm, _("Training"), "command__pet__household"),
+    "command": Entry(Command, forms.CommandForm, _("Command"), "pet__household"),
     # Setup
     "pet": Entry(Pet, forms.PetForm, _("Pet"), "household"),
     "container": Entry(Container, forms.ContainerForm, _("Bowl, feeder or litter box"), "household"),
@@ -70,9 +76,27 @@ class HouseholdMixin(LoginRequiredMixin):
         return reverse("pets:household")
 
 
+def entry_household(entry):
+    """The household an entry belongs to, by its kind's path (e.g. pet__household)."""
+    for kind in ENTRIES.values():
+        if isinstance(entry, kind.model):
+            for part in kind.household_path.split("__"):
+                entry = getattr(entry, part)
+            return entry
+    return None
+
+
+# Kinds whose "saved" banner offers Undo (PUP-151): the things logged as they happen.
+UNDOABLE = {"potty", "walk", "sleep", "fill", "meal", "measurement", "note", "training"}
+
+
 def entry_pets(entry):
     if isinstance(entry, Pet):
         return [entry]
+    if isinstance(entry, TrainingLog):
+        return [entry.command.pet]
+    if isinstance(entry, Command):
+        return [entry.pet]
     if isinstance(entry, (Product, AccidentSpot)):
         return []
     if hasattr(entry, "pet"):
@@ -246,6 +270,10 @@ class Export(HouseholdMixin, View):
         return response
 
 
+WEEKDAYS = [(0, _("Monday")), (1, _("Tuesday")), (2, _("Wednesday")), (3, _("Thursday")), (4, _("Friday")),
+            (5, _("Saturday")), (6, _("Sunday"))]
+
+
 class Notifications(HouseholdMixin, View):
     """Notifications (PUP-58): turn them on per device, choose reminders, send a test."""
 
@@ -257,7 +285,8 @@ class Notifications(HouseholdMixin, View):
         if not push.allowed():
             return render(request, "pets/notifications.html", {"disabled": True, "prefs": prefs})
         return render(request, "pets/notifications.html", {
-            "prefs": prefs, "public_key": push.public_key(), "household_cutoff": self.household.water_cutoff_hours,
+            "prefs": prefs, "public_key": push.public_key(), "household": self.household,
+            "is_owner": is_owner(request.user, self.household), "weekdays": WEEKDAYS,
             "devices": request.user.push_subscriptions.order_by("-created"),
         })
 
@@ -302,11 +331,21 @@ class Notifications(HouseholdMixin, View):
         elif action == "prefs":
             prefs, _created = NotificationPreference.objects.get_or_create(user=request.user)
             prefs.walk_due = bool(request.POST.get("walk_due"))
-            try:
-                prefs.walk_lead_minutes = min(max(int(request.POST.get("walk_lead_minutes", 5)), 0), 120)
-            except ValueError:
-                pass
             prefs.walk_overdue = bool(request.POST.get("walk_overdue"))
+            # Each number: kept when missing (its switch was off) or not a number; held to a sensible range.
+            for name, low, high in (("walk_lead_minutes", 0, 120), ("overdue_minutes", 1, 120), ("late_limit_hours", 1, 12),
+                                    ("weekly_day", 0, 6), ("weekly_hour", 0, 23)):
+                try:
+                    setattr(prefs, name, min(max(int(request.POST[name]), low), high))
+                except (KeyError, ValueError):
+                    pass
+            if is_owner(request.user, self.household):
+                for name, low, high in (("water_cutoff_hours", 0, 12), ("water_back_minutes", 0, 240)):
+                    try:
+                        setattr(self.household, name, min(max(int(request.POST[name]), low), high))
+                    except (KeyError, ValueError):
+                        pass
+                self.household.save(update_fields=["water_cutoff_hours", "water_back_minutes"])
             prefs.low_supply = bool(request.POST.get("low_supply"))
             prefs.weekly_progress = bool(request.POST.get("weekly_progress"))
             prefs.water_cutoff = bool(request.POST.get("water_cutoff"))
@@ -404,20 +443,23 @@ class QuickPotty(HouseholdMixin, View):
             return HttpResponseRedirect(self.back_url(pets))
         location = request.POST.get("location")
         notes = request.POST.get("notes", "").strip()
-        entry = None
+        entry, logged = None, []
         for pet in pets:
             spot = location if location in pet.allowed_potty_locations() else pet.allowed_potty_locations()[0]
             entry = PottyBreak(pet=pet, time=now, pee=what in ("pee", "both"), poop=what in ("poop", "both"),
                                location=spot, logged_by=request.user, notes=notes)
             link_walk(entry)
             entry.save()
+            logged.append(entry)
+        back = self.back_url(pets)
         if what == "nothing":
             Pet.objects.filter(pk__in=[p.pk for p in pets]).update(retry_at=now + RETRY_AFTER)
-            messages.info(request, _("Logged nothing. Try %(names)s again in 15 minutes.") % {"names": names})
-            return HttpResponseRedirect(self.back_url(pets))
+            undo.offer(request, _("Logged nothing. Try %(names)s again in 15 minutes.") % {"names": names}, logged,
+                       back, messages.INFO)
+            return HttpResponseRedirect(back)
         Pet.objects.filter(pk__in=[p.pk for p in pets]).update(retry_at=None)
         labels = {"pee": _("pee"), "poop": _("poop"), "both": _("pee + poop")}
-        messages.success(request, _("Logged %(what)s for %(names)s.") % {"what": labels[what], "names": names})
+        undo.offer(request, _("Logged %(what)s for %(names)s.") % {"what": labels[what], "names": names}, logged, back)
         if len(pets) == 1 and entry.location == PottyBreak.INSIDE:
             # An accident: offer its details (where, what was going on, found later); all optional.
             back = self.back_url(pets)
@@ -544,6 +586,8 @@ class EntryAdd(EntryView):
         if not form.is_valid():
             return self.render_form(form)
         saved = form.save_entries() if hasattr(form, "save_entries") else [form.save()]
+        pets = {pet for entry in saved for pet in entry_pets(entry)}
+        back = self.back_url(pets)
         if getattr(form, "uncalibrated_bowls", False):
             messages.warning(request, _(
                 "Saved, but this bowl isn't calibrated, so the amount is unknown and food tracking will be rough. "
@@ -551,11 +595,13 @@ class EntryAdd(EntryView):
             ))
         elif getattr(form, "meals_logged", None):
             names = ", ".join(pet.name for pet in form.meals_logged)
-            messages.success(request, _("Bowl filled, and a meal logged for %(names)s.") % {"names": names})
+            text = _("Bowl filled, and a meal logged for %(names)s.") % {"names": names}
+            undo.offer(request, text, saved, back)  # the meals go with their fill
+        elif self.kind in UNDOABLE:
+            undo.offer(request, _("%(title)s saved.") % {"title": self.entry.title}, saved, back)
         else:
             messages.success(request, _("%(title)s saved.") % {"title": self.entry.title})
-        pets = {pet for entry in saved for pet in entry_pets(entry)}
-        return HttpResponseRedirect(self.back_url(pets))
+        return HttpResponseRedirect(back)
 
 
 class EntryEdit(EntryView):
@@ -600,6 +646,8 @@ class ActivityStart(HouseholdMixin, View):
         pet = self.household.pets.filter(slug=request.POST.get("pet"), active=True).first()
         pets = [pet] if pet else list(self.household.pets.filter(active=True))
         start = timezone.now().replace(microsecond=0)
+        back = self.back_url(pets)
+        names = ", ".join(p.name for p in pets)
         if kind == "walk":
             self.require("add", Walk)
             walk = Walk.objects.create(household=self.household, start=start, walker=request.user, logged_by=request.user)
@@ -607,14 +655,16 @@ class ActivityStart(HouseholdMixin, View):
             from .reminders import close_walk_reminders
 
             close_walk_reminders(pets)  # the reminder was to get going: done
+            undo.offer(request, _("Walk started for %(names)s.") % {"names": names}, [walk], back)
         elif kind == "sleep":
             self.require("add", Sleep)
-            for p in pets:
-                if not p.sleeps.filter(end=None).exists():
-                    Sleep.objects.create(pet=p, start=start, logged_by=request.user)
+            started = [Sleep.objects.create(pet=p, start=start, logged_by=request.user)
+                       for p in pets if not p.sleeps.filter(end=None).exists()]
+            if started:
+                undo.offer(request, _("Sleep started for %(names)s.") % {"names": names}, started, back)
         else:
             raise Http404
-        return HttpResponseRedirect(self.back_url(pets))
+        return HttpResponseRedirect(back)
 
 
 class ActivityStop(HouseholdMixin, View):
@@ -653,3 +703,70 @@ class ActivityStop(HouseholdMixin, View):
             messages.success(request, _("Sleep saved for %(names)s.") % {"names": ", ".join(p.name for p in pets)})
             return HttpResponseRedirect(self.back_url(pets))
         raise Http404
+
+
+class Undo(HouseholdMixin, View):
+    """The Undo button on a "logged" banner (PUP-151)."""
+
+    http_method_names = ["post"]
+
+    def post(self, request):
+        self.require("delete")
+        back = undo.take(request, request.POST.get("token", ""), self.household)
+        in_place = request.headers.get("X-Requested-With") == "fetch"
+        if back is None:
+            text = _("Too late to undo. Open the entry to change or delete it.")
+            if in_place:
+                return JsonResponse({"ok": False, "text": text})
+            messages.warning(request, text)
+            return HttpResponseRedirect(self.back_url())
+        if in_place:
+            return JsonResponse({"ok": True, "text": _("Undone.")})
+        messages.info(request, _("Undone."))
+        return HttpResponseRedirect(back)
+
+
+class QuickTraining(HouseholdMixin, View):
+    """One tap on a command's 1-5 button (PUP-150)."""
+
+    http_method_names = ["post"]
+
+    def post(self, request):
+        self.require("add", TrainingLog)
+        command = get_object_or_404(Command, pk=request.POST.get("command"), pet__household=self.household)
+        try:
+            score = int(request.POST.get("score", ""))
+        except ValueError:
+            score = 0
+        back = self.back_url([command.pet])
+        in_place = request.headers.get("X-Requested-With") == "fetch"  # tapped on the card: stay where you are
+        if score not in dict(TrainingLog.SCORES):
+            if in_place:
+                return JsonResponse({"ok": False, "text": _("Pick 1 to 5.")}, status=400)
+            messages.error(request, _("Pick 1 to 5."))
+            return HttpResponseRedirect(back)
+        log = TrainingLog.objects.create(command=command, score=score, logged_by=request.user,
+                                         time=timezone.now().replace(microsecond=0))
+        text = _("Training logged: %(command)s, %(score)s %(label)s.") % {
+            "command": command.name, "score": score, "label": log.get_score_display()}
+        token = undo.offer(request, text, [log], back, banner=not in_place)
+        if in_place:
+            return JsonResponse({"ok": True, "text": text, "token": token, "score": score})
+        return HttpResponseRedirect(back)
+
+
+class Training(HouseholdMixin, TemplateView):
+    """Every command a pet is learning, with how it's going over time (PUP-150)."""
+
+    template_name = "pets/training.html"
+
+    def get_context_data(self, **kwargs):
+        from .insights import training_chart
+
+        pet = get_object_or_404(Pet, household=self.household, slug=self.kwargs["slug"])
+        commands = [{"command": c, **training_chart(c)} for c in pet.commands.all()]
+        order = {Command.WORKING: 0, Command.KNOWN: 1, Command.RETIRED: 2}
+        commands.sort(key=lambda c: (order[c["command"].status], c["command"].name.lower()))
+        scale = " ".join(f"{n} {label}: {TrainingLog.SCORE_HELP[n]}" for n, label in TrainingLog.SCORES)
+        return super().get_context_data(pet=pet, commands=commands, scores=TrainingLog.SCORES, scale_text=scale,
+                                        **kwargs)

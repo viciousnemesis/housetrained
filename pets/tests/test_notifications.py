@@ -167,6 +167,81 @@ class NotificationTests(TestCase):
         self.client.post("/pets/notifications/", {"action": "prefs", "walk_due": "on", "walk_overdue": "on"})
         self.assertTrue(NotificationPreference.objects.get(user=self.user).walk_overdue)
 
+    @mock.patch("pywebpush.webpush")
+    def test_still_not_out_minutes_and_late_limit_are_each_persons(self, webpush):
+        """PUP-149: the still-not-out wait and the late limit are settings, not fixed 10 minutes and 2 hours."""
+        from pets.schedule import next_walk
+
+        self.subscribe()
+        NotificationPreference.objects.create(user=self.user, walk_due=False, overdue_minutes=25, late_limit_hours=1)
+        noon = timezone.make_aware(datetime.datetime.combine(timezone.localdate(), datetime.time(12)))
+        PottyBreak.objects.create(pet=self.pet, time=noon - datetime.timedelta(hours=3), pee=True)
+        head_out = next_walk(self.pet, now=noon)["head_out"]
+        reminders.check(now=head_out + datetime.timedelta(minutes=11))
+        self.assertEqual(webpush.call_count, 0)  # 10 minutes was the old fixed wait
+        reminders.check(now=head_out + datetime.timedelta(minutes=26))
+        self.assertEqual(webpush.call_count, 1)
+        PottyBreak.objects.create(pet=self.pet, time=head_out, pee=True)
+        later = next_walk(self.pet, now=head_out + datetime.timedelta(hours=1))["head_out"]
+        reminders.check(now=later + datetime.timedelta(minutes=70))
+        self.assertEqual(webpush.call_count, 1)  # over an hour late: not announced any more
+
+    def test_timing_settings_are_saved_and_kept_in_range(self):
+        self.client.post("/pets/notifications/", {
+            "action": "prefs", "walk_due": "on", "walk_overdue": "on", "weekly_progress": "on",
+            "overdue_minutes": "15", "late_limit_hours": "99", "weekly_day": "6", "weekly_hour": "20",
+            "water_cutoff_hours": "3", "water_back_minutes": "30"})
+        prefs = NotificationPreference.objects.get(user=self.user)
+        self.assertEqual((prefs.overdue_minutes, prefs.late_limit_hours, prefs.weekly_day, prefs.weekly_hour),
+                         (15, 12, 6, 20))
+        self.home.refresh_from_db()
+        self.assertEqual((self.home.water_cutoff_hours, self.home.water_back_minutes), (3, 30))
+        page = self.client.get("/pets/notifications/").content.decode()
+        for name in ("overdue_minutes", "late_limit_hours", "weekly_day", "weekly_hour", "water_back_minutes"):
+            self.assertIn(f'name="{name}"', page)
+
+    def test_only_owners_change_the_water_times(self):
+        from pets.households import add_member
+
+        helper = get_user_model().objects.create_user("helper", password="x")
+        add_member(self.home, helper, Membership.MEMBER)
+        self.client.force_login(helper)
+        self.client.post("/pets/notifications/", {"action": "prefs", "water_cutoff_hours": "5", "water_back_minutes": "60"})
+        self.home.refresh_from_db()
+        self.assertEqual((self.home.water_cutoff_hours, self.home.water_back_minutes), (2, 0))
+        self.assertNotContains(self.client.get("/pets/notifications/"), 'name="water_back_minutes"')
+
+    @mock.patch("pywebpush.webpush")
+    def test_weekly_progress_on_the_chosen_day_and_hour(self, webpush):
+        self.subscribe()
+        NotificationPreference.objects.create(user=self.user, walk_due=False, low_supply=False, weekly_progress=True,
+                                              weekly_day=4, weekly_hour=18)
+        PottyBreak.objects.create(pet=self.pet, time=timezone.now() - datetime.timedelta(days=2), pee=True,
+                                  location=PottyBreak.INSIDE)
+        today = timezone.localdate()
+        friday = today + datetime.timedelta(days=(4 - today.weekday()) % 7)
+        monday = friday - datetime.timedelta(days=4)
+        at = lambda day, h: timezone.make_aware(datetime.datetime.combine(day, datetime.time(h)))
+        reminders.check(now=at(monday, 10))
+        reminders.check(now=at(friday, 17))
+        self.assertEqual(webpush.call_count, 0)
+        reminders.check(now=at(friday, 18))
+        reminders.check(now=at(friday, 19))
+        self.assertEqual(webpush.call_count, 1)
+
+    @mock.patch("pywebpush.webpush")
+    def test_water_back_after_the_chosen_minutes(self, webpush):
+        self.subscribe()
+        NotificationPreference.objects.create(user=self.user, walk_due=False, low_supply=False, water_cutoff=True)
+        self.home.water_back_minutes = 60
+        self.home.save()
+        today = timezone.localdate()
+        at = lambda h, m=0: timezone.make_aware(datetime.datetime.combine(today, datetime.time(h, m)))
+        reminders.check(now=at(6, 40))
+        self.assertEqual(webpush.call_count, 0)  # wake-up 06:30, back at 07:30
+        reminders.check(now=at(7, 35))
+        self.assertEqual(json.loads(webpush.call_args.kwargs["data"])["title"], "Water bowl back down")
+
     def test_lead_minutes_setting(self):
         self.assertEqual(NotificationPreference(user=self.user).walk_lead_minutes, 5)
         self.client.post("/pets/notifications/", {"action": "prefs", "walk_due": "on", "walk_lead_minutes": "10"})
@@ -241,9 +316,9 @@ class NotificationTests(TestCase):
         self.assertEqual(webpush.call_count, 0)  # not due yet
         PottyBreak.objects.all().delete()
         PottyBreak.objects.create(pet=self.pet, time=noon - datetime.timedelta(hours=4), pee=True)
-        NotificationPreference.objects.create(user=self.user, walk_due=False)
+        NotificationPreference.objects.create(user=self.user, walk_due=False, walk_overdue=False)
         reminders.check(now=noon)
-        self.assertEqual(webpush.call_count, 0)  # turned off
+        self.assertEqual(webpush.call_count, 0)  # both walk reminders turned off
 
     @mock.patch("pywebpush.webpush")
     def test_buy_more_once_a_day(self, webpush):

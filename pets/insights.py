@@ -428,3 +428,64 @@ def measurements_card(pet):
         })
     return {"series": series, "width": M_W, "height": M_H, "left": M_LEFT, "axis_y": M_H - 4,
             "right": M_W - 8, "empty": not series, "hide_empty": True}
+
+
+def notes_card(pet, limit=5):
+    """The latest notes about this pet or the whole household (PUP-148)."""
+    from django.db.models import Q
+
+    from .models import Note
+
+    notes = list(Note.objects.filter(Q(pet=pet) | Q(pet=None), household=pet.household).select_related("pet")[:limit])
+    return {"notes": notes}
+
+
+# --- Training (PUP-150) --------------------------------------------------------------------------------------------
+T_W, T_H, T_LEFT, T_TOP, T_BOTTOM = 300, 120, 22, 8, 18  # SVG units
+
+
+def training_chart(command, days=90):
+    """How a command is going: each day's average score (1-5) over the last `days`, as SVG points."""
+    from collections import defaultdict
+
+    since = timezone.now() - datetime.timedelta(days=days)
+    by_day = defaultdict(list)
+    for log in command.logs.filter(time__gte=since).order_by("time"):
+        by_day[timezone.localdate(log.time)].append(log.score)
+    if not by_day:
+        return {"points": [], "empty": True, "count": 0}
+    first, last = min(by_day), max(by_day)
+    span = (last - first).days
+    plot_w, plot_h = T_W - T_LEFT - 6, T_H - T_TOP - T_BOTTOM
+    points = []
+    for day in sorted(by_day):
+        scores = by_day[day]
+        avg = sum(scores) / len(scores)
+        x = T_LEFT + ((day - first).days / span * plot_w if span else plot_w / 2)
+        y = T_TOP + (5 - avg) / 4 * plot_h
+        points.append({"x": round(x, 1), "y": round(y, 1),
+                       "label": f"{formats.date_format(day, 'M j')}: {avg:.1f} ({len(scores)})"})
+    grid = [{"score": n, "y": round(T_TOP + (5 - n) / 4 * plot_h, 1)} for n in range(1, 6)]
+    return {"points": points, "line": " ".join(f"{p['x']},{p['y']}" for p in points), "grid": grid,
+            "first": formats.date_format(first, "M j"), "last": formats.date_format(last, "M j"),
+            "width": T_W, "height": T_H, "left": T_LEFT, "right": T_W - 6, "axis_y": T_H - 3,
+            "count": sum(len(s) for s in by_day.values()), "empty": False}
+
+
+def training_card(pet, now=None):
+    """Commands being worked on (and known ones, tucked away), each with its last score and this week's average."""
+    from django.db.models import Avg
+
+    from .models import Command, TrainingLog
+
+    now = now or timezone.now()
+    week = now - datetime.timedelta(days=7)
+    rows = []
+    for command in pet.commands.exclude(status=Command.RETIRED):
+        last = command.logs.first()
+        avg = command.logs.filter(time__gte=week).aggregate(a=Avg("score"))["a"]
+        rows.append({"command": command, "last": last, "week": f"{avg:.1f}" if avg else None})
+    return {"working": [r for r in rows if r["command"].status == Command.WORKING],
+            "known": [r for r in rows if r["command"].status == Command.KNOWN],
+            "scores": [(n, label, TrainingLog.SCORE_HELP[n]) for n, label in TrainingLog.SCORES],
+            "scale_text": " ".join(f"{n} {label}: {TrainingLog.SCORE_HELP[n]}" for n, label in TrainingLog.SCORES)}

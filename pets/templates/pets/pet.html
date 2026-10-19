@@ -41,14 +41,15 @@
         <div class="col-lg-4">
             <div style="order: 1">{% card_status pet %}</div>
             <div style="order: 3">{% card_today pet %}</div>
-            <div style="order: 5">{% card_potty_bars pet %}</div>
+            <div style="order: 4">{% card_training pet %}</div>
+            <div style="order: 6">{% card_potty_bars pet %}</div>
         </div>
         <div class="col-lg-4">
-            <div style="order: 6">{% card_accidents pet %}</div>
-            <div style="order: 7">{% card_measurements pet %}</div>
+            <div style="order: 7">{% card_accidents pet %}</div>
+            <div style="order: 8">{% card_measurements pet %}</div>
         </div>
         <div class="col-lg-4">
-            <div style="order: 4">{% card_supplies pet low_only=True %}</div>
+            <div style="order: 5">{% card_supplies pet low_only=True %}</div>
             <div style="order: 2">
             <div class="card card-dashboard">
                 <div class="card-header">{% trans "All activity" %}</div>
@@ -62,6 +63,7 @@
                 </div>
             </div>
             </div>
+            <div style="order: 9">{% card_notes pet %}</div>
         </div>
     </div>
     <style>

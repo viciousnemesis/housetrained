@@ -26,6 +26,8 @@ for _name, _builder in (
     ("potty_bars", insights.potty_bars_card),
     ("accidents", insights.accidents_chart),
     ("measurements", insights.measurements_card),
+    ("notes", insights.notes_card),
+    ("training", insights.training_card),
 ):
     _card(_name, _builder)
 

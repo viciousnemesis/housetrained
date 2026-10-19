@@ -9,7 +9,10 @@ from django.utils.translation import gettext_lazy as _
 from babybuddy.widgets import DateInput, DateTimeInput, TimeInput
 
 from . import units
-from .models import AccidentSpot, Container, Fill, Household, Meal, Measurement, Note, Pet, PottyBreak, Product, Sleep, SupplyItem, Walk
+from .models import (
+    AccidentSpot, Command, Container, Fill, Household, Meal, Measurement, Note, Pet, PottyBreak, Product, Sleep, SupplyItem,
+    TrainingLog, Walk,
+)
 from .widgets import PetCheckboxSelect, PetRadioSelect, PillCheckboxSelect, PillRadioSelect
 
 
@@ -709,6 +712,40 @@ class NoteForm(PetsForm):
         if commit:
             note.save()
         return note
+
+
+# --- Training (PUP-150) ----------------------------------------------------------------------------
+class CommandForm(PetsForm):
+    fieldsets = [{"fields": ["pet", "name", "status"], "layout": "required"}, {"fields": ["how_to", "when_to_use"]}]
+
+    class Meta:
+        model = Command
+        fields = ["pet", "name", "status", "how_to", "when_to_use"]
+        widgets = {"pet": PetRadioSelect, "status": PillRadioSelect(),
+                   "how_to": forms.Textarea(attrs={"rows": 3}), "when_to_use": forms.Textarea(attrs={"rows": 3})}
+
+
+class TrainingLogForm(PetsForm):
+    fieldsets = [{"fields": ["command", "time", "score"], "layout": "required"}, {"fields": ["notes"]}]
+
+    class Meta:
+        model = TrainingLog
+        fields = ["command", "time", "score", "notes"]
+        widgets = {"time": DateTimeInput(), "score": PillRadioSelect(), "notes": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["command"].queryset = Command.objects.filter(pet__household=self.household).select_related("pet")
+        self.fields["score"].help_text = " · ".join(
+            f"{n} {label}: {TrainingLog.SCORE_HELP[n]}" for n, label in TrainingLog.SCORES)
+
+    def save(self, commit=True):
+        log = super().save(commit=False)
+        if not log.pk:
+            log.logged_by = self.user
+        if commit:
+            log.save()
+        return log
 
 
 # --- Setup: pets, containers, products and bags ------------------------------------------------

@@ -1,0 +1,20 @@
+{% load i18n %}
+<div class="list-group-item">
+    <div class="d-flex justify-content-between align-items-baseline gap-2">
+        <a class="fw-bold text-reset text-decoration-none" href="{% url 'pets:training' pet.slug %}#command-{{ r.command.pk }}">{{ r.command.name }}</a>
+        <span class="small text-body-secondary text-nowrap">
+            <span data-last>{% if r.last %}{% trans "last" %} {{ r.last.score }}{% endif %}</span>{% if r.week %} · {% trans "week" %} {{ r.week }}{% endif %}
+        </span>
+    </div>
+    {% if pets_can_edit %}
+        <form class="d-flex gap-1 mt-2 training-form" method="post" action="{% url 'pets:quick-training' %}">
+            {% csrf_token %}
+            <input type="hidden" name="command" value="{{ r.command.pk }}">
+            <input type="hidden" name="next" value="{{ request.path }}">
+            {% for n, label, help in scores %}
+                <button class="btn btn-outline-light flex-fill py-1" type="submit" name="score" value="{{ n }}"
+                        title="{{ n }} {{ label }}: {{ help }}" aria-label="{{ n }} {{ label }}">{{ n }}</button>
+            {% endfor %}
+        </form>
+    {% endif %}
+</div>

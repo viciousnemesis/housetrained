@@ -1,0 +1,29 @@
+{% extends "pets/cards/_base.html" %}
+{% load i18n pets_tags %}
+{% block header %}
+    <div class="d-flex justify-content-between align-items-center">
+        <span>{% trans "Notes" %}</span>
+        <span class="fs-6 fw-normal">
+            {% if notes %}<a href="{% url 'pets:list' 'note' %}">{% trans "All" %}</a>{% endif %}
+            {% if pets_can_edit %}<a class="ms-3" href="{% url 'pets:add' 'note' %}?pet={{ pet.slug }}&next={{ request.path|urlencode }}">+ {% trans "Add" %}</a>{% endif %}
+        </span>
+    </div>
+{% endblock %}
+{% block body %}
+    {% if not notes %}<div class="card-body text-body-secondary">{% trans "No notes yet." %}</div>{% endif %}
+{% endblock %}
+{% block listgroup %}
+    {% if notes %}
+        <div class="list-group list-group-flush small">
+            {% for note in notes %}
+                <a class="list-group-item list-group-item-action" href="{% url 'pets:edit' 'note' note.pk %}?next={{ request.path|urlencode }}">
+                    <div class="d-flex justify-content-between gap-2 text-body-secondary">
+                        <span>{% if note.pet %}{{ note.pet.name }}{% else %}{% trans "Household" %}{% endif %}</span>
+                        <span class="text-nowrap">{{ note.time|clock_dt }}</span>
+                    </div>
+                    <div style="white-space: pre-line">{{ note.text|truncatechars:280 }}</div>
+                </a>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}

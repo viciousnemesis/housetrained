@@ -6,7 +6,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from . import units
-from .models import Fill, Meal, Measurement, Note, PottyBreak, Sleep, Walk
+from .models import Fill, Meal, Measurement, Note, PottyBreak, Sleep, TrainingLog, Walk
 
 
 def _when(value):
@@ -87,6 +87,10 @@ def _note(n):
     return n.text[:80]
 
 
+def _training(t):
+    return f"{t.command.name}: {t.score} {t.get_score_display()}"
+
+
 # kind: (time field, summary, household queryset, select/prefetch for pets)
 KINDS = {
     "potty": ("time", _potty, lambda h: PottyBreak.everything.filter(pet__household=h).select_related("pet", "spot")),
@@ -96,10 +100,11 @@ KINDS = {
     "meal": ("time", _meal, lambda h: Meal.objects.filter(pet__household=h).select_related("pet__household")),
     "measurement": ("date", _measurement, lambda h: Measurement.objects.filter(pet__household=h).select_related("pet__household")),
     "note": ("time", _note, lambda h: Note.objects.filter(household=h).select_related("pet")),
+    "training": ("time", _training, lambda h: TrainingLog.objects.filter(command__pet__household=h).select_related("command__pet")),
 }
 LIST_TITLES = {
     "potty": _("Potty breaks"), "walk": _("Walks"), "sleep": _("Sleep"), "fill": _("Bowl fills"),
-    "meal": _("Meals"), "measurement": _("Measurements"), "note": _("Notes"),
+    "meal": _("Meals"), "measurement": _("Measurements"), "note": _("Notes"), "training": _("Training"),
 }
 
 
@@ -108,6 +113,8 @@ def pet_names(kind, entry):
         return ", ".join(p.name for p in entry.pets.all())
     if kind == "fill":
         return ", ".join(p.name for p in entry.container.pets.all())
+    if kind == "training":
+        return entry.command.pet.name
     pet = getattr(entry, "pet", None)
     return pet.name if pet else _("Household")
 
@@ -149,6 +156,8 @@ def for_pet(kind, queryset, pet):
         return queryset.filter(pets=pet)
     if kind == "fill":
         return queryset.filter(container__pets=pet)
+    if kind == "training":
+        return queryset.filter(command__pet=pet)
     return queryset.filter(pet=pet)
 
 
@@ -167,7 +176,7 @@ def activity(pet, filter="all", page=0, size=ACTIVITY_PAGE):
     potty_match = POTTY_FILTERS.get(filter, {})
     want = (page + 1) * size  # each kind's newest `want` are enough to know the first `want` overall
     rows = []
-    for kind in FILTER_KINDS.get(filter, list(KINDS)):
+    for kind in FILTER_KINDS.get(filter, [k for k in KINDS if k != "training"]):  # training has its own card
         field, _summary, qs = KINDS[kind]
         entries = for_pet(kind, qs(pet.household), pet)
         if kind == "potty":

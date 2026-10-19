@@ -38,6 +38,7 @@
                                 <a class="dropdown-item" href="{% url 'pets:list' 'sleep' %}"><i class="icon-sleep" aria-hidden="true"></i> {% trans "Sleep" %}</a>
                                 <a class="dropdown-item" href="{% url 'pets:list' 'measurement' %}"><i class="icon-weight" aria-hidden="true"></i> {% trans "Measurements" %}</a>
                                 <a class="dropdown-item" href="{% url 'pets:list' 'note' %}"><i class="icon-note" aria-hidden="true"></i> {% trans "Notes" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:list' 'training' %}"><i class="icon-note" aria-hidden="true"></i> {% trans "Training" %}</a>
                             </div>
                         </li>
                         {% if pets_can_edit %}

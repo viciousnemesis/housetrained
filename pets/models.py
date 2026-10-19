@@ -35,6 +35,10 @@ class Household(models.Model):
         _("pick up water before bed"), default=2,
         help_text=_("Hours before the usual bedtime to pick up the water bowl (for the water reminder)."),
     )
+    water_back_minutes = models.PositiveSmallIntegerField(
+        _("water back after wake-up"), default=0,
+        help_text=_("Minutes after the usual wake-up to put the water bowl back (for the water reminder)."),
+    )
     minutes_to_outside = models.PositiveSmallIntegerField(
         _("time to get outside"), default=10,
         help_text=_("Minutes from deciding to go to standing outside (leash, shoes, stairs or elevator). "
@@ -501,6 +505,52 @@ class Note(models.Model):
         return self.text[:50]
 
 
+# --- Training (PUP-150) ------------------------------------------------------------------------
+class Command(models.Model):
+    """Something a pet is learning, like Sit or Leave it."""
+
+    WORKING, KNOWN, RETIRED = "working", "known", "retired"
+    STATUSES = [(WORKING, _("Working on")), (KNOWN, _("Known")), (RETIRED, _("Retired"))]
+
+    pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name="commands")
+    name = models.CharField(_("command"), max_length=60)
+    how_to = models.TextField(_("how to give it"), blank=True,
+                              help_text=_("The word, the hand signal, what to reward and when."))
+    when_to_use = models.TextField(_("when to use it"), blank=True,
+                                   help_text=_("Situations it's for, like at the door or meeting a dog."))
+    status = models.CharField(_("status"), max_length=10, choices=STATUSES, default=WORKING)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.pet.name}: {self.name}"
+
+
+class TrainingLog(Logged):
+    """One try at a command, scored 1 to 5."""
+
+    SCORES = [(1, _("Not yet")), (2, _("Needs help")), (3, _("Slow")), (4, _("Good")), (5, _("Reliable"))]
+    SCORE_HELP = {
+        1: _("No response."),
+        2: _("Needs repeated cues, or a hand signal on top of the word."),
+        3: _("Does it on one cue, but takes more than 2 seconds."),
+        4: _("Does it on one cue, within 2 seconds."),
+        5: _("Does it right away on one cue, even with distractions."),
+    }
+
+    command = models.ForeignKey(Command, on_delete=models.CASCADE, related_name="logs")
+    time = models.DateTimeField(_("time"), default=timezone.now)
+    score = models.PositiveSmallIntegerField(_("how it went"), choices=SCORES)
+
+    class Meta:
+        ordering = ["-time"]
+
+    def __str__(self):
+        return f"{self.command.name} {self.score}"
+
+
 # --- Notifications (PUP-58) ----------------------------------------------------------------
 class PushKey(models.Model):
     """The server's VAPID key pair for browser push, made on first use."""
@@ -533,15 +583,21 @@ class NotificationPreference(models.Model):
                                    help_text=_("When a pet's next walk is due, from its schedule."))
     walk_overdue = models.BooleanField(
         _("Still not out"), default=True,
-        help_text=_("A second reminder when nobody has gone out 10 minutes after it was time to head out."))
+        help_text=_("A second reminder when nobody has gone out a while after it was time to head out."))
     walk_lead_minutes = models.PositiveSmallIntegerField(
         _("minutes before"), default=5, help_text=_("How long before the head-out time the walk reminder comes."))
+    overdue_minutes = models.PositiveSmallIntegerField(
+        _("minutes after"), default=10, help_text=_("How long after the head-out time the still-not-out reminder comes."))
+    late_limit_hours = models.PositiveSmallIntegerField(
+        _("stop after (hours)"), default=2, help_text=_("A walk this many hours late isn't announced any more."))
     low_supply = models.BooleanField(_("Buy more"), default=True,
                                      help_text=_("When a bag is down to its reorder days (once a day)."))
     water_cutoff = models.BooleanField(_("Water bowl"), default=False,
                                        help_text=_("Pick it up before bedtime, put it back in the morning."))
     weekly_progress = models.BooleanField(_("Weekly progress"), default=False,
-                                          help_text=_("Monday morning: accidents this week against the week before."))
+                                          help_text=_("Once a week: accidents this week against the week before."))
+    weekly_day = models.PositiveSmallIntegerField(_("day"), default=0, help_text=_("0 is Monday, 6 is Sunday."))
+    weekly_hour = models.PositiveSmallIntegerField(_("hour"), default=9, help_text=_("From this hour (0-23)."))
 
 
 class ReminderLog(models.Model):

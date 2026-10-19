@@ -37,41 +37,101 @@
     </div>
     <div class="card card-dashboard">
         <div class="card-header">{% trans "Remind me" %}</div>
-        <form class="card-body" method="post">
+        {# Every reminder there is (PUP-149): a switch, and while it's on, the numbers behind it. #}
+        <form class="card-body" method="post" id="reminder-prefs">
             {% csrf_token %}
             <input type="hidden" name="action" value="prefs">
-            <div class="form-check mb-2">
-                <input class="form-check-input" type="checkbox" name="walk_due" id="walk_due" {% if prefs.walk_due %}checked{% endif %}>
-                <label class="form-check-label" for="walk_due">{% trans "When a walk is due" %}
-                    <span class="d-block small text-body-secondary">{% trans "From each pet's schedule, once per walk." %}</span></label>
-                <div class="d-flex align-items-center gap-2 mt-1 small">
-                    <input class="form-control form-control-sm" style="width: 4.5rem" type="number" min="0" max="120"
-                           name="walk_lead_minutes" id="walk_lead_minutes" value="{{ prefs.walk_lead_minutes }}">
+            <div class="mb-3">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" name="walk_due" id="walk_due" data-reveals="walk_due-opts" {% if prefs.walk_due %}checked{% endif %}>
+                    <label class="form-check-label" for="walk_due">{% trans "When a walk is due" %}
+                        <span class="d-block small text-body-secondary">{% trans "From each pet's schedule, once per walk." %}</span></label>
+                </div>
+                <div class="ms-5 mt-1 small d-flex flex-wrap align-items-center gap-2" id="walk_due-opts">
+                    <input class="form-control form-control-sm" style="width: 4.5rem" type="number" min="0" max="120" name="walk_lead_minutes" id="walk_lead_minutes" value="{{ prefs.walk_lead_minutes }}">
                     <label for="walk_lead_minutes" class="text-body-secondary">{% trans "minutes before it's time to head out" %}</label>
                 </div>
             </div>
-            <div class="form-check mb-2">
-                <input class="form-check-input" type="checkbox" name="walk_overdue" id="walk_overdue" {% if prefs.walk_overdue %}checked{% endif %}>
-                <label class="form-check-label" for="walk_overdue">{% trans "When still not out" %}
-                    <span class="d-block small text-body-secondary">{% trans "One more reminder if nobody has gone out 10 minutes after it was time to head out." %}</span></label>
+            <div class="mb-3">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" name="walk_overdue" id="walk_overdue" data-reveals="walk_overdue-opts" {% if prefs.walk_overdue %}checked{% endif %}>
+                    <label class="form-check-label" for="walk_overdue">{% trans "When still not out" %}
+                        <span class="d-block small text-body-secondary">{% trans "One more reminder if nobody has gone out." %}</span></label>
+                </div>
+                <div class="ms-5 mt-1 small d-flex flex-wrap align-items-center gap-2" id="walk_overdue-opts">
+                    <input class="form-control form-control-sm" style="width: 4.5rem" type="number" min="1" max="120" name="overdue_minutes" id="overdue_minutes" value="{{ prefs.overdue_minutes }}">
+                    <label for="overdue_minutes" class="text-body-secondary">{% trans "minutes after it was time to head out" %}</label>
+                </div>
             </div>
-            <div class="form-check mb-3">
-                <input class="form-check-input" type="checkbox" name="low_supply" id="low_supply" {% if prefs.low_supply %}checked{% endif %}>
-                <label class="form-check-label" for="low_supply">{% trans "When it's time to buy more" %}
-                    <span class="d-block small text-body-secondary">{% trans "When a bag is down to its reorder days; at most once a day." %}</span></label>
+            <div class="mb-3 small d-flex flex-wrap align-items-center gap-2" id="late-limit">
+                <label for="late_limit_hours" class="text-body-secondary">{% trans "Stop walk reminders once a walk is" %}</label>
+                <input class="form-control form-control-sm" style="width: 4.5rem" type="number" min="1" max="12" name="late_limit_hours" id="late_limit_hours" value="{{ prefs.late_limit_hours }}">
+                <span class="text-body-secondary">{% trans "hours late" %}</span>
             </div>
-            <div class="form-check mb-2">
-                <input class="form-check-input" type="checkbox" name="water_cutoff" id="water_cutoff" {% if prefs.water_cutoff %}checked{% endif %}>
-                <label class="form-check-label" for="water_cutoff">{% trans "Water bowl" %}
-                    <span class="d-block small text-body-secondary">{% blocktrans with hours=household_cutoff %}Pick it up {{ hours }} hours before your dog's usual bedtime, put it back in the morning (hours: Setup > Household settings).{% endblocktrans %}</span></label>
+            <div class="mb-3">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" name="low_supply" id="low_supply" {% if prefs.low_supply %}checked{% endif %}>
+                    <label class="form-check-label" for="low_supply">{% trans "When it's time to buy more" %}
+                        <span class="d-block small text-body-secondary">{% trans "When a bag is down to its product's reorder days; at most once a day." %}
+                            <a href="{% url 'pets:setup' %}">{% trans "Reorder days are set per product in Setup." %}</a></span></label>
+                </div>
             </div>
-            <div class="form-check mb-3">
-                <input class="form-check-input" type="checkbox" name="weekly_progress" id="weekly_progress" {% if prefs.weekly_progress %}checked{% endif %}>
-                <label class="form-check-label" for="weekly_progress">{% trans "Weekly progress" %}
-                    <span class="d-block small text-body-secondary">{% trans "Monday morning: accidents this week against the week before." %}</span></label>
+            <div class="mb-3">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" name="water_cutoff" id="water_cutoff" data-reveals="water_cutoff-opts" {% if prefs.water_cutoff %}checked{% endif %}>
+                    <label class="form-check-label" for="water_cutoff">{% trans "Water bowl" %}
+                        <span class="d-block small text-body-secondary">{% trans "Pick it up before bedtime, put it back in the morning (from the household's quiet hours)." %}</span></label>
+                </div>
+                <div class="ms-5 mt-1 small" id="water_cutoff-opts">
+                    {% if is_owner %}
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                            <label for="water_cutoff_hours" class="text-body-secondary">{% trans "Pick it up" %}</label>
+                            <input class="form-control form-control-sm" style="width: 4.5rem" type="number" min="0" max="12" name="water_cutoff_hours" id="water_cutoff_hours" value="{{ household.water_cutoff_hours }}">
+                            <span class="text-body-secondary">{% trans "hours before bedtime" %}</span>
+                        </div>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <label for="water_back_minutes" class="text-body-secondary">{% trans "Put it back" %}</label>
+                            <input class="form-control form-control-sm" style="width: 4.5rem" type="number" min="0" max="240" name="water_back_minutes" id="water_back_minutes" value="{{ household.water_back_minutes }}">
+                            <span class="text-body-secondary">{% trans "minutes after wake-up" %}</span>
+                        </div>
+                        <div class="text-body-secondary mt-1">{% trans "These two are for everyone in the household." %}</div>
+                    {% else %}
+                        <span class="text-body-secondary">{% blocktrans with hours=household.water_cutoff_hours minutes=household.water_back_minutes %}Up {{ hours }} hours before bedtime, back {{ minutes }} minutes after wake-up (an owner can change this).{% endblocktrans %}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="mb-3">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" name="weekly_progress" id="weekly_progress" data-reveals="weekly_progress-opts" {% if prefs.weekly_progress %}checked{% endif %}>
+                    <label class="form-check-label" for="weekly_progress">{% trans "Weekly progress" %}
+                        <span class="d-block small text-body-secondary">{% trans "Accidents this week against the week before." %}</span></label>
+                </div>
+                <div class="ms-5 mt-1 small d-flex flex-wrap align-items-center gap-2" id="weekly_progress-opts">
+                    <select class="form-select form-select-sm w-auto" name="weekly_day" aria-label="{% trans 'Day' %}">
+                        {% for value, label in weekdays %}<option value="{{ value }}" {% if value == prefs.weekly_day %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select>
+                    <label for="weekly_hour" class="text-body-secondary">{% trans "from" %}</label>
+                    <input class="form-control form-control-sm" style="width: 4.5rem" type="number" min="0" max="23" name="weekly_hour" id="weekly_hour" value="{{ prefs.weekly_hour }}">
+                    <span class="text-body-secondary">{% trans "o'clock (0-23)" %}</span>
+                </div>
             </div>
             <button class="btn btn-primary" type="submit">{% trans "Save" %}</button>
         </form>
+        <script>
+            // A reminder's numbers show only while its switch is on; the late limit while either walk reminder is.
+            (function () {
+                var form = document.getElementById("reminder-prefs");
+                var sync = function () {
+                    form.querySelectorAll("[data-reveals]").forEach(function (box) {
+                        document.getElementById(box.dataset.reveals).classList.toggle("d-none", !box.checked);
+                    });
+                    var walks = document.getElementById("walk_due").checked || document.getElementById("walk_overdue").checked;
+                    document.getElementById("late-limit").classList.toggle("d-none", !walks);
+                };
+                form.addEventListener("change", sync);
+                sync();
+            })();
+        </script>
     </div>
     <div class="card card-dashboard">
         <div class="card-header d-flex justify-content-between align-items-center">
