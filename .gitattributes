@@ -1,3 +1,5 @@
 # Do not count these files for repository language
 # See https://github.com/github/linguist/blob/master/docs/overrides.md
 /static/** linguist-generated
+# Shell scripts run in the Linux container: always LF
+*.sh text eol=lf

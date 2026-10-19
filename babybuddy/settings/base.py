@@ -230,7 +230,7 @@ WHITENOISE_ROOT = os.path.join(BASE_DIR, "static", "babybuddy", "root")
 # Media files (User uploaded content)
 # https://docs.djangoproject.com/en/5.0/topics/files/
 
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_ROOT = os.environ.get("MEDIA_ROOT") or os.path.join(BASE_DIR, "media")
 
 MEDIA_URL = "media/"
 

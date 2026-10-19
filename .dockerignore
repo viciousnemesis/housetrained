@@ -8,3 +8,7 @@ media
 node_modules
 docs
 terraform
+.github
+babybuddy/static
+htmlcov
+**/__pycache__

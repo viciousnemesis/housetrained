@@ -37,3 +37,22 @@ class NothingLeavesTheServerTests(PetTestCase):
 
     def test_service_worker_is_local(self):
         self.assertIsNone(re.search(r"https?://", self.client.get("/sw.js").content.decode()))
+
+
+class PhotoTests(PetTestCase):
+    """PUP-146: photos are served by the app, to signed-in people only."""
+
+    def test_photos_need_signing_in(self):
+        import os
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as media:
+            os.makedirs(os.path.join(media, "pets"))
+            with open(os.path.join(media, "pets", "ruby.jpg"), "wb") as f:
+                f.write(b"jpeg")
+            with self.settings(MEDIA_ROOT=media):
+                response = self.client.get("/media/pets/ruby.jpg")
+                self.assertEqual((response.status_code, b"".join(response.streaming_content)), (200, b"jpeg"))
+                response.close()  # let go of the file
+                self.client.logout()
+                self.assertEqual(self.client.get("/media/pets/ruby.jpg").status_code, 302)

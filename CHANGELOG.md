@@ -24,6 +24,7 @@ First version of Housetrained, forked from Baby Buddy 2.11.0.
 - Health details on potty breaks (amount, colour, consistency) with gentle alerts.
 - CSV import and export, REST API at `/api/v1/`, demo data command.
 - Metric or imperial, 12/24-hour time, light/dark/automatic theme, help bubbles. English only.
+- Its own Docker image (Python only); data stays in `/config`. Pet photos need signing in.
 - Pets only: Baby Buddy's baby tracking, its API, translations, Home Assistant add-on support and phone-app
   pairing are removed (English only).
 - Private by design: nothing loaded from or sent to the internet (push notifications aside, opt-in).

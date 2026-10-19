@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-from django.conf.urls.static import static
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
-from django.urls import include, path, reverse_lazy
+from django.contrib.auth.decorators import login_required
+from django.urls import include, path, re_path, reverse_lazy
+from django.views.static import serve
 
 from . import views
 
@@ -52,5 +53,12 @@ urlpatterns = [
     path("", include("pets.urls", namespace="pets")),
 ]
 
-if settings.DEBUG:  # pragma: no cover
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+
+@login_required
+def media(request, path):
+    """Pet photos, for signed-in people only (PUP-146)."""
+    return serve(request, path, document_root=settings.MEDIA_ROOT)
+
+
+urlpatterns.append(re_path(r"^media/(?P<path>.*)$", media))

@@ -67,8 +67,10 @@ Then, under **Setup**: add your pets, their bowls and litter boxes, and the food
 (weigh one usual scoop) lets "half a bowl" turn into grams. Want to look around first? Load a demo household:
 
 ```bash
-docker compose exec -w /app/www/public housetrained /lsiopy/bin/python3 manage.py housetrained_demo
+docker compose exec -u 1000:1000 housetrained python manage.py housetrained_demo
 ```
+
+(Use your `PUID:PGID` in place of `1000:1000`, so the database stays owned by the right user.)
 
 (`--delete` removes it again.)
 
