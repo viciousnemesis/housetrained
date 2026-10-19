@@ -38,6 +38,8 @@ HOUSETRAINED_REMINDER_THREAD = HOUSETRAINED_REMINDERS  # the background checker 
 HOUSETRAINED_PUSH_CONTACT = os.environ.get("PUSH_CONTACT") or "mailto:noreply@example.com"
 # Where people can find Housetrained's source (shown in the user menu when set).
 HOUSETRAINED_SOURCE_URL = os.environ.get("HOUSETRAINED_SOURCE_URL", "https://github.com/viciousnemesis/housetrained")
+# Where notification links open (e.g. https://pets.example.com). Empty: the address the device turned them on from.
+HOUSETRAINED_URL = os.environ.get("HOUSETRAINED_URL", "").rstrip("/")
 
 # Applications
 # https://docs.djangoproject.com/en/5.0/ref/applications/

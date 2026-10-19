@@ -41,7 +41,10 @@ def public_key():
 
 def send(user, title, body, url="/", tag=None):
     """Send to every device the user turned notifications on for. Returns how many got it."""
-    return _deliver(user, {"title": title, "body": body, "url": url, "tag": tag or url})
+    from django.conf import settings
+
+    link = settings.HOUSETRAINED_URL + url if settings.HOUSETRAINED_URL and url.startswith("/") else url
+    return _deliver(user, {"title": title, "body": body, "url": link, "tag": tag or url})
 
 
 def close(user, tag):

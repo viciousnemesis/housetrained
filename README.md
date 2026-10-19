@@ -87,6 +87,7 @@ docker compose exec -u 1000:1000 housetrained python manage.py housetrained_demo
 | `PUSH_CONTACT` | Your `mailto:` address, sent with notifications so push services can reach you |
 | `REMINDERS` | `False` to stop the server sending reminders |
 | `HOUSETRAINED_SOURCE_URL` | Link shown as "Source Code" in the user menu |
+| `HOUSETRAINED_URL` | Where notification links open, e.g. `https://pets.example.com` (otherwise the address each device turned them on from) |
 
 Database, email and reverse-proxy sign-in settings (`DB_*`, `EMAIL_*`, `REVERSE_PROXY_AUTH`) work as in
 [Baby Buddy's configuration docs](https://docs.baby-buddy.net/configuration/environment/). Security notes:

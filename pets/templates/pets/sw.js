@@ -22,8 +22,13 @@ self.addEventListener("notificationclick", function (event) {
     event.notification.close();
     var url = (event.notification.data && event.notification.data.url) || "/";
     event.waitUntil(clients.matchAll({type: "window", includeUncontrolled: true}).then(function (open) {
+        // Reuse an open window on the same site; a link to another address (HOUSETRAINED_URL) opens a new one.
+        var target = new URL(url, self.location.origin);
         for (var i = 0; i < open.length; i++) {
-            if ("focus" in open[i]) { open[i].navigate(url); return open[i].focus(); }
+            if ("focus" in open[i] && new URL(open[i].url).origin === target.origin) {
+                open[i].navigate(target.href);
+                return open[i].focus();
+            }
         }
         return clients.openWindow(url);
     }));

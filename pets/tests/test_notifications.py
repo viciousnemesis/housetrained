@@ -71,6 +71,18 @@ class NotificationTests(TestCase):
         self.assertIn("Notifications work", json.loads(sent["data"])["body"])
 
     @mock.patch("pywebpush.webpush")
+    def test_links_open_at_the_configured_address(self, webpush):
+        """PUP-147: HOUSETRAINED_URL decides where a notification opens; without it, the device's own address."""
+        from pets import push
+        self.subscribe()
+        with self.settings(HOUSETRAINED_URL="https://pets.example.com"):
+            push.send(self.user, "Walk", "Time to go out", url="/pets/biscuit/")
+        self.assertEqual(json.loads(webpush.call_args.kwargs["data"])["url"], "https://pets.example.com/pets/biscuit/")
+        with self.settings(HOUSETRAINED_URL=""):
+            push.send(self.user, "Walk", "Time to go out", url="/pets/biscuit/")
+        self.assertEqual(json.loads(webpush.call_args.kwargs["data"])["url"], "/pets/biscuit/")
+
+    @mock.patch("pywebpush.webpush")
     def test_dead_devices_are_removed(self, webpush):
         from pywebpush import WebPushException
 
