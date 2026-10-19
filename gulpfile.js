@@ -5,7 +5,6 @@ import config from "./gulpfile.config.js";
 import * as dartSass from "sass";
 import { deleteAsync } from "del";
 import flatten from "gulp-flatten";
-import fontello from "gulp-fontello";
 import gStylelintEsm from "gulp-stylelint-esm";
 import gulp from "gulp";
 import gulpSass from "gulp-sass";
@@ -254,16 +253,6 @@ function test(cb) {
 }
 
 /**
- * Updates glyphs font data from Fontello.
- */
-function updateGlyphs() {
-  return gulp
-    .src(config.glyphFontConfig.configFile, { encoding: false })
-    .pipe(fontello({ assetsOnly: false }))
-    .pipe(gulp.dest(config.glyphFontConfig.dest));
-}
-
-/**
  * Watches for changes in configured files.
  */
 function watch() {
@@ -351,7 +340,6 @@ gulp.task("styles", styles);
 
 gulp.task("test", test);
 
-gulp.task("updateglyphs", updateGlyphs);
 
 gulp.task("watch", watch);
 

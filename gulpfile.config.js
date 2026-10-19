@@ -20,10 +20,6 @@ const config = {
       files: "babybuddy/static_src/root/*",
     },
   },
-  glyphFontConfig: {
-    configFile: "babybuddy/static_src/fontello/config.json",
-    dest: "babybuddy/static_src/fontello",
-  },
   scriptsConfig: {
     dest: basePath + "js/",
     vendor: [
