@@ -36,18 +36,20 @@
         </div>
     {% endif %}
     {% include "pets/_buttons.html" %}
-    <div class="row gx-3">
+    {# Three columns on a computer; on a phone one list in the order of their order styles (PUP-142). #}
+    <div class="row gx-3 pet-cards">
         <div class="col-lg-4">
-            {% card_status pet %}
-            {% card_today pet %}
-            {% card_potty_bars pet %}
+            <div style="order: 1">{% card_status pet %}</div>
+            <div style="order: 3">{% card_today pet %}</div>
+            <div style="order: 5">{% card_potty_bars pet %}</div>
         </div>
         <div class="col-lg-4">
-            {% card_accidents pet %}
-            {% card_measurements pet %}
+            <div style="order: 6">{% card_accidents pet %}</div>
+            <div style="order: 7">{% card_measurements pet %}</div>
         </div>
         <div class="col-lg-4">
-            {% card_supplies pet low_only=True %}
+            <div style="order: 4">{% card_supplies pet low_only=True %}</div>
+            <div style="order: 2">
             <div class="card card-dashboard">
                 <div class="card-header">{% trans "Recent activity" %}</div>
                 <div class="d-flex flex-wrap gap-1 px-2 pt-2" id="activity-filters">
@@ -82,8 +84,16 @@
                     <div class="list-group-item text-body-secondary d-none" id="activity-none">{% trans "None recently." %}</div>
                 </div>
             </div>
+            </div>
         </div>
     </div>
+    <style>
+        @media (max-width: 991.98px) {
+            .pet-cards { flex-direction: column; flex-wrap: nowrap; }
+            .pet-cards > .col-lg-4 { display: contents; }
+            .pet-cards > .col-lg-4 > div { padding-inline: calc(var(--bs-gutter-x) * .5); }
+        }
+    </style>
 {% endblock %}
 {% block javascript %}
     {% include "pets/_fresh.html" %}

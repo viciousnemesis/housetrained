@@ -706,3 +706,14 @@ class UnitsAndZoneTests(PetTestCase):
         from babybuddy import time_zones
         with override_settings(TIME_ZONE="UTC"):
             self.assertEqual(time_zones.default(), "America/New_York")
+
+
+class PhoneOrderTests(PetTestCase):
+    def test_status_activity_today_first_and_measurements_last(self):
+        """PUP-142: on a phone the cards read in their order styles."""
+        from pets.models import Measurement
+        Measurement.objects.create(pet=self.ruby, kind="weight", value=5, date=timezone.localdate())
+        page = self.client.get("/pets/ruby/").content.decode()
+        blocks = {n: page[page.index(f'style="order: {n}"'):] for n in "12367"}
+        for n, title in (("1", "Status"), ("2", "Recent activity"), ("3", "Today"), ("7", "Measurements")):
+            self.assertIn(title, blocks[n][:blocks[n].index("card-body") if "card-body" in blocks[n] else 400])
