@@ -1,23 +1,24 @@
 {% load static i18n %}
 <link rel="stylesheet" href="{% static 'pets/vendor/cropper.min.css' %}">
 <script src="{% static 'pets/vendor/cropper.min.js' %}"></script>
+<div class="mb-3 d-none" style="max-width: 28rem" id="crop-box">
+    <div style="max-height: 24rem"><img alt="" style="display:block; max-width:100%"{% if object.picture %} src="{{ object.picture.url }}"{% endif %}></div>
+    <div class="small text-body-secondary mt-1">{% trans "Drag the box onto your pet; pinch, scroll or drag the corners to resize." %}</div>
+</div>
 <script>
     (function () {
         // Pet photo framing: a square box to drag, resize and zoom. Only the box is sent; the original is kept.
         var input = document.getElementById("id_picture"), crop = document.getElementById("id_picture_crop");
         if (!input || !crop || !window.Cropper) return;
-        var box = document.createElement("div");
-        box.className = "mb-3 d-none";
-        box.style.maxWidth = "28rem";
-        box.innerHTML = '<div style="max-height: 24rem"><img alt="" style="display:block; max-width:100%"></div>' +
-            '<div class="small text-body-secondary mt-1">{% trans "Drag the box onto your pet; pinch, scroll or drag the corners to resize." %}</div>';
+        var box = document.getElementById("crop-box");
         input.closest(".col-sm-10, .row").appendChild(box);
         var img = box.querySelector("img"), cropper = null;
 
-        var start = function (src, saved) {
+        // The photo shown is either the saved one (drawn by the page) or a file just picked (a blob: address the
+        // browser makes for it); nothing from the page's text becomes an address.
+        var start = function (saved) {
             if (cropper) cropper.destroy();
             box.classList.remove("d-none");
-            img.src = src;
             cropper = new Cropper(img, {
                 aspectRatio: 1, viewMode: 1, autoCropArea: 0.9, checkOrientation: false, background: false,
                 ready: function () {
@@ -41,13 +42,16 @@
 
         input.addEventListener("change", function () {
             var file = input.files && input.files[0];
-            if (file) { crop.value = ""; start(URL.createObjectURL(file), null); }
+            if (!file || !/^image\//.test(file.type)) return;
+            crop.value = "";
+            if (cropper) { cropper.destroy(); cropper = null; }
+            img.onload = function () { img.onload = null; start(null); };
+            img.src = URL.createObjectURL(file);
         });
-        var current = "{% if object.picture %}{{ object.picture.url|escapejs }}{% endif %}";
-        if (current) {
+        if (img.getAttribute("src")) {
             var saved = null;
             try { saved = crop.value ? JSON.parse(crop.value) : null; } catch (e) { saved = null; }
-            start(current, saved);
+            start(saved);
         }
     })();
 </script>

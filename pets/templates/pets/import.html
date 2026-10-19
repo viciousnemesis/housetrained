@@ -21,19 +21,16 @@
                         <option value="{{ key }}"{% if key == kind %} selected{% endif %}>{{ k.label }}</option>
                     {% endfor %}
                 </select>
-                <a class="small ms-1" id="template-link" href="?template={{ kind }}">{% trans "Download the template" %}</a>
             </div>
+            <p class="small">{% trans "Templates:" %}
+                {% for key, k in kinds.items %}<a href="?template={{ key }}">{{ k.label }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}
+            </p>
             <div class="mb-3">
                 <label class="form-label" for="import-file">{% trans "CSV file" %}</label>
                 <input class="form-control" type="file" id="import-file" name="file" accept=".csv,text/csv" required>
             </div>
             <button class="btn btn-primary" type="submit">{% trans "Preview" %}</button>
         </form>
-        <script>
-            document.getElementById("import-kind").addEventListener("change", function () {
-                document.getElementById("template-link").href = "?template=" + this.value;
-            });
-        </script>
     {% endif %}
     {% for problem in problems %}
         <div class="alert alert-danger">{{ problem }}</div>
