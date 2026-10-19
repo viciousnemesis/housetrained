@@ -27,13 +27,12 @@ Household ──< Membership >── User
 
 ## Households
 
-**Household**: name, display units (metric or imperial), time zone default.
+**Household**: name, display units (one system, or a unit per kind), time zone default.
 **Membership**: user, household, role (owner, member, read-only).
 
 Every pet, container, product and supply item belongs to a household, and every query is filtered by it. The UI
 works with a single household for now (the user's only household, created automatically); switching between
-households can come later without reshaping the data. Baby Buddy's own tables are not household-aware, which only
-matters if baby mode is switched on.
+households can come later without reshaping the data.
 
 ## Pets
 
@@ -100,6 +99,9 @@ Food and litter are stored in grams, water in millilitres. Entry accepts g, kg, 
 or calibrated bowls. The household's display units (metric or imperial) decide what is shown.
 
 ## Migration of existing data (PUP-61)
+
+A one-time copy for installs that upgraded from Baby Buddy. Baby Buddy's tables were dropped later (PUP-145), so a
+new install has nothing to copy.
 
 | Baby Buddy | Housetrained |
 |---|---|

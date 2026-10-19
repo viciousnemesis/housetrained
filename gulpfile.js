@@ -122,27 +122,6 @@ function coverage(cb) {
 }
 
 /**
- * Builds the documentation site locally.
- */
-function docsBuild() {
-  return _runInPipenv(["mkdocs", "build"]);
-}
-
-/**
- * Deploys the documentation site to GitHub Pages.
- */
-function docsDeploy() {
-  return _runInPipenv(["mkdocs", "gh-deploy"]);
-}
-
-/**
- * Serves the documentation site, watching for changes.
- */
-function docsWatch() {
-  return _runInPipenv(["mkdocs", "serve"]);
-}
-
-/**
  * Builds and copies "extra" static files to configured paths.
  */
 function extras() {
@@ -196,7 +175,7 @@ function lint() {
  */
 function scripts() {
   const streams = [];
-  const types = ["vendor", "graph", "app", "tags_editor"];
+  const types = ["vendor", "app"];
   types.forEach((type) => {
     streams.push(
       gulp
@@ -316,28 +295,12 @@ gulp.task("collectstatic", function (cb) {
   spawn("pipenv", command, { stdio: "inherit" }).on("exit", cb);
 });
 
-gulp.task("compilemessages", () => {
-  return _runInPipenv(["python", "manage.py", "compilemessages"]);
-});
-
-gulp.task("fake", () => {
-  return _runInPipenv(["python", "manage.py", "fake"]);
-});
-
 gulp.task("migrate", () => {
   return _runInPipenv(["python", "manage.py", "migrate"]);
 });
 
-gulp.task("makemessages", () => {
-  return _runInPipenv(["python", "manage.py", "makemessages"]);
-});
-
 gulp.task("makemigrations", () => {
   return _runInPipenv(["python", "manage.py", "makemigrations"]);
-});
-
-gulp.task("reset", () => {
-  return _runInPipenv(["python", "manage.py", "reset", "--no-input"]);
 });
 
 gulp.task("runserver", function (cb) {
@@ -368,18 +331,6 @@ gulp.task("runserver", function (cb) {
   spawn("pipenv", command, { stdio: "inherit" }).on("exit", cb);
 });
 
-gulp.task("generateschema", () => {
-  return _runInPipenv([
-    "python",
-    "manage.py",
-    "generateschema",
-    "--title",
-    "Baby Buddy API",
-    "--file",
-    "openapi-schema.yml",
-  ]);
-});
-
 /**
  * Gulp commands.
  */
@@ -387,12 +338,6 @@ gulp.task("generateschema", () => {
 gulp.task("clean", clean);
 
 gulp.task("coverage", coverage);
-
-gulp.task("docs:build", docsBuild);
-
-gulp.task("docs:deploy", docsDeploy);
-
-gulp.task("docs:watch", docsWatch);
 
 gulp.task("extras", extras);
 

@@ -24,22 +24,22 @@ class AccessExpiryTestCase(APITestCase):
 
     def api_status(self):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
-        status = self.client.get(reverse("api:child-list")).status_code
+        status = self.client.get("/api/v1/pets/").status_code
         self.client.credentials()
         return status
 
     def test_access_before_expiry(self):
         self.expire_in(timezone.timedelta(hours=1))
         self.client.force_login(self.user)
-        self.assertEqual(self.client.get("/children/").status_code, 200)
+        self.assertEqual(self.client.get("/pets/").status_code, 200)
         self.client.logout()
         self.assertEqual(self.api_status(), 200)
 
     def test_expired_session_is_signed_out(self):
         self.client.force_login(self.user)
-        self.assertEqual(self.client.get("/children/").status_code, 200)
+        self.assertEqual(self.client.get("/pets/").status_code, 200)
         self.expire_in(-timezone.timedelta(minutes=1))
-        response = self.client.get("/children/")
+        response = self.client.get("/pets/")
         self.assertEqual(response.status_code, 302)
         self.assertIn("login", response.url)
         self.assertNotIn("_auth_user_id", self.client.session)
@@ -51,7 +51,7 @@ class AccessExpiryTestCase(APITestCase):
         self.expire_in(-timezone.timedelta(minutes=1))
         self.assertIn(self.api_status(), (401, 403))
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
-        response = self.client.get(reverse("api:child-list"))
+        response = self.client.get("/api/v1/pets/")
         self.assertEqual(response.data["detail"], "Your access has expired.")
 
     def test_expired_user_cannot_sign_in(self):

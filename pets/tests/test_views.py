@@ -18,7 +18,6 @@ def local(dt):
     return timezone.localtime(dt).strftime("%Y-%m-%dT%H:%M:%S")
 
 
-@override_settings(BABY_MODE=False)
 class PetTestCase(TestCase):
     def setUp(self):
         users = get_user_model().objects
@@ -236,11 +235,7 @@ class HomeTests(PetTestCase):
         Pet.objects.exclude(pk=self.ruby.pk).update(active=False)
         self.assertRedirects(self.client.get("/"), "/pets/ruby/", fetch_redirect_response=False)
 
-    @override_settings(BABY_MODE=True)
-    def test_baby_mode_home_is_still_the_family_page(self):
-        self.assertRedirects(self.client.get("/"), "/pets/", fetch_redirect_response=False)
-
-
+    
 class CardTests(PetTestCase):
     def test_age_format(self):
         today = timezone.localdate()

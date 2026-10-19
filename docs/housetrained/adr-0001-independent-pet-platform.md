@@ -34,3 +34,9 @@ We also want to:
   keep baby mode working if it is ever switched on.
 - The API gets pet endpoints of its own; Baby Buddy's endpoints stay for baby mode.
 - Pet wording is written directly in the pet templates, so the en_US translation override can be removed.
+
+## Update (PUP-145)
+
+Baby mode was dropped: Housetrained tracks pets only. Baby Buddy's baby tracking, its API, translations and Home
+Assistant support were removed and their tables dropped, so the points above about keeping baby mode working no
+longer apply.

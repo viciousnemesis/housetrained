@@ -5,11 +5,8 @@ omit =
     babybuddy/settings/*
     babybuddy/wsgi.py
 source =
-    api
     babybuddy
-    core
-    dashboard
-    reports
+    pets
 parallel = true
 concurrency = multiprocessing
 data_file = data/.coverage

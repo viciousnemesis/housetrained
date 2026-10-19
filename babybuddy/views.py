@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-import json
-
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -8,14 +6,12 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.views import LogoutView as LogoutViewBase
 from django.contrib.messages.views import SuccessMessageMixin
-from django.core.exceptions import BadRequest
 from django.forms import Form
 from django.http import HttpResponseForbidden
 from django.middleware.csrf import REASON_BAD_ORIGIN
 from django.shortcuts import redirect, render
 from django.template import loader
 from django.urls import reverse, reverse_lazy
-from django.utils import translation
 from django.utils.decorators import method_decorator
 from django.utils.text import format_lazy
 from django.utils.translation import gettext as _, gettext_lazy
@@ -33,14 +29,12 @@ from django.views.generic.edit import (
     SingleObjectTemplateResponseMixin,
     UpdateView,
 )
-from django.views.i18n import set_language
 
 from axes.utils import reset
 from django_filters.views import FilterView
 
 from babybuddy import forms
 from babybuddy.mixins import LoginRequiredMixin, PermissionRequiredMixin, StaffOnlyMixin
-from pets.context_processors import baby_mode_on
 
 
 def csrf_failure(request, reason=""):
@@ -71,13 +65,11 @@ class RootRouter(LoginRequiredMixin, RedirectView):
     """
 
     def get_redirect_url(self, *args, **kwargs):
-        # Housetrained: home is the family page; with one pet and no babies, that pet's page.
-        from core.models import Child
+        # Home is the family page; with one pet, that pet's page.
         from pets.households import current_household
 
         pets = current_household(self.request.user).pets.filter(active=True)
-        babies = baby_mode_on() and Child.objects.exists()
-        single = pets.first() if pets.count() == 1 and not babies else None
+        single = pets.first() if pets.count() == 1 else None
         self.url = reverse("pets:pet", args=[single.slug]) if single else reverse("pets:household")
         return super(RootRouter, self).get_redirect_url(self, *args, **kwargs)
 
@@ -90,13 +82,6 @@ class BabyBuddyFilterView(FilterView):
 
     # TODO Figure out the correct way to use this.
     strict = False
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        children = {o.child for o in context["object_list"] if hasattr(o, "child")}
-        if len(children) == 1:
-            context["unique_child"] = True
-        return context
 
 
 class BabyBuddyPaginatedView(View):
@@ -250,60 +235,10 @@ class UserSettings(LoginRequiredMixin, View):
             user_settings = form_settings.save(commit=False)
             user.settings = user_settings
             user.save()
-            translation.activate(user.settings.language)
             messages.success(request, _("Settings saved!"))
-            translation.deactivate()
-            return set_language(request)
+            return redirect("babybuddy:user-settings")
         return render(
             request,
             self.template_name,
             {"user_form": form_user, "settings_form": form_settings},
         )
-
-
-class UserAddDevice(LoginRequiredMixin, View):
-    form_user_class = forms.UserForm
-    template_name = "babybuddy/user_add_device.html"
-    qr_code_template = "babybuddy/login_qr_code.txt"
-
-    def get(self, request):
-        # Assemble qr_code json-data. For Home Assistant ingress support, we
-        # also need to extract the ingress_session token to allow an external
-        # app to authenticate with home assistant so it can reach baby buddy
-        session_cookies = {}
-        if request.is_homeassistant_ingress_request:
-            session_cookies["ingress_session"] = request.COOKIES.get("ingress_session")
-
-        qr_code_response = render(
-            request,
-            self.qr_code_template,
-            {"session_cookies": json.dumps(session_cookies)},
-        )
-        qr_code_data = qr_code_response.content.decode().strip()
-
-        # Now that the qr_code json-data is assembled, we can pass the json
-        # structure as data to the user_add_device - template where it will
-        # be converted into a qr-code.
-        return render(
-            request,
-            self.template_name,
-            {
-                "form_user": self.form_user_class(instance=request.user),
-                "qr_code_data": qr_code_data,
-            },
-        )
-
-    def post(self, request):
-        if handle_api_regenerate_request(request):
-            return redirect("babybuddy:user-add-device")
-        else:
-            raise BadRequest()
-
-
-class Welcome(LoginRequiredMixin, TemplateView):
-    """
-    Basic introduction to Baby Buddy (meant to be shown when no data is in the
-    database).
-    """
-
-    template_name = "babybuddy/welcome.html"

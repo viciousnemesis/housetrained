@@ -31,10 +31,6 @@ ALLOWED_HOSTS = [x.strip() for x in os.environ.get("ALLOWED_HOSTS", "").split(",
 SECRET_KEY = os.environ.get("SECRET_KEY") or None
 DEBUG = bool(strtobool(os.environ.get("DEBUG") or "False"))
 
-# Housetrained: Baby Buddy's baby-tracking menus and home page only show in baby mode (PUP-49).
-BABY_MODE = bool(strtobool(os.environ.get("BABY_MODE") or "False"))
-# Babies belong to households: Baby Buddy's pages and API only show the signed-in user's household's babies.
-BABY_HOUSEHOLDS = True
 # Reminders (browser push): checked by the web server every few minutes. PUSH_CONTACT goes in each push
 # message so push services can reach the operator (a mailto: or https: address).
 HOUSETRAINED_REMINDERS = bool(strtobool(os.environ.get("REMINDERS") or "True"))
@@ -47,22 +43,15 @@ HOUSETRAINED_SOURCE_URL = os.environ.get("HOUSETRAINED_SOURCE_URL", "https://git
 # https://docs.djangoproject.com/en/5.0/ref/applications/
 
 INSTALLED_APPS = [
-    "api",
     "babybuddy.apps.BabyBuddyConfig",
-    "core.apps.CoreConfig",
     "corsheaders",
-    "dashboard",
     "pets.apps.PetsConfig",
-    "reports",
     "axes",
     "django_filters",
     "rest_framework",
     "rest_framework.authtoken",
     "widget_tweaks",
     "imagekit",
-    "storages",
-    "import_export",
-    "qr_code",
     "dbsettings",
     "django.contrib.admin",
     "django.contrib.auth",
@@ -77,19 +66,14 @@ INSTALLED_APPS = [
 # https://docs.djangoproject.com/en/5.0/ref/middleware/
 
 MIDDLEWARE = [
-    "babybuddy.middleware.HomeAssistant",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "babybuddy.middleware.RollingSessionMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "pets.scope.HouseholdScopeMiddleware",
     "babybuddy.middleware.UserTimezoneMiddleware",
-    "django.middleware.locale.LocaleMiddleware",
-    "babybuddy.middleware.UserLanguageMiddleware",
     "pets.clock.ClockMiddleware",
-    "pets.middleware.BabyApiGate",
     "pets.reminders.ReminderMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -120,7 +104,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "pets.context_processors.baby_mode",
+                "pets.context_processors.pets",
             ],
         },
     },
@@ -175,7 +159,6 @@ WSGI_APPLICATION = "babybuddy.wsgi.application"
 AUTHENTICATION_BACKENDS = [
     "axes.backends.AxesBackend",
     "django.contrib.auth.backends.ModelBackend",
-    "pets.permissions.HouseholdRoleBackend",
 ]
 
 LOGIN_REDIRECT_URL = "babybuddy:root-router"
@@ -207,40 +190,7 @@ USE_I18N = True
 
 LANGUAGE_CODE = "en-US"
 
-LOCALE_PATHS = [
-    os.path.join(BASE_DIR, "locale"),
-]
-
-LANGUAGES = [
-    ("pt-BR", _("Brazilian Portuguese")),
-    ("ca", _("Catalan")),
-    ("hr", _("Croatian")),
-    ("cs", _("Czech")),
-    ("zh-hans", _("Chinese (simplified)")),
-    ("zh-hant", _("Chinese (traditional)")),
-    ("zh-tw", _("Chinese (Taiwan)")),
-    ("da", _("Danish")),
-    ("nl", _("Dutch")),
-    ("en-US", _("English (US)")),
-    ("en-GB", _("English (UK)")),
-    ("fr", _("French")),
-    ("fi", _("Finnish")),
-    ("de", _("German")),
-    ("he", _("Hebrew")),
-    ("hu", _("Hungarian")),
-    ("it", _("Italian")),
-    ("ko", _("Korean")),
-    ("ja", _("Japanese")),
-    ("nb", _("Norwegian Bokmål")),
-    ("pl", _("Polish")),
-    ("pt", _("Portuguese")),
-    ("ru", _("Russian")),
-    ("sr", _("Serbian")),
-    ("es", _("Spanish")),
-    ("sv", _("Swedish")),
-    ("tr", _("Turkish")),
-    ("uk", _("Ukrainian")),
-]
+LANGUAGES = [("en-US", _("English"))]  # English only for now
 
 
 # Format localization
@@ -283,17 +233,6 @@ WHITENOISE_ROOT = os.path.join(BASE_DIR, "static", "babybuddy", "root")
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 MEDIA_URL = "media/"
-
-AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME") or None
-
-AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID") or None
-
-AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY") or None
-
-AWS_S3_ENDPOINT_URL = os.environ.get("AWS_S3_ENDPOINT_URL") or None
-
-if AWS_STORAGE_BUCKET_NAME:
-    STORAGES["default"]["BACKEND"] = "storages.backends.s3boto3.S3Boto3Storage"
 
 
 # Email
@@ -368,29 +307,19 @@ if os.environ.get("CORS_ALLOWED_ORIGINS"):
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
-        "api.authentication.TokenAuthentication",
+        "babybuddy.authentication.TokenAuthentication",
     ],
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
         "rest_framework.filters.OrderingFilter",
     ],
-    "DEFAULT_METADATA_CLASS": "api.metadata.APIMetadata",
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
-    "DEFAULT_PERMISSION_CLASSES": ["api.permissions.BabyBuddyDjangoModelPermissions"],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
     "PAGE_SIZE": 100,
 }
-
-# Import/Export configuration
-# See https://django-import-export.readthedocs.io/
-
-IMPORT_EXPORT_IMPORT_PERMISSION_CODE = "add"
-
-IMPORT_EXPORT_EXPORT_PERMISSION_CODE = "change"
-
-IMPORT_EXPORT_USE_TRANSACTIONS = True
 
 # Axes configuration
 # See https://django-axes.readthedocs.io/en/latest/4_configuration.html
@@ -418,17 +347,3 @@ ROLLING_SESSION_REFRESH = 86400
 
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
-# Baby Buddy configuration
-# See https://docs.baby-buddy.net/ for details about these settings.
-
-BABY_BUDDY = {
-    "ALLOW_UPLOADS": bool(strtobool(os.environ.get("ALLOW_UPLOADS") or "True")),
-    "READ_ONLY_GROUP_NAME": "read_only",
-    "CAREGIVER_GROUP_NAME": "caregiver",
-}
-
-# Home assistant specific configuration
-
-ENABLE_HOME_ASSISTANT_SUPPORT = bool(
-    strtobool(os.environ.get("ENABLE_HOME_ASSISTANT_SUPPORT") or "False")
-)

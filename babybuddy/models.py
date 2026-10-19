@@ -68,47 +68,6 @@ class Settings(models.Model):
             ),
         ],
     )
-    dashboard_hide_empty = models.BooleanField(
-        verbose_name=_("Hide Empty Dashboard Cards"), default=False, editable=True
-    )
-    dashboard_hide_age = models.DurationField(
-        verbose_name=_("Hide data older than"),
-        help_text=_(
-            "This setting controls which data will be shown " "in the dashboard."
-        ),
-        blank=True,
-        null=True,
-        default=None,
-        choices=[
-            (None, _("show all data")),
-            (
-                timezone.timedelta(days=1),
-                ngettext_lazy("%(days)d day", "%(days)d days", 1) % {"days": 1},
-            ),
-            (
-                timezone.timedelta(days=2),
-                ngettext_lazy("%(days)d day", "%(days)d days", 2) % {"days": 2},
-            ),
-            (
-                timezone.timedelta(days=3),
-                ngettext_lazy("%(days)d day", "%(days)d days", 3) % {"days": 3},
-            ),
-            (
-                timezone.timedelta(weeks=1),
-                ngettext_lazy("%(weeks)d week", "%(weeks)d weeks", 1) % {"weeks": 1},
-            ),
-            (
-                timezone.timedelta(weeks=4),
-                ngettext_lazy("%(weeks)d week", "%(weeks)d weeks", 4) % {"weeks": 4},
-            ),
-        ],
-    )
-    language = models.CharField(
-        choices=settings.LANGUAGES,
-        default=settings.LANGUAGE_CODE,
-        max_length=255,
-        verbose_name=_("Language"),
-    )
     timezone = models.CharField(
         choices=sorted(
             tuple(zip(zoneinfo.available_timezones(), zoneinfo.available_timezones()))

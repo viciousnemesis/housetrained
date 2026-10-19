@@ -6,7 +6,7 @@ from pets.models import Container, Fill, Meal, Measurement, PottyBreak, Sleep, W
 from pets.tests.test_views import PetTestCase
 
 
-@override_settings(BABY_MODE=False, TIME_ZONE="UTC")
+@override_settings(TIME_ZONE="UTC")
 class ImportTests(PetTestCase):
     def upload(self, kind, text, confirm=False):
         response = self.client.post("/pets/setup/import/", {"kind": kind, "file": SimpleUploadedFile("x.csv", text.encode())})

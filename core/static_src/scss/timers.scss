@@ -1,7 +1,0 @@
-@use 'sass:map';
-
-#timer-status {
-    &.timer-stopped {
-        color: map.get($theme-colors, 'dark');
-    }
-}

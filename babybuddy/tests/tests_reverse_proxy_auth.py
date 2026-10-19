@@ -15,8 +15,8 @@ class ReverseProxyAuthTestCase(TestCase):
     def test_remote_user_authentication_disabled(self):
         call_command("migrate", verbosity=0)
         c = HttpClient()
-        response = c.get("/welcome/", HTTP_REMOTE_USER="admin", follow=True)
-        self.assertRedirects(response, "/login/?next=/welcome/")
+        response = c.get("/user/settings/", HTTP_REMOTE_USER="admin", follow=True)
+        self.assertRedirects(response, "/login/?next=/user/settings/")
 
     @modify_settings(
         MIDDLEWARE={"append": "babybuddy.middleware.CustomRemoteUser"},
@@ -27,5 +27,5 @@ class ReverseProxyAuthTestCase(TestCase):
     def test_remote_user_authentication_enabled(self):
         call_command("migrate", verbosity=0)
         c = HttpClient()
-        response = c.get("/welcome/", HTTP_REMOTE_USER="admin")
+        response = c.get("/user/settings/", HTTP_REMOTE_USER="admin")
         self.assertEqual(response.status_code, 200)

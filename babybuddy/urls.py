@@ -35,7 +35,6 @@ app_patterns = [
         name="password_reset_complete",
     ),
     path("", views.RootRouter.as_view(), name="root-router"),
-    path("welcome/", views.Welcome.as_view(), name="welcome"),
     path("users/", views.UserList.as_view(), name="user-list"),
     path("users/add/", views.UserAdd.as_view(), name="user-add"),
     path("users/<int:pk>/edit/", views.UserUpdate.as_view(), name="user-update"),
@@ -43,20 +42,14 @@ app_patterns = [
     path("users/<int:pk>/delete/", views.UserDelete.as_view(), name="user-delete"),
     path("user/password/", views.UserPassword.as_view(), name="user-password"),
     path("user/settings/", views.UserSettings.as_view(), name="user-settings"),
-    path("user/add-device/", views.UserAddDevice.as_view(), name="user-add-device"),
     path("settings/", include("dbsettings.urls")),
 ]
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("pets.api")),
-    path("", include("api.urls", namespace="api")),
     path("", include((app_patterns, "babybuddy"), namespace="babybuddy")),
-    path("user/lang", include("django.conf.urls.i18n")),
-    path("", include("core.urls", namespace="core")),
     path("", include("pets.urls", namespace="pets")),
-    path("", include("dashboard.urls", namespace="dashboard")),
-    path("", include("reports.urls", namespace="reports")),
 ]
 
 if settings.DEBUG:  # pragma: no cover

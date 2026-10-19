@@ -22,7 +22,7 @@ def photo(width=1200, height=800):
     return SimpleUploadedFile("dog.jpg", out.getvalue(), content_type="image/jpeg")
 
 
-@override_settings(MEDIA_ROOT=MEDIA, BABY_MODE=False)
+@override_settings(MEDIA_ROOT=MEDIA)
 class PictureTests(PetTestCase):
     @classmethod
     def tearDownClass(cls):

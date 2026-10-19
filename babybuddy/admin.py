@@ -14,14 +14,8 @@ class SettingsInline(admin.StackedInline):
     can_delete = False
     fieldsets = (
         (
-            _("Dashboard"),
-            {
-                "fields": (
-                    "dashboard_refresh_rate",
-                    "dashboard_hide_empty",
-                    "dashboard_hide_age",
-                )
-            },
+            _("Pages"),
+            {"fields": ("dashboard_refresh_rate",)},
         ),
     )
 

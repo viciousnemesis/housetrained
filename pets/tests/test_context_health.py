@@ -9,7 +9,7 @@ from pets.models import AccidentSpot, PottyBreak
 from pets.tests.test_views import PetTestCase
 
 
-@override_settings(BABY_MODE=False, TIME_ZONE="UTC")
+@override_settings(TIME_ZONE="UTC")
 class AccidentContextTests(PetTestCase):
     def setUp(self):
         super().setUp()
@@ -50,7 +50,7 @@ class AccidentContextTests(PetTestCase):
         self.assertContains(self.client.get("/pets/ruby/progress/"), "Dining rug")
 
 
-@override_settings(BABY_MODE=False, TIME_ZONE="UTC")
+@override_settings(TIME_ZONE="UTC")
 class HealthTests(PetTestCase):
     def add(self, **data):
         base = {"pets": [self.ruby.pk], "time": self.now, "location": "outside"}

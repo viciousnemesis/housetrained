@@ -7,11 +7,10 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from babybuddy.widgets import DateInput, DateTimeInput, TimeInput
-from core.widgets import PillRadioSelect
 
 from . import units
 from .models import AccidentSpot, Container, Fill, Household, Meal, Measurement, Note, Pet, PottyBreak, Product, Sleep, SupplyItem, Walk
-from .widgets import PetCheckboxSelect, PetRadioSelect, PillCheckboxSelect
+from .widgets import PetCheckboxSelect, PetRadioSelect, PillCheckboxSelect, PillRadioSelect
 
 
 class PetsForm(forms.ModelForm):

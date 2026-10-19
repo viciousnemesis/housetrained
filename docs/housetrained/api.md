@@ -1,6 +1,6 @@
 # API
 
-Housetrained's own API lives at `/api/v1/`. Baby Buddy's API at `/api/` only answers in baby mode.
+Housetrained's API lives at `/api/v1/`.
 
 - Sign in with a session or the API key from user settings: `Authorization: Token <key>`.
 - Everything is scoped to your household. Anyone in the household can read; owners and members can write;

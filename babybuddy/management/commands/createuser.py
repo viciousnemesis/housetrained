@@ -12,8 +12,7 @@ Example usage:
 import sys
 import getpass
 
-from django.conf import settings
-from django.contrib.auth import get_user_model, models
+from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core import exceptions
 from django.core.management.base import BaseCommand, CommandError
@@ -53,47 +52,16 @@ class Command(BaseCommand):
             help="Specifies the password for the user. Optional.",
         )
         parser.add_argument(
-            "--read-only",
-            action="store_true",
-            default=False,
-            help="Specifies read-only privileges for the user. Default is False.",
-        )
-        parser.add_argument(
-            "--caregiver",
-            action="store_true",
-            default=False,
-            help=(
-                "Specifies caregiver privileges for the user: add and edit "
-                "care entries (feedings, diaper changes, sleep, timers, "
-                "medication, temperature, weight, notes and tummy time) for "
-                "every child, without access to pumping, height, BMI, head "
-                "circumference, user management or settings. Default is False."
-            ),
-        )
-        parser.add_argument(
             "--is-staff",
             dest="is_staff",
             action="store_true",
             default=False,
-            help="Specifies the staff status for the user. Default is False.",
+            help="Makes the user a site admin (accounts, households, site settings). Default is False.",
         )
 
     def handle(self, *args, **options):
         username = options.get(self.UserModel.USERNAME_FIELD)
         password = options.get("password")
-        is_read_only = options.get("read_only")
-        is_caregiver = options.get("caregiver")
-
-        if is_read_only and is_caregiver:
-            raise CommandError(
-                "A user cannot be both read-only and caregiver. "
-                "Choose one of --read-only or --caregiver."
-            )
-        if is_caregiver and options.get("is_staff"):
-            raise CommandError(
-                "A user cannot be both staff and caregiver. "
-                "Choose one of --is-staff or --caregiver."
-            )
 
         user_data = {}
         user_password = options.get("password")
@@ -140,21 +108,9 @@ class Command(BaseCommand):
                 DEFAULT_DB_ALIAS
             ).create_user(**user_data, password=user_password)
             user.email = options.get("email")
-            user.is_staff = options.get("is_staff")
-
-            if is_read_only or is_caregiver:
-                user.is_superuser = False
-                user.save()
-                group_name = (
-                    settings.BABY_BUDDY["READ_ONLY_GROUP_NAME"]
-                    if is_read_only
-                    else settings.BABY_BUDDY["CAREGIVER_GROUP_NAME"]
-                )
-                group = models.Group.objects.get(name=group_name)
-                user.groups.add(group)
-            else:
-                user.is_superuser = True
-                user.save()
+            # What someone can do in their household is set under Setup > Members; a site admin can do everything.
+            user.is_staff = user.is_superuser = bool(options.get("is_staff"))
+            user.save()
 
             if options.get("verbosity") > 0:
                 self.stdout.write(f"User {username} created successfully.")

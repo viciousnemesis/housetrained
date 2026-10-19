@@ -11,7 +11,7 @@ from pets.models import NotificationPreference, PottyBreak, PushSubscription
 from pets.tests.test_views import PetTestCase
 
 
-@override_settings(BABY_MODE=False, TIME_ZONE="UTC")
+@override_settings(TIME_ZONE="UTC")
 class ProgressTests(PetTestCase):
     def potty(self, days_ago, hours=0, inside=False):
         return PottyBreak.objects.create(pet=self.ruby, pee=True, time=timezone.now() - datetime.timedelta(days=days_ago, hours=hours),

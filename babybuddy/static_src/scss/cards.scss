@@ -1,0 +1,31 @@
+// The cards on every page (kept from Baby Buddy's dashboard).
+%card-header-text {
+    font-size: $h4-font-size;
+    font-weight: $headings-font-weight;
+    line-height: $headings-line-height;
+}
+
+.card-dashboard {
+    margin-bottom: $spacer;
+
+    .card-header {
+        @extend %card-header-text;
+        margin-bottom: 0;
+    }
+
+    .card-body {
+        .card-title {
+            @extend %card-header-text;
+        }
+
+        .card-text {
+            color: $text-muted;
+        }
+    }
+
+    .list-group {
+        .list-group-item {
+            color: $white;
+        }
+    }
+}

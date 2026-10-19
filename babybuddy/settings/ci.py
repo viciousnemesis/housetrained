@@ -10,5 +10,3 @@ STORAGES["staticfiles"][
     "BACKEND"
 ] = "django.contrib.staticfiles.storage.StaticFilesStorage"
 
-DEFAULT_ADMIN_PASSWORD = "admin"  # Baby Buddy's tests sign in as admin/admin
-BABY_HOUSEHOLDS = False  # Baby Buddy's tests create babies outside any household

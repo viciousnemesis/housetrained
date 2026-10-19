@@ -21,7 +21,7 @@
                         {% thumbnail '300x300' pet.card_picture as thumb %}
                             <img src="{{ thumb.url }}" class="card-img-top" alt="" style="height: 12rem; object-fit: cover">
                         {% elif pet.type == "dog" %}
-                            <img src="{% static 'babybuddy/img/core/child-placeholder.png' %}" class="card-img-top" alt="" style="height: 12rem; object-fit: contain">
+                            <img src="{% static 'pets/img/pet-placeholder.png' %}" class="card-img-top" alt="" style="height: 12rem; object-fit: contain">
                         {% else %}
                             <div class="card-img-top d-flex align-items-center justify-content-center bg-body-tertiary" style="height: 12rem">
                                 <img src="{% static 'babybuddy/logo/icon.png' %}" alt="" style="width: 5rem; height: 5rem">
@@ -36,29 +36,7 @@
                     </a>
                 </div>
             {% empty %}
-                {% if not babies %}
-                    <p>{% trans "No pets yet." %} {% if pets_can_edit %}<a href="{% url 'pets:add' 'pet' %}">{% trans "Add your first pet" %}</a>{% endif %}</p>
-                {% endif %}
-            {% endfor %}
-            {% for baby in babies %}
-                <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
-                    <a class="card text-reset text-decoration-none h-100" href="{% url 'dashboard:dashboard-child' baby.slug %}">
-                        {% if baby.picture %}
-                            {% thumbnail '300x300' baby.picture as thumb %}
-                            <img src="{{ thumb.url }}" class="card-img-top" alt="" style="height: 12rem; object-fit: cover">
-                        {% else %}
-                            <div class="card-img-top d-flex align-items-center justify-content-center bg-body-tertiary fs-1" style="height: 12rem">
-                                <i class="icon-child" aria-hidden="true"></i>
-                            </div>
-                        {% endif %}
-                        <div class="card-body text-center">
-                            <h4 class="card-title">{{ baby.first_name }} {{ baby.last_name }}</h4>
-                            <div class="card-text text-body-secondary">
-                                {% trans "Baby" %}{% if baby.birth_date %} · {{ baby.birth_date|pet_age }}{% endif %}
-                            </div>
-                        </div>
-                    </a>
-                </div>
+                <p>{% trans "No pets yet." %} {% if pets_can_edit %}<a href="{% url 'pets:add' 'pet' %}">{% trans "Add your first pet" %}</a>{% endif %}</p>
             {% endfor %}
         </div>
     {% endblock %}

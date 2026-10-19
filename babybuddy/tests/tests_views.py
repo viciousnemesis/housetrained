@@ -8,7 +8,6 @@ from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.management import call_command
 
-from faker import Faker
 
 from babybuddy.views import UserUnlock
 
@@ -17,15 +16,12 @@ class ViewsTestCase(TestCase):
     @classmethod
     def setUpClass(cls):
         super(ViewsTestCase, cls).setUpClass()
-        fake = Faker()
         call_command("migrate", verbosity=0)
 
         cls.c = HttpClient()
-
-        fake_user = fake.simple_profile()
         cls.credentials = {
-            "username": fake_user["username"],
-            "password": fake.password(),
+            "username": "viewsuser",
+            "password": "Pw-for-viewsuser-tests",
         }
         cls.user = get_user_model().objects.create_user(
             is_superuser=True, email="admin@admin.admin", **cls.credentials
@@ -61,13 +57,6 @@ class ViewsTestCase(TestCase):
         self.assertEqual(page.status_code, 200)
         self.assertNotEqual(str(self.user.settings.api_key()), original_key)
 
-    def test_add_device_page(self):
-        page = self.c.get("/user/add-device/")
-        self.assertRegex(
-            page.content.decode(),
-            r""".*<div [^>]* data-qr-code-content="[^"]+"[^>]*>.*""",
-        )
-
     def test_user_views(self):
         # Staff setting is required to access user management.
         page = self.c.get("/users/")
@@ -99,10 +88,6 @@ class ViewsTestCase(TestCase):
         page = self.c.post(url, follow=True)
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, UserUnlock.success_message)
-
-    def test_welcome(self):
-        page = self.c.get("/welcome/")
-        self.assertEqual(page.status_code, 200)
 
     def test_logout_get_fails(self):
         page = self.c.get("/logout/")
@@ -151,12 +136,10 @@ class ErrorPageTestCase(TestCase):
     @classmethod
     def setUpClass(cls):
         super(ErrorPageTestCase, cls).setUpClass()
-        fake = Faker()
         cls.c = HttpClient()
-        fake_user = fake.simple_profile()
         cls.credentials = {
-            "username": fake_user["username"],
-            "password": fake.password(),
+            "username": "resetuser",
+            "password": "Pw-for-resetuser-tests",
         }
         get_user_model().objects.create_user(is_superuser=True, **cls.credentials)
 

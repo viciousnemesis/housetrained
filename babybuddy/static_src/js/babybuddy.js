@@ -75,3 +75,22 @@ BabyBuddy.RememberAdvancedToggle = function (ptr) {
     });
   });
 })();
+
+/* Page refresh (kept from Baby Buddy's dashboard): reloads the page every
+ * `refresh_rate` milliseconds while it's showing, and when it gets focus. */
+BabyBuddy.Dashboard = (function () {
+  var Dashboard = {
+    watch: function (element_id, refresh_rate) {
+      window.addEventListener("focus", Dashboard.update, false);
+      if (refresh_rate) {
+        setInterval(function () {
+          if (!document.hidden) Dashboard.update();
+        }, refresh_rate);
+      }
+    },
+    update: function () {
+      location.reload();
+    },
+  };
+  return Dashboard;
+})();

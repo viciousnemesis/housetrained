@@ -2,7 +2,6 @@
 
 from django import template
 from django.apps import apps
-from django.conf import settings
 from django.utils import timezone
 from django.utils.functional import lazy
 from django.utils.html import format_html
@@ -12,10 +11,15 @@ from django.utils.translation import to_locale, get_language, gettext_lazy as _
 from axes.helpers import get_lockout_message
 from axes.models import AccessAttempt
 
-from core.models import Child
-
 register = template.Library()
 mark_safe_lazy = lazy(mark_safe, str)
+
+
+@register.filter()
+def bool_icon(value):
+    """A tick or a cross."""
+    classes = "icon-true text-success" if value else "icon-false text-danger"
+    return mark_safe(f'<i class="{classes}" aria-hidden="true"></i>')
 
 
 @register.simple_tag
@@ -62,11 +66,6 @@ def get_current_locale():
 
 
 @register.simple_tag()
-def get_child_count():
-    return Child.count()
-
-
-@register.simple_tag()
 def get_current_timezone():
     return timezone.get_current_timezone_name()
 
@@ -81,16 +80,6 @@ def make_absolute_url(context, url):
 @register.simple_tag()
 def user_is_locked(user):
     return AccessAttempt.objects.filter(username=user.username).exists()
-
-
-@register.simple_tag()
-def user_is_read_only(user):
-    return user.groups.filter(name=settings.BABY_BUDDY["READ_ONLY_GROUP_NAME"]).exists()
-
-
-@register.simple_tag()
-def user_is_caregiver(user):
-    return user.groups.filter(name=settings.BABY_BUDDY["CAREGIVER_GROUP_NAME"]).exists()
 
 
 @register.simple_tag()

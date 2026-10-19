@@ -35,7 +35,6 @@ def make_household(name, username):
     }
 
 
-@override_settings(BABY_MODE=False)
 class HouseholdIsolationTests(TestCase):
     KINDS = ["potty", "walk", "sleep", "fill", "meal", "measurement", "note", "pet", "container", "product", "supply"]
 
@@ -150,7 +149,6 @@ class ApiIsolationTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
-@override_settings(BABY_MODE=False)
 class MemberTests(TestCase):
     def setUp(self):
         self.mine = make_household("Mine", "me")
@@ -200,23 +198,19 @@ class MemberTests(TestCase):
         self.assertFalse(Household.objects.filter(pk=own.pk).exists())
 
 
-class BabyApiGateTests(TestCase):
+class BabyBuddyIsGoneTests(TestCase):
+    """PUP-145: Baby Buddy's API and pages are gone; the pet API stays."""
+
     def setUp(self):
         self.api = APIClient()
         self.api.force_authenticate(get_user_model().objects.create_superuser("siteadmin", password="x"))
 
-    @override_settings(BABY_MODE=False)
-    def test_baby_api_is_off_in_pet_mode(self):
-        for path in ("/api/", "/api/children/", "/api/changes/", "/api/schema"):
+    def test_only_the_pet_api(self):
+        for path in ("/api/", "/api/children/", "/api/changes/", "/api/schema", "/children/", "/dashboard/"):
             self.assertEqual(self.api.get(path).status_code, 404, path)
         self.assertEqual(self.api.get("/api/v1/").status_code, 200)
 
-    @override_settings(BABY_MODE=True)
-    def test_baby_api_works_in_baby_mode(self):
-        self.assertEqual(self.api.get("/api/children/").status_code, 200)
 
-
-@override_settings(BABY_HOUSEHOLDS=True)
 class UserFormTests(TestCase):
     def setUp(self):
         self.admin = get_user_model().objects.create_superuser("siteadmin", password="x")

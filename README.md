@@ -6,11 +6,10 @@ Track your pets' potty breaks, walks, meals, water, sleep and supplies, and foll
 set, with a coach that suggests changes from the accidents. Built for puppy house-training first, and works for
 cats and other pets too. Self-hosted, private, works on phones.
 
-**One household per install**, and **English only** for now (Baby Buddy's own pages keep their translations).
+**One household per install**, and **English only** for now.
 
-Housetrained is a fork of [Baby Buddy](https://github.com/babybuddy/babybuddy). New puppy *and* a new baby?
-Turn on baby mode and track both in one place: babies sit next to the pets on the home page, with all of
-Baby Buddy's baby tracking (feedings, diapers, sleep, pumping, growth) under the Baby menu.
+Housetrained started as a fork of [Baby Buddy](https://github.com/babybuddy/babybuddy) and has gone its own way:
+it tracks pets only.
 
 <p align="center">
   <img src="docs/screenshots/pet-dark.jpg" width="73.5%" alt="A pet's page on a computer">
@@ -83,12 +82,11 @@ docker compose exec -w /app/www/public housetrained /lsiopy/bin/python3 manage.p
 | `SECURE_PROXY_SSL_HEADER` | `True` behind a reverse proxy that handles HTTPS; cookies then go over HTTPS only |
 | `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` | Override the cookie setting above (`False` to also sign in over plain HTTP) |
 | `ADMIN_PASSWORD` | Password for the first admin (otherwise random, shown once in the log) |
-| `BABY_MODE` | `True` to track babies alongside pets (also a switch in Site Settings) |
 | `PUSH_CONTACT` | Your `mailto:` address, sent with notifications so push services can reach you |
 | `REMINDERS` | `False` to stop the server sending reminders |
 | `HOUSETRAINED_SOURCE_URL` | Link shown as "Source Code" in the user menu |
 
-Baby Buddy's other settings (database, email, sign-in options) still work; see
+Database, email and reverse-proxy sign-in settings (`DB_*`, `EMAIL_*`, `REVERSE_PROXY_AUTH`) work as in
 [Baby Buddy's configuration docs](https://docs.baby-buddy.net/configuration/environment/). Security notes:
 [docs/housetrained/security.md](docs/housetrained/security.md).
 
@@ -148,5 +146,4 @@ If Housetrained helps, you can [buy me a coffee](https://buymeacoffee.com/brando
 ## License and credits
 
 BSD 2-Clause, see [LICENSE](LICENSE). Built on [Baby Buddy](https://github.com/babybuddy/babybuddy) by its
-contributors; icons and other third-party parts are listed in [NOTICE.md](NOTICE.md). Baby Buddy's original
-README is in [docs/babybuddy-README.md](docs/babybuddy-README.md).
+contributors; icons and other third-party parts are listed in [NOTICE.md](NOTICE.md).

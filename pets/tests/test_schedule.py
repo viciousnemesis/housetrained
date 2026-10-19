@@ -22,7 +22,7 @@ LA = zoneinfo.ZoneInfo("America/Los_Angeles")
 MIN = datetime.timedelta(minutes=1)
 
 
-@override_settings(TIME_ZONE="America/Los_Angeles", BABY_MODE=False)
+@override_settings(TIME_ZONE="America/Los_Angeles")
 class ScheduleTests(TestCase):
     def setUp(self):
         timezone.activate(LA)

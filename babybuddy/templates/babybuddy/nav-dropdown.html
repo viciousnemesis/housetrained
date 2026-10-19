@@ -1,5 +1,5 @@
 {% extends "babybuddy/base.html" %}
-{% load babybuddy i18n pets_tags static timers %}
+{% load babybuddy i18n pets_tags static %}
 {% block nav %}
     <nav class="navbar navbar-expand-md navbar bg-dark sticky-top flex-wrap" data-bs-theme="dark">
         <div class="container-fluid">
@@ -16,88 +16,6 @@
 
                 <div class="d-lg-none d-md-none d-flex me-auto p-0 ms-2 gap-3">
                 </div>
-            {% if baby_mode %}
-            <div class="d-lg-none d-md-none d-flex me-auto p-0 ms-2">
-                <div>
-                    <a class="text-body-secondary"
-                       href="{% url 'dashboard:dashboard' %}"
-                       aria-expanded="false"><i class="icon-2x icon-dashboard"
-   aria-hidden="true"></i>
-                    </a>
-                    &nbsp;
-                </div>
-                <div>
-                    <a class="text-body-secondary"
-                       href="{% url 'core:timeline' %}"
-                       aria-expanded="false"><i class="icon-2x icon-timeline"
-   aria-hidden="true"></i>
-                    </a>
-                    &nbsp;
-                </div>
-            </div>
-            <div class="d-lg-none d-md-none d-flex ms-auto p-0 me-2">
-                {% quick_timer_nav %}
-                <div class="dropdown show">
-                    <a class="text-success"
-                       href="#"
-                       role="button"
-                       id="nav-quick-add-link"
-                       data-bs-toggle="dropdown"
-                       aria-haspopup="true"
-                       aria-expanded="false"><i class="icon-2x icon-add" aria-hidden="true"></i>
-                    </a>
-                    <div class="dropdown-menu dropdown-menu-end"
-                         aria-labelledby="nav-quick-add-link">
-                        {% if perms.core.add_diaperchange %}
-                            <a class="dropdown-item p-2" href="{% url 'core:diaperchange-add' %}">
-                                <i class="icon-diaperchange" aria-hidden="true"></i>
-                                {% trans "Diaper Change" %}
-                            </a>
-                        {% endif %}
-                        {% if perms.core.add_feeding %}
-                            <a class="dropdown-item p-2" href="{% url 'core:feeding-add' %}">
-                                <i class="icon-feeding" aria-hidden="true"></i>
-                                {% trans "Feeding" %}
-                            </a>
-                            <a class="dropdown-item p-2" href="{% url 'core:bottle-feeding-add' %}">
-                                <i class="icon-feeding" aria-hidden="true"></i>
-                                {% trans "Bottle Feeding" %}
-                            </a>
-                        {% endif %}
-                        {% if perms.core.add_medication %}
-                            <a class="dropdown-item p-2" href="{% url 'core:medication-add' %}">
-                                <i class="icon-medication" aria-hidden="true"></i>
-                                {% trans "Medication" %}
-                            </a>
-                        {% endif %}
-                        {% if perms.core.add_pumping %}
-                            <a class="dropdown-item p-2" href="{% url 'core:pumping-add' %}">
-                                <i class="icon-pumping" aria-hidden="true"></i>
-                                {% trans "Pumping" %}
-                            </a>
-                        {% endif %}
-                        {% if perms.core.add_note %}
-                            <a class="dropdown-item p-2" href="{% url 'core:note-add' %}">
-                                <i class="icon-note" aria-hidden="true"></i>
-                                {% trans "Note" %}
-                            </a>
-                        {% endif %}
-                        {% if perms.core.add_sleep %}
-                            <a class="dropdown-item p-2" href="{% url 'core:sleep-add' %}">
-                                <i class="icon-sleep" aria-hidden="true"></i>
-                                {% trans "Sleep" %}
-                            </a>
-                        {% endif %}
-                        {% if perms.core.add_tummytime %}
-                            <a class="dropdown-item p-2" href="{% url 'core:tummytime-add' %}">
-                                <i class="icon-tummytime" aria-hidden="true"></i>
-                                {% trans "Tummy Time" %}
-                            </a>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
             <button class="navbar-toggler"
                     type="button"
                     data-bs-toggle="collapse"
@@ -137,32 +55,6 @@
                         </li>
                         {% endif %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'pets:setup' %}">{% trans "Setup" %}</a></li>
-                    {% if baby_mode %}
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="icon-child" aria-hidden="true"></i> {% trans "Baby" %}
-                            </a>
-                            <div class="dropdown-menu">
-                                <a class="dropdown-item" href="{% url 'dashboard:dashboard' %}">{% trans "Baby dashboard" %}</a>
-                                <a class="dropdown-item" href="{% url 'core:timeline' %}">{% trans "Baby timeline" %}</a>
-                                {% if perms.core.view_timer %}<a class="dropdown-item" href="{% url 'core:timer-list' %}">{% trans "Timers" %}</a>{% endif %}
-                                <div class="dropdown-divider"></div>
-                                {% if perms.core.view_diaperchange %}<a class="dropdown-item" href="{% url 'core:diaperchange-list' %}"><i class="icon-diaperchange" aria-hidden="true"></i> {% trans "Diaper changes" %}</a>{% endif %}
-                                {% if perms.core.view_feeding %}<a class="dropdown-item" href="{% url 'core:feeding-list' %}"><i class="icon-feeding" aria-hidden="true"></i> {% trans "Feedings" %}</a>{% endif %}
-                                {% if perms.core.view_sleep %}<a class="dropdown-item" href="{% url 'core:sleep-list' %}"><i class="icon-sleep" aria-hidden="true"></i> {% trans "Sleep" %}</a>{% endif %}
-                                {% if perms.core.view_tummytime %}<a class="dropdown-item" href="{% url 'core:tummytime-list' %}"><i class="icon-tummytime" aria-hidden="true"></i> {% trans "Tummy time" %}</a>{% endif %}
-                                {% if perms.core.view_pumping %}<a class="dropdown-item" href="{% url 'core:pumping-list' %}"><i class="icon-pumping" aria-hidden="true"></i> {% trans "Pumping" %}</a>{% endif %}
-                                {% if perms.core.view_medication %}<a class="dropdown-item" href="{% url 'core:medication-list' %}"><i class="icon-medication" aria-hidden="true"></i> {% trans "Medication" %}</a>{% endif %}
-                                {% if perms.core.view_note %}<a class="dropdown-item" href="{% url 'core:note-list' %}"><i class="icon-note" aria-hidden="true"></i> {% trans "Notes" %}</a>{% endif %}
-                                <div class="dropdown-divider"></div>
-                                {% if perms.core.view_weight %}<a class="dropdown-item" href="{% url 'core:weight-list' %}"><i class="icon-weight" aria-hidden="true"></i> {% trans "Weight" %}</a>{% endif %}
-                                {% if perms.core.view_height %}<a class="dropdown-item" href="{% url 'core:height-list' %}"><i class="icon-height" aria-hidden="true"></i> {% trans "Height" %}</a>{% endif %}
-                                {% if perms.core.view_headcircumference %}<a class="dropdown-item" href="{% url 'core:head-circumference-list' %}"><i class="icon-head-circumference" aria-hidden="true"></i> {% trans "Head circumference" %}</a>{% endif %}
-                                {% if perms.core.view_temperature %}<a class="dropdown-item" href="{% url 'core:temperature-list' %}"><i class="icon-temperature" aria-hidden="true"></i> {% trans "Temperature" %}</a>{% endif %}
-                                {% if perms.core.view_bmi %}<a class="dropdown-item" href="{% url 'core:bmi-list' %}"><i class="icon-bmi" aria-hidden="true"></i> {% trans "BMI" %}</a>{% endif %}
-                            </div>
-                        </li>
-                    {% endif %}
 
                 </ul>
                 {% if request.user %}
@@ -185,18 +77,15 @@
                                 <a href="{% url 'pets:notifications' %}" class="dropdown-item">{% trans "Notifications" %}</a>
                                 <a href="{% url 'babybuddy:user-password' %}"
                                    class="dropdown-item">{% trans "Password" %}</a>
-                                <a href="{% url 'babybuddy:user-add-device' %}"
-                                   class="dropdown-item">{% trans "Add a device" %}</a>
                                 <form action="{% url 'babybuddy:logout' %}" role="form" method="post">
                                     {% csrf_token %}
                                     <button class="dropdown-item">{% trans "Logout" %}</button>
                                 </form>
                                 <h6 class="dropdown-header">{% trans "Site" %}</h6>
-                                <a href="{% if baby_mode %}{% url 'api:api-root' %}{% else %}{% url 'pets-api:api-root' %}{% endif %}" class="dropdown-item">{% trans "API Browser" %}</a>
+                                <a href="{% url 'pets-api:api-root' %}" class="dropdown-item">{% trans "API Browser" %}</a>
                                 {% if request.user.is_staff %}
                                     <a href="{% url 'babybuddy:site_settings' %}"
                                        class="dropdown-item">{% trans "Settings" %}</a>
-                                    <a href="{% url 'core:tag-list' %}" class="dropdown-item">{% trans "Tags" %}</a>
                                     <a href="{% url 'babybuddy:user-list' %}"
                                        class="dropdown-item">{% trans "Users" %}</a>
                                     <a href="{% url 'admin:index' %}"
@@ -207,9 +96,6 @@
                                     <a href="{{ housetrained_source_url }}" class="dropdown-item">
                                         <i class="icon-source" aria-hidden="true"></i> {% trans "Source Code" %}</a>
                                 {% endif %}
-                                <a href="https://github.com/babybuddy/babybuddy" class="dropdown-item">
-                                    <i class="icon-source" aria-hidden="true"></i> {% trans "Built on Baby Buddy" %}</a>
-                                <h6 class="dropdown-header">Housetrained {{ housetrained_version }} · Baby Buddy {% version_string %}</h6>
                             </div>
                         </li>
                     </ul>

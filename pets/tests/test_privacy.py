@@ -15,12 +15,10 @@ EXTERNAL = re.compile(
 )
 
 
-@override_settings(BABY_MODE=True)
 class NothingLeavesTheServerTests(PetTestCase):
     PAGES = ["/pets/", "/pets/ruby/", "/pets/setup/", "/pets/setup/members/",
              "/pets/setup/import/", "/pets/notifications/", "/log/potty/", "/log/potty/add/", "/log/walk/add/",
-             "/log/fill/add/", "/log/meal/add/", f"/log/pet/0/", "/user/settings/", "/settings/", "/login/",
-             "/dashboard/", "/timeline/", "/changes/add/"]
+             "/log/fill/add/", "/log/meal/add/", f"/log/pet/0/", "/user/settings/", "/settings/", "/login/"]
 
     def test_pages_load_nothing_from_elsewhere(self):
         self.owner.is_superuser = True

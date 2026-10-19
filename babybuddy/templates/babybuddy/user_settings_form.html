@@ -41,11 +41,6 @@
                     {% endwith %}
                 </div>
                 <div class="form-group row">
-                    {% with form_settings.language as field %}
-                        {% include "babybuddy/form_field.html" %}
-                    {% endwith %}
-                </div>
-                <div class="form-group row">
                     {% with form_settings.timezone as field %}
                         {% include "babybuddy/form_field.html" %}
                     {% endwith %}
@@ -66,19 +61,9 @@
                 </div>
             </fieldset>
             <fieldset>
-                <legend>{% trans "Dashboard" %}</legend>
+                <legend>{% trans "Pages" %}</legend>
                 <div class="form-group row">
                     {% with form_settings.dashboard_refresh_rate as field %}
-                        {% include "babybuddy/form_field.html" %}
-                    {% endwith %}
-                </div>
-                <div class="form-group row">
-                    {% with form_settings.dashboard_hide_empty as field %}
-                        {% include "babybuddy/form_field.html" %}
-                    {% endwith %}
-                </div>
-                <div class="form-group row">
-                    {% with form_settings.dashboard_hide_age as field %}
                         {% include "babybuddy/form_field.html" %}
                     {% endwith %}
                 </div>

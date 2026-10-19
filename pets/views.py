@@ -86,14 +86,8 @@ class HouseholdDashboard(HouseholdMixin, TemplateView):
     template_name = "pets/household.html"
 
     def get_context_data(self, **kwargs):
-        from core.models import Child
-
-        from .context_processors import baby_mode_on
-
-        return super().get_context_data(
-            pets=self.household.pets.filter(active=True), household=self.household,
-            babies=Child.objects.order_by("birth_date") if baby_mode_on() else [], **kwargs
-        )
+        return super().get_context_data(pets=self.household.pets.filter(active=True), household=self.household,
+                                        **kwargs)
 
 
 class HouseholdEdit(HouseholdMixin, View):
@@ -434,14 +428,6 @@ class QuickPotty(HouseholdMixin, View):
 class Setup(HouseholdMixin, TemplateView):
     template_name = "pets/setup.html"
 
-    @staticmethod
-    def babies():
-        from core.models import Child
-
-        from .context_processors import baby_mode_on
-
-        return Child.objects.order_by("birth_date") if baby_mode_on() else None
-
     def get_context_data(self, **kwargs):
         from .supplies import display_unit, status
 
@@ -450,7 +436,6 @@ class Setup(HouseholdMixin, TemplateView):
         return super().get_context_data(
             household=self.household,
             pets=self.household.pets.all(),
-            babies=self.babies(),
             containers=self.household.containers.prefetch_related("pets"),
             products=self.household.products.all(),
             spots=self.household.accident_spots.all(),

@@ -16,7 +16,7 @@ from pets.models import (
 SUB = {"endpoint": "https://push.example.com/abc", "keys": {"p256dh": "BKey", "auth": "secret"}}
 
 
-@override_settings(BABY_MODE=False, TIME_ZONE="UTC")
+@override_settings(TIME_ZONE="UTC")
 class NotificationTests(TestCase):
     def setUp(self):
         from dbsettings.loading import set_setting_value
@@ -288,7 +288,7 @@ class NotificationTests(TestCase):
         self.assertEqual(webpush.call_count, 0)
 
 
-@override_settings(BABY_MODE=False, TIME_ZONE="UTC")
+@override_settings(TIME_ZONE="UTC")
 class NotificationsOffTests(TestCase):
     """Out of the box nothing leaves the server: push is off until a site admin allows it."""
 
