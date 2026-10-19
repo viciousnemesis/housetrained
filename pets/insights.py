@@ -472,19 +472,31 @@ def training_chart(command, days=90):
             "count": sum(len(s) for s in by_day.values()), "empty": False}
 
 
-def training_card(pet, now=None):
-    """Commands being worked on (and known ones, tucked away), each with its last score and this week's average."""
-    from django.db.models import Avg
-
-    from .models import Command, TrainingLog
+def sorted_commands(pet, commands=None, now=None):
+    """[(command, 2-week average or None)] in the pet's training order (PUP-152): my order, A to Z, or progress
+    (weakest first, untried at the top; ties A to Z)."""
+    from django.db.models import Avg, Q
 
     now = now or timezone.now()
-    week = now - datetime.timedelta(days=7)
-    rows = []
-    for command in pet.commands.exclude(status=Command.RETIRED):
-        last = command.logs.first()
-        avg = command.logs.filter(time__gte=week).aggregate(a=Avg("score"))["a"]
-        rows.append({"command": command, "last": last, "week": f"{avg:.1f}" if avg else None})
+    since = now - datetime.timedelta(days=14)
+    commands = (commands if commands is not None else pet.commands.all()).annotate(
+        recent=Avg("logs__score", filter=Q(logs__time__gte=since)))
+    rows = [(c, c.recent) for c in commands]
+    if pet.training_sort == "manual":
+        rows.sort(key=lambda r: (r[0].position, r[0].name.lower()))
+    elif pet.training_sort == "progress":
+        rows.sort(key=lambda r: (r[1] or 0, r[0].name.lower()))
+    else:
+        rows.sort(key=lambda r: r[0].name.lower())
+    return rows
+
+
+def training_card(pet, now=None):
+    """Commands being worked on (and known ones, tucked away), each with its 2-week average, in the pet's order."""
+    from .models import Command, TrainingLog
+
+    rows = [{"command": c, "avg": f"{avg:.1f}" if avg else None}
+            for c, avg in sorted_commands(pet, pet.commands.exclude(status=Command.RETIRED), now)]
     return {"working": [r for r in rows if r["command"].status == Command.WORKING],
             "known": [r for r in rows if r["command"].status == Command.KNOWN],
             "scores": [(n, label, TrainingLog.SCORE_HELP[n]) for n, label in TrainingLog.SCORES],

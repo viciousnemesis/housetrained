@@ -125,6 +125,10 @@ class Pet(models.Model):
         help_text=_("Where this pet goes. Only these show when logging a potty break."),
     )
 
+    TRAINING_SORTS = [("manual", _("My order")), ("alpha", _("A to Z")), ("progress", _("Progress"))]
+    training_sort = models.CharField(_("training order"), max_length=10, choices=TRAINING_SORTS, default="alpha",
+                                     editable=False)
+
     site_settings = PlatformSettings()  # site-wide switches, on the Site Settings page
 
     class Meta:
@@ -519,10 +523,11 @@ class Command(models.Model):
     when_to_use = models.TextField(_("when to use it"), blank=True,
                                    help_text=_("Situations it's for, like at the door or meeting a dog."))
     status = models.CharField(_("status"), max_length=10, choices=STATUSES, default=WORKING)
+    position = models.PositiveIntegerField(default=0, editable=False)  # for "my order" (PUP-152)
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["name"]
+        ordering = ["position", "name"]
 
     def __str__(self):
         return f"{self.pet.name}: {self.name}"

@@ -74,7 +74,7 @@ class TrainingTests(PetTestCase):
         self.assertEqual(self.client.post("/log/training/quick/", {"command": self.sit.pk, "score": "3"}).status_code, 403)
         self.assertNotIn("/log/training/quick/", self.client.get("/pets/ruby/").content.decode())
 
-    def test_card_week_average_and_known_tucked_away(self):
+    def test_card_average_and_known_tucked_away(self):
         TrainingLog.objects.create(command=self.sit, score=3)
         TrainingLog.objects.create(command=self.sit, score=4)
         TrainingLog.objects.create(command=self.sit, score=5, time=timezone.now() - datetime.timedelta(days=10))
@@ -82,7 +82,7 @@ class TrainingTests(PetTestCase):
         Command.objects.create(pet=self.ruby, name="Shake", status=Command.RETIRED)
         card = insights.training_card(self.ruby)
         self.assertEqual([r["command"].name for r in card["working"]], ["Sit"])
-        self.assertEqual(card["working"][0]["week"], "3.5")
+        self.assertEqual(card["working"][0]["avg"], "4.0")  # last 2 weeks: 3, 4 and the 5 from 10 days ago
         self.assertEqual([r["command"].name for r in card["known"]], ["Down"])
 
     def test_progress_page_charts_each_day(self):
@@ -158,3 +158,63 @@ class UndoTests(PetTestCase):
     def test_setup_entries_have_no_undo(self):
         response = self.client.post("/log/spot/add/", {"name": "Rug"}, follow=True)
         self.assertNotContains(response, 'action="/undo/"')
+
+
+class TrainingOrderTests(PetTestCase):
+    """PUP-152: one line per command; my order, A to Z, or progress (weakest first, ties A to Z)."""
+
+    def setUp(self):
+        super().setUp()
+        self.sit = Command.objects.create(pet=self.ruby, name="Sit")
+        self.down = Command.objects.create(pet=self.ruby, name="Down")
+        self.leave = Command.objects.create(pet=self.ruby, name="Leave it")
+        self.stay = Command.objects.create(pet=self.ruby, name="Stay")
+
+    def names(self):
+        return [r["command"].name for r in insights.training_card(self.ruby)["working"]]
+
+    def sort(self, how):
+        self.client.post("/pets/ruby/training/", {"sort": how})
+        self.ruby.refresh_from_db()
+
+    def test_a_to_z_by_default(self):
+        self.assertEqual(self.names(), ["Down", "Leave it", "Sit", "Stay"])
+
+    def test_progress_weakest_first_then_a_to_z(self):
+        now = timezone.now()
+        TrainingLog.objects.create(command=self.sit, score=5)
+        TrainingLog.objects.create(command=self.down, score=2)
+        TrainingLog.objects.create(command=self.leave, score=5)
+        TrainingLog.objects.create(command=self.leave, score=1, time=now - datetime.timedelta(days=20))  # too old
+        self.sort("progress")
+        self.assertEqual(self.names(), ["Stay", "Down", "Leave it", "Sit"])  # Stay untried; Leave it/Sit tie: A to Z
+        self.assertEqual(insights.training_card(self.ruby)["working"][1]["avg"], "2.0")
+
+    def test_my_order_with_arrows(self):
+        self.client.post("/pets/ruby/training/", {"move": self.stay.pk, "direction": "up"})
+        self.ruby.refresh_from_db()
+        self.assertEqual(self.ruby.training_sort, "manual")
+        self.assertEqual(self.names(), ["Down", "Leave it", "Stay", "Sit"])
+        self.client.post("/pets/ruby/training/", {"move": self.down.pk, "direction": "up"})  # already first
+        self.assertEqual(self.names(), ["Down", "Leave it", "Stay", "Sit"])
+        self.assertContains(self.client.get("/pets/ruby/training/"), 'value="down"')
+        self.sort("alpha")
+        self.assertEqual(self.names(), ["Down", "Leave it", "Sit", "Stay"])
+        self.sort("manual")  # back to my order: remembered
+        self.assertEqual(self.names(), ["Down", "Leave it", "Stay", "Sit"])
+
+    def test_arrows_stay_within_a_group(self):
+        self.down.status = Command.KNOWN
+        self.down.save()
+        self.sort("manual")
+        self.client.post("/pets/ruby/training/", {"move": self.down.pk, "direction": "up"})
+        self.assertEqual([r["command"].name for r in insights.training_card(self.ruby)["known"]], ["Down"])
+        self.assertEqual(self.names(), ["Leave it", "Sit", "Stay"])
+
+    def test_viewers_cannot_change_the_order(self):
+        self.login(self.viewer)
+        self.assertEqual(self.client.post("/pets/ruby/training/", {"sort": "progress"}).status_code, 403)
+
+    def test_one_line_rows_with_small_buttons(self):
+        page = self.client.get("/pets/ruby/").content.decode()
+        self.assertIn('btn btn-sm btn-outline-light px-0" style="width: 2rem"', page)

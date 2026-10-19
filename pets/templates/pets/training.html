@@ -17,6 +17,20 @@
     </p>
     {% if not commands %}
         <p class="text-body-secondary">{% trans "No commands yet." %}</p>
+    {% elif pets_can_edit %}
+        {# The order here is the order on the pet's page too (PUP-152). #}
+        <form class="d-flex align-items-center gap-2 mb-3 small" method="post">
+            {% csrf_token %}
+            <label for="training-sort" class="text-body-secondary">{% trans "Order" %}</label>
+            <select class="form-select form-select-sm w-auto" id="training-sort" name="sort" onchange="this.form.submit()">
+                {% for value, label in sorts %}<option value="{{ value }}" {% if value == pet.training_sort %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+            <noscript><button class="btn btn-sm btn-outline-light" type="submit">{% trans "Save" %}</button></noscript>
+            <span class="text-body-secondary">
+                {% if pet.training_sort == "progress" %}{% trans "Weakest first (average over the last 2 weeks)." %}
+                {% elif pet.training_sort == "manual" %}{% trans "Move them with the arrows." %}{% endif %}
+            </span>
+        </form>
     {% endif %}
     <div class="row gx-3">
         {% for c in commands %}
@@ -24,8 +38,19 @@
                 <div class="card card-dashboard">
                     <div class="card-header d-flex justify-content-between align-items-center gap-2">
                         <span>{{ c.command.name }}
-                            {% if c.command.status != "working" %}<span class="badge text-bg-secondary fs-6 fw-normal align-middle">{{ c.command.get_status_display }}</span>{% endif %}</span>
-                        {% if pets_can_edit %}<a class="fs-6 fw-normal" href="{% url 'pets:edit' 'command' c.command.pk %}?next={{ request.path|urlencode }}">{% trans "Edit" %}</a>{% endif %}
+                            {% if c.command.status != "working" %}<span class="badge text-bg-secondary fs-6 fw-normal align-middle">{{ c.command.get_status_display }}</span>{% endif %}
+                            {% if c.avg %}<span class="fs-6 fw-normal text-body-secondary" title="{% trans 'Average, last 2 weeks' %}">{{ c.avg }}</span>{% endif %}</span>
+                        <span class="d-flex align-items-center gap-2 fs-6 fw-normal">
+                            {% if pets_can_edit and pet.training_sort == "manual" %}
+                                <form method="post" class="m-0 d-flex gap-1">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="move" value="{{ c.command.pk }}">
+                                    <button class="btn btn-sm btn-outline-light py-0" type="submit" name="direction" value="up" aria-label="{% trans 'Move up' %}" {% if forloop.first %}disabled{% endif %}>&uarr;</button>
+                                    <button class="btn btn-sm btn-outline-light py-0" type="submit" name="direction" value="down" aria-label="{% trans 'Move down' %}" {% if forloop.last %}disabled{% endif %}>&darr;</button>
+                                </form>
+                            {% endif %}
+                            {% if pets_can_edit %}<a href="{% url 'pets:edit' 'command' c.command.pk %}?next={{ request.path|urlencode }}">{% trans "Edit" %}</a>{% endif %}
+                        </span>
                     </div>
                     <div class="card-body">
                         {% if c.command.how_to %}<p class="mb-2"><span class="text-body-secondary">{% trans "How:" %}</span> <span style="white-space: pre-line">{{ c.command.how_to }}</span></p>{% endif %}

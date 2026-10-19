@@ -763,10 +763,35 @@ class Training(HouseholdMixin, TemplateView):
     def get_context_data(self, **kwargs):
         from .insights import training_chart
 
+        from .insights import sorted_commands
+
         pet = get_object_or_404(Pet, household=self.household, slug=self.kwargs["slug"])
-        commands = [{"command": c, **training_chart(c)} for c in pet.commands.all()]
         order = {Command.WORKING: 0, Command.KNOWN: 1, Command.RETIRED: 2}
-        commands.sort(key=lambda c: (order[c["command"].status], c["command"].name.lower()))
+        rows = sorted(sorted_commands(pet), key=lambda r: order[r[0].status])  # stable: keeps the chosen order
+        commands = [{"command": c, "avg": f"{avg:.1f}" if avg else None, **training_chart(c)} for c, avg in rows]
         scale = " ".join(f"{n} {label}: {TrainingLog.SCORE_HELP[n]}" for n, label in TrainingLog.SCORES)
         return super().get_context_data(pet=pet, commands=commands, scores=TrainingLog.SCORES, scale_text=scale,
-                                        **kwargs)
+                                        sorts=Pet.TRAINING_SORTS, **kwargs)
+
+    def post(self, request, slug):
+        """Change the order: sort=manual|alpha|progress, or move=<command> with direction=up|down (my order)."""
+        self.require("change")
+        pet = get_object_or_404(Pet, household=self.household, slug=slug)
+        if request.POST.get("sort") in dict(Pet.TRAINING_SORTS):
+            pet.training_sort = request.POST["sort"]
+            pet.save(update_fields=["training_sort"])
+        move = pet.commands.filter(pk=request.POST.get("move")).first()
+        if move:
+            from .insights import sorted_commands
+
+            groups = {Command.WORKING: 0, Command.KNOWN: 1, Command.RETIRED: 2}
+            order = sorted((c for c, _avg in sorted_commands(pet)), key=lambda c: groups[c.status])  # as shown
+            i = order.index(move)
+            j = i - 1 if request.POST.get("direction") == "up" else i + 1
+            if 0 <= j < len(order) and order[j].status == move.status:  # within its group (working, known, retired)
+                order[i], order[j] = order[j], order[i]
+            for position, command in enumerate(order):
+                Command.objects.filter(pk=command.pk).update(position=position)
+            pet.training_sort = "manual"  # moving one means you're ordering them yourself
+            pet.save(update_fields=["training_sort"])
+        return HttpResponseRedirect(reverse("pets:training", args=[pet.slug]))

@@ -67,12 +67,6 @@
                             buttons.forEach(function (b) { b.disabled = true; });
                             send(form, data).then(function (reply) {
                                 show(reply.text, reply.ok && reply.token);
-                                if (reply.ok) {
-                                    var last = form.closest(".list-group-item").querySelector("[data-last]");
-                                    last.dataset.before = last.textContent;
-                                    last.textContent = "{% trans 'last' %} " + reply.score;
-                                    undoForm.lastCell = last;
-                                }
                             }).catch(function () { show("{% trans 'Not logged. Check the connection and try again.' %}", null); })
                               .finally(function () { buttons.forEach(function (b) { b.disabled = false; }); });
                         });
@@ -81,7 +75,6 @@
                 undoForm.querySelector("button").addEventListener("click", function (event) {
                     event.preventDefault();
                     send(undoForm, new FormData(undoForm)).then(function (reply) {
-                        if (reply.ok && undoForm.lastCell) undoForm.lastCell.textContent = undoForm.lastCell.dataset.before;
                         show(reply.text, null);
                     });
                 });
