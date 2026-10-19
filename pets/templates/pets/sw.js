@@ -12,8 +12,8 @@ self.addEventListener("push", function (event) {
     event.waitUntil(self.registration.showNotification(data.title || "Housetrained", {
         body: data.body || "",
         tag: data.tag || undefined,
-        icon: "/static/babybuddy/root/android-chrome-192x192.png",
-        badge: "/static/babybuddy/root/android-chrome-192x192.png",
+        icon: "/static/housetrained/root/android-chrome-192x192.png",
+        badge: "/static/housetrained/root/android-chrome-192x192.png",
         data: {url: data.url || "/"}
     }));
 });

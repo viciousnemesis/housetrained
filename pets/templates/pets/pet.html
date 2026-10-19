@@ -1,4 +1,4 @@
-{% extends "babybuddy/page.html" %}
+{% extends "housetrained/page.html" %}
 {% load i18n pets_tags %}
 {% block title %}{{ pet.name }}{% endblock %}
 {% block breadcrumbs %}
@@ -129,7 +129,7 @@
     </script>
     {% if user.settings.dashboard_refresh_rate %}
         <script type="application/javascript">
-            BabyBuddy.Dashboard.watch('view-pets:pet', {{ user.settings.dashboard_refresh_rate_milliseconds }});
+            Housetrained.Dashboard.watch('view-pets:pet', {{ user.settings.dashboard_refresh_rate_milliseconds }});
         </script>
     {% endif %}
 {% endblock %}

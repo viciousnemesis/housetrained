@@ -13,7 +13,7 @@ from django.views import View
 from django.core.paginator import Paginator
 from django.views.generic import TemplateView
 
-from babybuddy.mixins import LoginRequiredMixin
+from housetrained.mixins import LoginRequiredMixin
 
 from . import forms
 from .households import add_member, can_edit, current_household, is_owner

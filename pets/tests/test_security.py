@@ -198,8 +198,8 @@ class MemberTests(TestCase):
         self.assertFalse(Household.objects.filter(pk=own.pk).exists())
 
 
-class BabyBuddyIsGoneTests(TestCase):
-    """PUP-145: Baby Buddy's API and pages are gone; the pet API stays."""
+class OldTrackingIsGoneTests(TestCase):
+    """PUP-145: the old tracking API and pages are gone; the pet API stays."""
 
     def setUp(self):
         self.api = APIClient()
@@ -232,7 +232,7 @@ class UserFormTests(TestCase):
 
 
 class CsrfOriginPageTests(TestCase):
-    """Baby Buddy's fix after 2.11.0: the CSRF error page shows the Origin header escaped (PUP-131)."""
+    """The CSRF error page shows the Origin header escaped (PUP-131)."""
 
     def test_origin_is_escaped(self):
         from django.test import Client
@@ -250,7 +250,7 @@ class CsrfOriginPageTests(TestCase):
         import sys
 
         env = {k: v for k, v in os.environ.items() if k != "ALLOWED_HOSTS"}
-        env.update(DJANGO_SETTINGS_MODULE="babybuddy.settings.base", SECRET_KEY="x")
+        env.update(DJANGO_SETTINGS_MODULE="housetrained.settings.base", SECRET_KEY="x")
         out = subprocess.run([sys.executable, "-c", "import django; django.setup(); from django.conf import settings; "
                               "print(settings.ALLOWED_HOSTS)"], capture_output=True, text=True, env=env)
         self.assertEqual(out.stdout.strip(), "[]", out.stderr[-500:])

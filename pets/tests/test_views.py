@@ -463,7 +463,7 @@ class QuickPottyTests(PetTestCase):
         import os
 
         from django.conf import settings
-        with open(os.path.join(settings.STATIC_ROOT, "babybuddy", "js", "app.js"), encoding="utf-8") as f:
+        with open(os.path.join(settings.STATIC_ROOT, "housetrained", "js", "app.js"), encoding="utf-8") as f:
             self.assertIn('type:"hidden",name:n.name,value:n.value', f.read())
 
     @mock.patch("django.utils.timezone.now", lambda: datetime.datetime.combine(
@@ -682,7 +682,7 @@ class UnitsAndZoneTests(PetTestCase):
         self.assertIn('id="unit-defaults"', page)
 
     def test_time_zones_west_to_east_with_a_guess(self):
-        from babybuddy import time_zones
+        from housetrained import time_zones
         names = [name for name, _label in time_zones.choices()]
         self.assertLess(names.index("Pacific/Honolulu"), names.index("America/New_York"))
         self.assertLess(names.index("America/New_York"), names.index("UTC"))
@@ -698,7 +698,7 @@ class UnitsAndZoneTests(PetTestCase):
         self.assertNotIn("start from this device", self.client.get("/pets/setup/household/").content.decode())
 
     def test_fallback_zone(self):
-        from babybuddy import time_zones
+        from housetrained import time_zones
         with override_settings(TIME_ZONE="UTC"):
             self.assertEqual(time_zones.default(), "America/New_York")
 

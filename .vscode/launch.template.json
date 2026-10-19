@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug Baby Buddy",
+            "name": "Debug Housetrained",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/manage.py",

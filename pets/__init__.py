@@ -1,3 +1,3 @@
-"""Housetrained: the pet tracking app built on Baby Buddy."""
+"""Housetrained: pet tracking."""
 
 __version__ = "1.0.0"

@@ -1,4 +1,4 @@
-<p align="center"><img src="babybuddy/static_src/logo/icon.png" height="110" alt=""></p>
+<p align="center"><img src="housetrained/static_src/logo/icon.png" height="110" alt=""></p>
 
 <h1 align="center">Housetrained</h1>
 
@@ -139,7 +139,7 @@ pipenv run python manage.py test
 ```
 
 The pet code lives in `pets/`; design notes in [docs/housetrained](docs/housetrained). The theme is built from
-`babybuddy/static_src` ([styles](docs/housetrained/styles.md)). Changes: [CHANGELOG.md](CHANGELOG.md).
+`housetrained/static_src` ([styles](docs/housetrained/styles.md)). Changes: [CHANGELOG.md](CHANGELOG.md).
 
 ## Support
 

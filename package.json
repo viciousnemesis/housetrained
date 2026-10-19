@@ -1,11 +1,11 @@
 {
-  "name": "babybuddy",
+  "name": "housetrained",
   "type": "module",
   "version": "",
   "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
-    "url": "https://github.com/babybuddy/babybuddy.git"
+    "url": "https://github.com/viciousnemesis/housetrained.git"
   },
   "devEngines": {
     "runtime": {

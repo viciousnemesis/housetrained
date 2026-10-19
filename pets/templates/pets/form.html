@@ -1,4 +1,4 @@
-{% extends "babybuddy/page.html" %}
+{% extends "housetrained/page.html" %}
 {% load i18n %}
 {% block title %}{{ title }}{% endblock %}
 {% block breadcrumbs %}
@@ -10,7 +10,7 @@
     {% if kind == "walk" and not request.user.first_name %}
         <p class="text-body-secondary small">
             {% trans "Walks show who walked by first name. You haven't set yours, so your username shows instead." %}
-            <a href="{% url 'babybuddy:user-settings' %}">{% trans "Set your name" %}</a>
+            <a href="{% url 'housetrained:user-settings' %}">{% trans "Set your name" %}</a>
         </p>
     {% endif %}
     {% for text, url, link in form.warnings %}

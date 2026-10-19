@@ -13,5 +13,3 @@ and what an attacker could do with it.
 
 You'll get a reply within a week. Once a fix is released, the report is credited in the changelog unless you'd
 rather not be named.
-
-Problems in Baby Buddy's own code that also affect Baby Buddy should be reported to Baby Buddy as well.

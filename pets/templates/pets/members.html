@@ -1,4 +1,4 @@
-{% extends "babybuddy/page.html" %}
+{% extends "housetrained/page.html" %}
 {% load i18n %}
 {% block title %}{% trans "Members" %}{% endblock %}
 {% block breadcrumbs %}
@@ -48,7 +48,7 @@
     {% endif %}
     <p class="text-body-secondary small mt-3">
         {% if request.user.is_superuser %}
-            {% trans "New people need a user account first." %} <a href="{% url 'babybuddy:user-add' %}">{% trans "Add a user" %}</a>
+            {% trans "New people need a user account first." %} <a href="{% url 'housetrained:user-add' %}">{% trans "Add a user" %}</a>
         {% else %}
             {% trans "To add someone, ask the site admin: they create accounts and add people to households." %}
         {% endif %}

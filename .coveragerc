@@ -1,11 +1,11 @@
 [run]
 omit =
     */migrations/*
-    babybuddy/management/*
-    babybuddy/settings/*
-    babybuddy/wsgi.py
+    housetrained/management/*
+    housetrained/settings/*
+    housetrained/wsgi.py
 source =
-    babybuddy
+    housetrained
     pets
 parallel = true
 concurrency = multiprocessing

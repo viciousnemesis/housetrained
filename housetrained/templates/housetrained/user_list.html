@@ -1,0 +1,68 @@
+{% extends "housetrained/page.html" %}
+{% load housetrained i18n widget_tweaks %}
+{% block title %}
+    {% trans "Users" %}
+{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Users" %}</li>
+{% endblock %}
+{% block content %}
+    <h1>Users</h1>
+    {% include "housetrained/filter.html" %}
+    <div class="table-responsive">
+        <table class="table table-borderless table-striped table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>{% trans "User" %}</th>
+                    <th>{% trans "First Name" %}</th>
+                    <th>{% trans "Last Name" %}</th>
+                    <th>{% trans "Email" %}</th>
+                    <th class="text-center">{% trans "Site admin" %}</th>
+                    <th class="text-center">{% trans "Active" %}</th>
+                    <th class="text-center">{% trans "Locked" %}</th>
+                    <th class="text-center">{% trans "Actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for object in object_list %}
+                    <tr>
+                        <th scope="row">{{ object.username }}</th>
+                        <td>{{ object.first_name }}</td>
+                        <td>{{ object.last_name }}</td>
+                        <td>{{ object.email }}</td>
+                        <td class="text-center">{{ object.is_staff|bool_icon }}</td>
+                        <td class="text-center">{{ object.is_active|bool_icon }}</td>
+                        {% user_is_locked object as is_locked %}
+                        <td class="text-center">{{ is_locked|bool_icon }}</td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Actions">
+                                {% if perms.admin.change_user %}
+                                    <a href="{% url 'housetrained:user-update' object.id %}"
+                                       class="btn btn-warning">
+                                        <i class="icon-update" aria-hidden="true"></i>
+                                    </a>
+                                {% endif %}
+                                {% if perms.admin.delete_user %}
+                                    <a href="{% url 'housetrained:user-delete' object.id %}"
+                                       class="btn btn-danger">
+                                        <i class="icon-delete" aria-hidden="true"></i>
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <th colspan="4">{% trans "No users found." %}</th>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "housetrained/paginator.html" %}
+    {% if perms.admin.add_user %}
+        <a href="{% url 'housetrained:user-add' %}" class="btn btn-sm btn-success">
+            <i class="icon-add" aria-hidden="true"></i> {% trans "Create User" %}
+        </a>
+    {% endif %}
+{% endblock %}

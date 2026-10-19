@@ -303,8 +303,8 @@ class NotificationTests(TestCase):
                 reminders._loop()  # checks first, then sleeps
             check.assert_called_once()
         self.assertEqual(reminders.INTERVAL, 60)
-        with open(reminders.__file__.replace("pets\\reminders.py", "babybuddy\\wsgi.py")
-                  .replace("pets/reminders.py", "babybuddy/wsgi.py"), encoding="utf-8") as f:
+        with open(reminders.__file__.replace("pets\\reminders.py", "housetrained\\wsgi.py")
+                  .replace("pets/reminders.py", "housetrained/wsgi.py"), encoding="utf-8") as f:
             self.assertIn("start_reminders()", f.read())
 
     @mock.patch("pywebpush.webpush")

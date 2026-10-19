@@ -1,0 +1,22 @@
+{% extends "housetrained/base.html" %}
+{% load i18n static %}
+{% block breadcrumb_nav %}{% endblock %}
+{% block page %}
+    <div class="container mt-2 mt-lg-4">
+        <div class="row justify-content-md-center">
+            <div class="col-lg-12 mb-4">
+                <div class="d-sm-flex">
+                    <img class="d-inline-block align-self-top me-2 mt-2 text-center"
+                         src="{% static "housetrained/logo/logo-sad.png" %}"
+                         width="65"
+                         height="65">
+                    <div class="p-2 flex-grow-1">
+                        {% block content %}{% endblock %}
+                        <a href="{% url "housetrained:root-router" %}"
+                           class="btn btn-outline-primary mt-3">{% trans "Return to Housetrained" %}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

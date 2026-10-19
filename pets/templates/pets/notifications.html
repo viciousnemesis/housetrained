@@ -1,4 +1,4 @@
-{% extends "babybuddy/page.html" %}
+{% extends "housetrained/page.html" %}
 {% load i18n pets_tags %}
 {% block title %}{% trans "Notifications" %}{% endblock %}
 {% block breadcrumbs %}
@@ -13,7 +13,7 @@
                 {% if request.user.is_superuser %}
                     <p class="mb-0">
                         {% trans "As site admin you can allow them in Site Settings. Browsers deliver them through their maker's push service (Apple, Google or Mozilla): the messages are encrypted, but that service sees that one was sent to a device, and when. Each person still turns them on for their own devices." %}
-                        <a href="{% url 'babybuddy:site_settings' %}">{% trans "Site Settings" %}</a>
+                        <a href="{% url 'housetrained:site_settings' %}">{% trans "Site Settings" %}</a>
                     </p>
                 {% else %}
                     <p class="mb-0 text-body-secondary">{% trans "A site admin can allow them in Site Settings." %}</p>

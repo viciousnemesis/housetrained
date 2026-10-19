@@ -4,7 +4,7 @@ FROM python:3.13-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HOME=/tmp \
-    DJANGO_SETTINGS_MODULE=babybuddy.settings.base \
+    DJANGO_SETTINGS_MODULE=housetrained.settings.base \
     DB_NAME=/config/data/db.sqlite3 \
     MEDIA_ROOT=/config/media
 

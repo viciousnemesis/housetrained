@@ -14,7 +14,7 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13"]
     env:
-      DJANGO_SETTINGS_MODULE: babybuddy.settings.test
+      DJANGO_SETTINGS_MODULE: housetrained.settings.test
       SECRET_KEY: ci-only-not-secret
     steps:
       - uses: actions/checkout@v4

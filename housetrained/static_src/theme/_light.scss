@@ -1,0 +1,98 @@
+// Light theme (data-bs-theme="light"). Bootstrap brings the light colours; these fix the bits built for a dark
+// page. Imported last so they win.
+
+[data-bs-theme="light"] {
+    // Gold text on white is too faint (2.2:1); use a deeper gold for text and links. Gold buttons stay gold.
+    --bs-link-color: #8a6510;
+    --bs-link-color-rgb: 138, 101, 16;
+    --bs-link-hover-color: #6d500c;
+    --bs-link-hover-color-rgb: 109, 80, 12;
+    --bs-primary-text-emphasis: #6d500c;
+    --bs-body-bg: #fbfaf7;
+    --bs-secondary-bg: #f1eee6;
+    --bs-tertiary-bg: #f6f4ee;
+
+    .text-primary {
+        color: #8a6510 !important;
+    }
+
+    .text-danger-emphasis {
+        color: #b02a37 !important;
+    }
+
+    .text-warning {
+        color: var(--bs-warning-text-emphasis) !important;
+    }
+
+    // "Light" outline buttons are white on white here: draw them dark instead.
+    .btn-outline-light {
+        --bs-btn-color: #343a40;
+        --bs-btn-border-color: #8f959b;
+        --bs-btn-hover-color: #fff;
+        --bs-btn-hover-bg: #343a40;
+        --bs-btn-hover-border-color: #343a40;
+        --bs-btn-active-color: #fff;
+        --bs-btn-active-bg: #343a40;
+        --bs-btn-active-border-color: #343a40;
+        --bs-btn-disabled-color: #6c757d;
+        --bs-btn-disabled-border-color: #ced4da;
+    }
+
+    // The top bar: dark gold instead of the dark theme's grey, white text, light dropdowns.
+    .navbar.bg-dark {
+        background-color: #7a5a0e !important;
+        --bs-navbar-color: rgba(255, 255, 255, 0.88);
+        --bs-navbar-hover-color: #fff;
+        --bs-navbar-active-color: #fff;
+        --bs-navbar-brand-color: #fff;
+        --bs-navbar-brand-hover-color: #fff;
+        --bs-secondary-color: rgba(255, 255, 255, 0.85);
+
+        .navbar-brand .text-primary {
+            color: #ffd966 !important;
+        }
+
+        .text-body-secondary {
+            color: rgba(255, 255, 255, 0.85) !important;
+        }
+
+        .dropdown-menu {
+            --bs-dropdown-bg: #fff;
+            --bs-dropdown-color: #212529;
+            --bs-dropdown-border-color: rgba(0, 0, 0, 0.15);
+            --bs-dropdown-link-color: #212529;
+            --bs-dropdown-link-hover-color: #212529;
+            --bs-dropdown-link-hover-bg: #f1eee6;
+            --bs-dropdown-link-active-color: #000;
+            --bs-dropdown-link-active-bg: #daa520;
+            --bs-dropdown-header-color: #6c757d;
+            --bs-dropdown-divider-bg: rgba(0, 0, 0, 0.15);
+        }
+    }
+
+    // Dashboard card lists were white text on a dark card.
+    .card-dashboard .list-group .list-group-item {
+        color: var(--bs-body-color);
+    }
+
+    .card {
+        --bs-card-bg: #fff;
+        // Card titles: a touch darker than the page so they stand apart from the white body.
+        --bs-card-cap-bg: #ece6d8;
+        --bs-card-border-color: rgba(0, 0, 0, 0.14);
+    }
+
+    .table {
+        --bs-table-striped-bg: rgba(0, 0, 0, 0.03);
+    }
+}
+
+
+// Both themes: a picked toggle (pet, walker, location...) is gold like the buttons, not a white block.
+.btn-check:checked + .btn-outline-light,
+.btn-check:active + .btn-outline-light,
+.btn-outline-light.active {
+    color: #000;
+    background-color: $primary;
+    border-color: $primary;
+}

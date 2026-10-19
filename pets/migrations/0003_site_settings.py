@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('pets', '0002_migrate_babybuddy_data'),
+        ('pets', '0002_noop'),
     ]
 
     operations = [

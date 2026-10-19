@@ -1,11 +1,11 @@
-const basePath = "babybuddy/static/babybuddy/";
+const basePath = "housetrained/static/housetrained/";
 
 const config = {
   basePath: basePath,
   extrasConfig: {
     fonts: {
       dest: basePath + "font/",
-      files: "babybuddy/static_src/fontello/font/*",
+      files: "housetrained/static_src/fontello/font/*",
     },
     images: {
       dest: basePath + "img/",
@@ -13,11 +13,11 @@ const config = {
     },
     logo: {
       dest: basePath + "logo/",
-      files: "babybuddy/static_src/logo/**/*",
+      files: "housetrained/static_src/logo/**/*",
     },
     root: {
       dest: basePath + "root/",
-      files: "babybuddy/static_src/root/*",
+      files: "housetrained/static_src/root/*",
     },
   },
   scriptsConfig: {
@@ -29,19 +29,19 @@ const config = {
       "node_modules/bootstrap/dist/js/bootstrap.js",
     ],
     app: [
-      "babybuddy/static_src/js/babybuddy.js",
+      "housetrained/static_src/js/housetrained.js",
     ],
   },
   stylesConfig: {
     dest: basePath + "css/",
-    app: "babybuddy/static_src/scss/babybuddy.scss",
-    ignore: ["babybuddy.scss"],
+    app: "housetrained/static_src/scss/housetrained.scss",
+    ignore: ["housetrained.scss"],
   },
   testsConfig: {
-    isolated: ["babybuddy.tests.tests_views.ViewsTestCase.test_password_reset"],
+    isolated: ["housetrained.tests.tests_views.ViewsTestCase.test_password_reset"],
   },
   watchConfig: {
-    scriptsGlob: ["*/static_src/js/**/*.js", "!babybuddy/static/js/"],
+    scriptsGlob: ["*/static_src/js/**/*.js", "!housetrained/static/js/"],
     stylesGlob: ["*/static_src/scss/**/*.scss"],
   },
 };

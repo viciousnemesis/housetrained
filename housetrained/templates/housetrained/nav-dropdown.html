@@ -1,0 +1,197 @@
+{% extends "housetrained/base.html" %}
+{% load housetrained i18n pets_tags static %}
+{% block nav %}
+    <nav class="navbar navbar-expand-md navbar bg-dark sticky-top flex-wrap" data-bs-theme="dark">
+        <div class="container-fluid">
+            <a class="navbar-brand me-2" href={% url "housetrained:root-router" %}>
+                <img src="{% static "housetrained/logo/icon-brand.png" %}"
+                     width="30"
+                     height="30"
+                     class="d-inline-block align-top"
+                     alt="">
+                <span class="d-none d-lg-inline-block">
+                    <span class="text-primary">House</span>trained
+                </span>
+            </a>
+
+                <div class="d-lg-none d-md-none d-flex me-auto p-0 ms-2 gap-3">
+                </div>
+            <button class="navbar-toggler"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#navbar-app"
+                    aria-controls="navbar-app"
+                    aria-expanded="false"
+                    aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbar-app">
+                <ul class="navbar-nav me-auto">
+
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false">{% trans "Logs" %}</a>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="{% url 'pets:list' 'potty' %}"><i class="icon-diaperchange" aria-hidden="true"></i> {% trans "Potty breaks" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:list' 'walk' %}"><i class="icon-tummytime" aria-hidden="true"></i> {% trans "Walks" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:list' 'fill' %}"><i class="icon-feeding" aria-hidden="true"></i> {% trans "Bowl fills" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:list' 'meal' %}"><i class="icon-feeding" aria-hidden="true"></i> {% trans "Meals" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:list' 'sleep' %}"><i class="icon-sleep" aria-hidden="true"></i> {% trans "Sleep" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:list' 'measurement' %}"><i class="icon-weight" aria-hidden="true"></i> {% trans "Measurements" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:list' 'note' %}"><i class="icon-note" aria-hidden="true"></i> {% trans "Notes" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:list' 'training' %}"><i class="icon-note" aria-hidden="true"></i> {% trans "Training" %}</a>
+                            </div>
+                        </li>
+                        {% if pets_can_edit %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false">{% trans "Add" %}</a>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item" href="{% url 'pets:add' 'potty' %}">{% trans "Potty break" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:add' 'walk' %}">{% trans "Walk" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:add' 'fill' %}">{% trans "Bowl fill" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:add' 'meal' %}">{% trans "Meal" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:add' 'sleep' %}">{% trans "Sleep" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:add' 'measurement' %}">{% trans "Measurement" %}</a>
+                                <a class="dropdown-item" href="{% url 'pets:add' 'note' %}">{% trans "Note" %}</a>
+                            </div>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'pets:setup' %}">{% trans "Setup" %}</a></li>
+
+                </ul>
+                {% if request.user %}
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item dropdown">
+                            <a id="nav-user-menu-link"
+                               class="nav-link dropdown-toggle"
+                               href="#"
+                               data-bs-toggle="dropdown"
+                               aria-haspopup="true"
+                               aria-expanded="false">
+                                <i class="icon-user" aria-hidden="true"></i>
+                                {% firstof user.get_full_name user.get_username %}
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-end"
+                                 aria-labelledby="nav-user-menu-link">
+                                <h6 class="dropdown-header">{% trans "User" %}</h6>
+                                <a href="{% url 'housetrained:user-settings' %}"
+                                   class="dropdown-item">{% trans "Settings" %}</a>
+                                <a href="{% url 'pets:notifications' %}" class="dropdown-item">{% trans "Notifications" %}</a>
+                                <a href="{% url 'housetrained:user-password' %}"
+                                   class="dropdown-item">{% trans "Password" %}</a>
+                                <form action="{% url 'housetrained:logout' %}" role="form" method="post">
+                                    {% csrf_token %}
+                                    <button class="dropdown-item">{% trans "Logout" %}</button>
+                                </form>
+                                <h6 class="dropdown-header">{% trans "Site" %}</h6>
+                                <a href="{% url 'pets-api:api-root' %}" class="dropdown-item">{% trans "API Browser" %}</a>
+                                {% if request.user.is_staff %}
+                                    <a href="{% url 'housetrained:site_settings' %}"
+                                       class="dropdown-item">{% trans "Settings" %}</a>
+                                    <a href="{% url 'housetrained:user-list' %}"
+                                       class="dropdown-item">{% trans "Users" %}</a>
+                                    <a href="{% url 'admin:index' %}"
+                                       class="dropdown-item">{% trans "Database Admin" %}</a>
+                                {% endif %}
+                                <h6 class="dropdown-header">{% trans "About" %}</h6>
+                                {% if housetrained_source_url %}
+                                    <a href="{{ housetrained_source_url }}" class="dropdown-item">
+                                        <i class="icon-source" aria-hidden="true"></i> {% trans "Source Code" %}</a>
+                                {% endif %}
+                            </div>
+                        </li>
+                    </ul>
+                {% endif %}
+            </div>
+        </div>
+        {% retry_reminders as retries %}
+        {% for pet in retries %}
+            <div class="w-100 d-flex flex-wrap align-items-center gap-2 px-3 py-2 mt-2 border-top border-primary">
+                <span class="fs-5 me-auto">
+                    🔁 {% blocktrans with name=pet.name %}Try {{ name }} again{% endblocktrans %}
+                    <span class="fw-bold text-primary ms-2 activity-countdown" data-at="{{ pet.retry_at.isoformat }}"></span>
+                </span>
+                <form method="post" action="{% url 'pets:quick-potty' %}" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="pet" value="{{ pet.slug }}">
+                    <button class="btn btn-outline-light btn-lg" type="submit" name="what" value="dismiss">{% trans "Dismiss" %}</button>
+                </form>
+            </div>
+        {% endfor %}
+        {% if retries %}
+            <script>
+                (function () {
+                    var els = document.querySelectorAll(".activity-countdown");
+                    function tick() {
+                        els.forEach(function (el) {
+                            var s = Math.floor((new Date(el.dataset.at) - Date.now()) / 1000);
+                            el.textContent = s > 0 ? Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") : "{% trans 'now' %}";
+                        });
+                    }
+                    tick();
+                    setInterval(tick, 1000);
+                })();
+            </script>
+        {% endif %}
+        {% running_activities as running_pets %}
+        {% for r in running_pets %}
+            {# A walk or sleep in progress. A walk has everything you need while out: Pee, Poop, End walk, and a trash can to cancel. #}
+            <div class="w-100 px-3 py-2{% if forloop.first %} mt-2{% endif %} border-top border-primary">
+                <div class="d-flex align-items-center gap-2">
+                    <a class="fs-5 text-reset text-decoration-none me-auto" href="{% url 'pets:edit' r.kind r.id %}" title="{% trans 'Edit start time' %}">
+                        {% if r.kind == "walk" %}🐾{% else %}🌙{% endif %} {{ r.label }} {{ r.names }}
+                        <span class="fw-bold text-primary ms-2 activity-elapsed" data-start="{{ r.start.isoformat }}"></span>
+                        <small class="ms-2 text-body-secondary text-nowrap">since {{ r.start|clock }} ✎</small>
+                    </a>
+                </div>
+                {% if r.expect %}<div class="text-body-secondary">{% blocktrans with what=r.expect %}Expecting {{ what }}{% endblocktrans %}</div>{% endif %}
+                <div class="d-flex gap-2 mt-2">
+                    {% if r.kind == "walk" %}
+                        <form class="flex-fill d-flex m-0" method="post" action="{% url 'pets:quick-potty' %}">
+                            {% csrf_token %}
+                            {% for slug in r.pets %}<input type="hidden" name="pet" value="{{ slug }}">{% endfor %}
+                            <input type="hidden" name="location" value="outside">
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <button class="btn btn-lg btn-primary flex-fill" type="submit" name="what" value="pee">{% trans "Pee" %}</button>
+                        </form>
+                        <form class="flex-fill d-flex m-0" method="post" action="{% url 'pets:quick-potty' %}">
+                            {% csrf_token %}
+                            {% for slug in r.pets %}<input type="hidden" name="pet" value="{{ slug }}">{% endfor %}
+                            <input type="hidden" name="location" value="outside">
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <button class="btn btn-lg btn-primary flex-fill" type="submit" name="what" value="poop">{% trans "Poop" %}</button>
+                        </form>
+                    {% endif %}
+                    <form class="flex-fill d-flex m-0" method="post" action="{% url 'pets:stop' r.kind r.id 'end' %}">
+                        {% csrf_token %}
+                        <button class="btn btn-lg btn-primary flex-fill" type="submit">{% if r.kind == "walk" %}{% trans "End walk" %}{% else %}{% trans "End sleep" %}{% endif %}</button>
+                    </form>
+                    <form class="d-flex m-0" method="post" action="{% url 'pets:stop' r.kind r.id 'cancel' %}"
+                          onsubmit="return confirm('{% trans 'Cancel this? Nothing will be saved.' %}')">
+                        {% csrf_token %}
+                        <button class="btn btn-lg btn-outline-danger" type="submit" title="{% if r.kind == 'walk' %}{% trans 'Cancel walk' %}{% else %}{% trans 'Cancel sleep' %}{% endif %}"
+                                aria-label="{% if r.kind == 'walk' %}{% trans 'Cancel walk' %}{% else %}{% trans 'Cancel sleep' %}{% endif %}">
+                            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        {% endfor %}
+        {% if running_pets %}
+            <script>
+                (function () {
+                    var els = document.querySelectorAll(".activity-elapsed");
+                    function pad(n) { return String(n).padStart(2, "0"); }
+                    function tick() {
+                        els.forEach(function (el) {
+                            var s = Math.max(0, Math.floor((Date.now() - new Date(el.dataset.start)) / 1000));
+                            var h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60;
+                            el.textContent = (h ? h + ":" + pad(m) : m) + ":" + pad(s % 60);
+                        });
+                    }
+                    tick();
+                    setInterval(tick, 1000);
+                })();
+            </script>
+        {% endif %}
+    </nav>
+{% endblock %}

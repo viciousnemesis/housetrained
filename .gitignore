@@ -17,8 +17,8 @@
 # Python files.
 *.pyc
 
-# App static file directories.
-/*/static
+# Built theme files (gulp output; collected into /static).
+/housetrained/static
 
 # Django media root directory.
 /media

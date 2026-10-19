@@ -2,11 +2,11 @@
 
 The gold theme lives in the SCSS source, not in the compiled CSS:
 
-- `babybuddy/static_src/scss/_variables.scss`: gold `$primary`, with Bootstrap's `$blue`, `$cyan`,
+- `housetrained/static_src/scss/_variables.scss`: gold `$primary`, with Bootstrap's `$blue`, `$cyan`,
   `$info`, `$debug` and the two lightest grays warmed to match.
-- `babybuddy/static_src/icons/_icons.scss`: the food, walk and potty icons (CSS masks), imported after
+- `housetrained/static_src/icons/_icons.scss`: the food, walk and potty icons (CSS masks), imported after
   the icon font so they replace its glyphs.
-- `babybuddy/static_src/logo/`, `root/` and `core/static_src/img/`: paw logo, favicons and pet placeholder.
+- `housetrained/static_src/logo/`, `root/`, and `pets/static/pets/img/`: paw logo, favicons and pet placeholder.
 
 To change the theme, edit the source, then rebuild with `npx gulp styles` and collect the static files.
 `static/` is committed (whitenoise serves it with hashed names from `static/staticfiles.json`), so the

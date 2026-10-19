@@ -1,4 +1,4 @@
-{% extends "babybuddy/page.html" %}
+{% extends "housetrained/page.html" %}
 {% load i18n imagekit pets_tags static %}
 {% block title %}{% trans "Pets" %}{% endblock %}
 {% block breadcrumbs %}
@@ -24,7 +24,7 @@
                             <img src="{% static 'pets/img/pet-placeholder.png' %}" class="card-img-top" alt="" style="height: 12rem; object-fit: contain">
                         {% else %}
                             <div class="card-img-top d-flex align-items-center justify-content-center bg-body-tertiary" style="height: 12rem">
-                                <img src="{% static 'babybuddy/logo/icon.png' %}" alt="" style="width: 5rem; height: 5rem">
+                                <img src="{% static 'housetrained/logo/icon.png' %}" alt="" style="width: 5rem; height: 5rem">
                             </div>
                         {% endif %}
                         <div class="card-body text-center">

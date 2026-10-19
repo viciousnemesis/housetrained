@@ -1,0 +1,22 @@
+{% extends "housetrained/base.html" %}
+{% load static widget_tweaks %}
+{% block breadcrumb_nav %}{% endblock %}
+{% block page %}
+    <div id="view-{{ request.resolver_match.view_name }}" class="container">
+        <div class="text-center pt-3">
+            <img src="{% static "housetrained/logo/icon-brand.png" %}"
+                 width="65"
+                 height="65"
+                 class="d-inline-block align-top"
+                 alt="">
+            <h1 class="d-none d-md-inline-block display-4 ms-2">
+                <span class="text-primary">House</span>trained
+            </h1>
+        </a>
+    </div>
+    <div class="p-4 rounded text-light">
+        {% include "housetrained/messages.html" %}
+        {% block content %}{% endblock %}
+    </div>
+    </div>
+{% endblock %}

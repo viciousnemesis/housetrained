@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('pets', '0007_baby_household'),
+        ('pets', '0007_noop'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

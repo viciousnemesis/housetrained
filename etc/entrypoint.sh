@@ -25,4 +25,4 @@ if [ "$(id -u)" = "0" ]; then
 fi
 
 $AS_USER python manage.py migrate --noinput
-exec $AS_USER gunicorn babybuddy.wsgi --config etc/gunicorn.py
+exec $AS_USER gunicorn housetrained.wsgi --config etc/gunicorn.py

@@ -9,6 +9,6 @@ node_modules
 docs
 terraform
 .github
-babybuddy/static
+housetrained/static
 htmlcov
 **/__pycache__

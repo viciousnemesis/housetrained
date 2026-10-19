@@ -6,7 +6,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from babybuddy.widgets import DateInput, DateTimeInput, TimeInput
+from housetrained.widgets import DateInput, DateTimeInput, TimeInput
 
 from . import units
 from .models import (
@@ -17,7 +17,7 @@ from .widgets import PetCheckboxSelect, PetRadioSelect, PillCheckboxSelect, Pill
 
 
 class PetsForm(forms.ModelForm):
-    """Scopes choices to the household and renders with Baby Buddy's fieldset layouts."""
+    """Scopes choices to the household and renders with the shared fieldset layouts."""
 
     fieldsets = []
     # Fields that only apply after a choice: {field: (controlling field, values that show it)}. ANY means "has a
@@ -960,7 +960,7 @@ class HouseholdForm(forms.ModelForm):
         help_texts = {"units": _("Metric shows g, kg, ml, cm, km; imperial shows oz, lb, fl oz, in, mi.")}
 
     def __init__(self, *args, **kwargs):
-        from babybuddy import time_zones
+        from housetrained import time_zones
 
         super().__init__(*args, **kwargs)
         for name in ("bedtime", "wake_time"):  # left blank: keep what's set
