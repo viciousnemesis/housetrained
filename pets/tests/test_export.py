@@ -37,6 +37,9 @@ class ExportTests(TestCase):
                 for name in archive.namelist()}
 
     def test_everything_is_in_it(self):
+        from pets.models import Command, Pet, TrainingLog
+        sit = Command.objects.create(pet=Pet.objects.get(name="Ruby"), name="Sit", how_to="Hand up")
+        TrainingLog.objects.create(command=sit, score=4)
         files = self.files()
         self.assertEqual(len(files["potty.csv"]), 2)
         self.assertEqual(files["potty.csv"][0]["notes"], "by the oak")
@@ -44,6 +47,8 @@ class ExportTests(TestCase):
         self.assertEqual((files["walk.csv"][0]["distance"], files["walk.csv"][0]["distance_unit"]), ("1200", "m"))
         self.assertEqual(files["pets.csv"][0]["name"], "Ruby")
         self.assertIn("notes.csv", files)
+        self.assertEqual((files["commands.csv"][0]["command"], files["commands.csv"][0]["how_to"]), ("Sit", "Hand up"))
+        self.assertEqual((files["training.csv"][0]["command"], files["training.csv"][0]["score"]), ("Sit", "4"))
 
     def test_it_imports_back(self):
         response = self.client.get("/pets/setup/export/")

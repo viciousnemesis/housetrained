@@ -10,7 +10,7 @@ import zipfile
 
 from django.utils import timezone
 
-from .models import Container, Fill, Meal, Measurement, Note, Pet, PottyBreak, Sleep, Walk
+from .models import Command, Container, Fill, Meal, Measurement, Note, Pet, PottyBreak, Sleep, TrainingLog, Walk
 
 
 def _time(dt):
@@ -41,6 +41,8 @@ def tables(household):
     fills = Fill.objects.filter(container__household=household).select_related("container").order_by("time")
     measurements = Measurement.objects.filter(pet__household=household).select_related("pet").order_by("date")
     notes = Note.objects.filter(household=household).select_related("pet").order_by("time")
+    commands = Command.objects.filter(pet__household=household).select_related("pet").order_by("pet__name", "name")
+    training = TrainingLog.objects.filter(command__pet__household=household).select_related("command__pet").order_by("time")
     return {
         "potty.csv": (["pet", "time", "pee", "poop", "location", "notes", "found_later", "spot"], [
             [b.pet.name, _time(b.time), _yes(b.pee), _yes(b.poop), b.location, b.notes, _yes(b.found_later),
@@ -63,6 +65,10 @@ def tables(household):
             [m.pet.name, m.date.isoformat(), m.kind, _num(m.value), Measurement.UNITS[m.kind], m.notes]
             for m in measurements]),
         "notes.csv": (["pet", "time", "text"], [[n.pet.name if n.pet_id else "", _time(n.time), n.text] for n in notes]),
+        "commands.csv": (["pet", "command", "status", "how_to", "when_to_use"], [
+            [c.pet.name, c.name, c.status, c.how_to, c.when_to_use] for c in commands]),
+        "training.csv": (["pet", "command", "time", "score", "notes"], [
+            [t.command.pet.name, t.command.name, _time(t.time), t.score, t.notes] for t in training]),
         "pets.csv": (["name", "type", "breed", "sex", "birth_date", "pee_every_minutes", "poop_every_minutes",
                       "out_after_meal_minutes", "active", "notes"], [
             [p.name, p.type, p.breed, p.sex, p.birth_date.isoformat() if p.birth_date else "", _num(p.pee_minutes),
