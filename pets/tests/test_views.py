@@ -286,7 +286,7 @@ class CardTests(PetTestCase):
     def test_pet_page_cards_render(self):
         PottyBreak.objects.create(pet=self.ruby, time=timezone.now(), pee=True)
         page = self.client.get("/pets/ruby/")
-        for title in ("Status", "Today", "Potty Breaks", "Recent activity", "Not veterinary advice", "Most recent"):
+        for title in ("Status", "Today", "Potty Breaks", "All activity", "Not veterinary advice", "Most recent"):
             self.assertContains(page, title)
         for gone in ("Statistics", "Last Potty Break", "Last Meal", "+ Measurement", "Meal Times"):
             self.assertNotContains(page, gone)
@@ -715,5 +715,49 @@ class PhoneOrderTests(PetTestCase):
         Measurement.objects.create(pet=self.ruby, kind="weight", value=5, date=timezone.localdate())
         page = self.client.get("/pets/ruby/").content.decode()
         blocks = {n: page[page.index(f'style="order: {n}"'):] for n in "12367"}
-        for n, title in (("1", "Status"), ("2", "Recent activity"), ("3", "Today"), ("7", "Measurements")):
+        for n, title in (("1", "Status"), ("2", "All activity"), ("3", "Today"), ("7", "Measurements")):
             self.assertIn(title, blocks[n][:blocks[n].index("card-body") if "card-body" in blocks[n] else 400])
+
+
+class AllActivityTests(PetTestCase):
+    """PUP-143: the whole history, a page at a time; a filter looks through everything."""
+
+    def test_pages_and_filters_reach_old_entries(self):
+        from pets.entries import activity
+        from pets.models import Measurement
+        now = timezone.now()
+        Measurement.objects.create(pet=self.ruby, kind="weight", value=5, date=timezone.localdate() - datetime.timedelta(days=60))
+        for i in range(90):
+            PottyBreak.objects.create(pet=self.ruby, time=now - datetime.timedelta(hours=i), pee=True, location="outside")
+        first, more = activity(self.ruby)
+        self.assertEqual((len(first), more), (40, True))
+        second, more = activity(self.ruby, page=1)
+        third, more = activity(self.ruby, page=2)
+        self.assertEqual((len(second), len(third), more), (40, 11, False))  # 90 pees + the measurement
+        self.assertFalse({r["edit_url"] for r in first} & {r["edit_url"] for r in second})
+        self.assertEqual(third[-1]["kind"], "measurement")
+        rows, more = activity(self.ruby, "measurement")
+        self.assertEqual((len(rows), more), (1, False))
+
+    def test_potty_filters_show_walks_with_just_the_matching_potties(self):
+        from pets.entries import activity
+        now = timezone.now()
+        walk = Walk.objects.create(household=self.household, start=now - datetime.timedelta(minutes=30),
+                                   end=now - datetime.timedelta(minutes=10))
+        walk.pets.set([self.ruby])
+        PottyBreak.objects.create(pet=self.ruby, time=now - datetime.timedelta(minutes=25), pee=True, walk=walk)
+        PottyBreak.objects.create(pet=self.ruby, time=now - datetime.timedelta(minutes=20), poop=True, walk=walk)
+        rows, _more = activity(self.ruby, "poop")
+        self.assertEqual([(r["kind"], [c["summary"] for c in r["children"]]) for r in rows], [("walk", ["Poop, outside"])])
+        rows, _more = activity(self.ruby, "accident")
+        self.assertEqual(rows, [])
+
+    def test_page_endpoint(self):
+        PottyBreak.objects.create(pet=self.ruby, time=timezone.now(), pee=True, location="outside")
+        page = self.client.get("/pets/ruby/activity/?filter=pee&page=0")
+        self.assertContains(page, "Pee, outside")
+        self.assertContains(page, "?next=/pets/ruby/")
+        self.assertContains(self.client.get("/pets/ruby/activity/?filter=meal"), "Nothing here yet.")
+        self.assertContains(self.client.get("/pets/ruby/"), "All activity")
+        self.client.logout()
+        self.assertNotEqual(self.client.get("/pets/ruby/activity/").status_code, 200)

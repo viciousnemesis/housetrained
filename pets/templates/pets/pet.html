@@ -51,37 +51,14 @@
             <div style="order: 4">{% card_supplies pet low_only=True %}</div>
             <div style="order: 2">
             <div class="card card-dashboard">
-                <div class="card-header">{% trans "Recent activity" %}</div>
+                <div class="card-header">{% trans "All activity" %}</div>
                 <div class="d-flex flex-wrap gap-1 px-2 pt-2" id="activity-filters">
                     {% for key, label in activity_filters %}
                         <button type="button" class="btn btn-sm {% if forloop.first %}btn-primary{% else %}btn-outline-light{% endif %} py-0 px-2" data-filter="{{ key }}">{{ label }}</button>
                     {% endfor %}
                 </div>
-                <div class="list-group list-group-flush small overflow-auto mt-2" style="max-height: 28rem" id="activity">
-                    {% for item in recent %}
-                        <div class="list-group-item p-0" data-tags="{{ item.tags|join:' ' }}"
-                             {% if item.colour %}style="background: rgba({{ item.colour }}, .12); border-left: 4px solid rgba({{ item.colour }}, .75)"{% endif %}>
-                            <a class="d-flex justify-content-between gap-2 px-3 py-2 text-reset text-decoration-none" href="{{ item.edit_url }}?next={{ request.path|urlencode }}">
-                                <span>{{ item.summary }}</span>
-                                <span class="text-body-secondary text-nowrap">{% if item.date_only %}{{ item.time|date:"M j" }}{% else %}{{ item.time|clock_dt }}{% endif %}</span>
-                            </a>
-                            {% if item.children %}
-                                <div class="px-2 pb-2 d-grid gap-1">
-                                    {% for child in item.children %}
-                                        <a class="d-flex justify-content-between gap-2 px-2 py-1 rounded text-reset text-decoration-none" data-child data-tags="{{ child.tags|join:' ' }}"
-                                           style="background: rgba({{ child.colour }}, .18); border-left: 3px solid rgba({{ child.colour }}, .8)"
-                                           href="{{ child.edit_url }}?next={{ request.path|urlencode }}">
-                                            <span>{{ child.summary }}</span>
-                                            <span class="text-body-secondary text-nowrap">{{ child.time|clock }}</span>
-                                        </a>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                    {% empty %}
-                        <div class="list-group-item">{% trans "Nothing logged yet." %}</div>
-                    {% endfor %}
-                    <div class="list-group-item text-body-secondary d-none" id="activity-none">{% trans "None recently." %}</div>
+                <div class="list-group list-group-flush small overflow-auto mt-2" style="max-height: 28rem" id="activity" data-url="{% url 'pets:activity' pet.slug %}">
+                    {% include "pets/_activity_items.html" with next_url=request.path %}
                 </div>
             </div>
             </div>
@@ -98,33 +75,54 @@
 {% block javascript %}
     {% include "pets/_fresh.html" %}
     <script>
-        // Recent activity filters: one kind at a time; a walk shows with just the matching potties on it.
+        // All activity (PUP-143): a filter asks the server (it looks through everything); older entries load as you
+        // scroll to the bottom of the list.
         (function () {
+            var list = document.getElementById("activity");
             var chips = document.querySelectorAll("#activity-filters [data-filter]");
-            var items = document.querySelectorAll("#activity > [data-tags]");
-            function apply(filter) {
-                var shown = 0;
-                items.forEach(function (item) {
-                    var match = filter === "all" || item.dataset.tags.split(" ").indexOf(filter) >= 0;
-                    item.classList.toggle("d-none", !match);
-                    shown += match ? 1 : 0;
-                    item.querySelectorAll("[data-child]").forEach(function (child) {
-                        var keep = filter === "all" || filter === "walk" || child.dataset.tags.split(" ").indexOf(filter) >= 0;
-                        child.classList.toggle("d-none", !keep);
-                    });
-                });
-                document.getElementById("activity-none").classList.toggle("d-none", shown > 0 || !items.length);
+            var filter = "all", page = 0, loading = false;
+            function load(reset) {
+                if (loading) return;
+                loading = true;
+                var url = list.dataset.url + "?filter=" + encodeURIComponent(filter) + "&page=" + (reset ? 0 : page + 1);
+                fetch(url, {credentials: "same-origin"}).then(function (r) { return r.text(); }).then(function (html) {
+                    var more = list.querySelector("[data-more]");
+                    if (more) more.remove();
+                    if (reset) { list.innerHTML = ""; page = 0; list.scrollTop = 0; } else { page += 1; }
+                    list.insertAdjacentHTML("beforeend", html);
+                }).finally(function () { loading = false; check(); });
+            }
+            // "Loading…" at the end of the list: fetch the next page once it comes into view.
+            var watcher = "IntersectionObserver" in window ? new IntersectionObserver(function (seen) {
+                if (seen.some(function (e) { return e.isIntersecting; })) load(false);
+            }, {root: list, rootMargin: "0px 0px 200px 0px"}) : null;
+            function check() {
+                var more = list.querySelector("[data-more]");
+                if (!more) return;
+                if (watcher) { watcher.disconnect(); watcher.observe(more); }
+                if (!loading && more.getBoundingClientRect().top < list.getBoundingClientRect().bottom + 200) load(false);
+            }
+            function pick(name) {
+                filter = name;
                 chips.forEach(function (chip) {
-                    var on = chip.dataset.filter === filter;
+                    var on = chip.dataset.filter === name;
                     chip.classList.toggle("btn-primary", on);
                     chip.classList.toggle("btn-outline-light", !on);
                 });
-                try { localStorage.setItem("activityFilter", filter); } catch (e) {}
+                try { localStorage.setItem("activityFilter", name); } catch (e) {}
             }
-            chips.forEach(function (chip) { chip.addEventListener("click", function () { apply(chip.dataset.filter); }); });
+            chips.forEach(function (chip) {
+                chip.addEventListener("click", function () { pick(chip.dataset.filter); load(true); });
+            });
+            list.addEventListener("scroll", check);
             var saved = null;
             try { saved = localStorage.getItem("activityFilter"); } catch (e) {}
-            if (saved && document.querySelector('#activity-filters [data-filter="' + saved + '"]')) { apply(saved); }
+            if (saved && saved !== "all" && document.querySelector('#activity-filters [data-filter="' + saved + '"]')) {
+                pick(saved);
+                load(true);
+            } else {
+                check();
+            }
         })();
     </script>
     {% if user.settings.dashboard_refresh_rate %}

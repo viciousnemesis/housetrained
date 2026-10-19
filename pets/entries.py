@@ -152,27 +152,45 @@ def for_pet(kind, queryset, pet):
     return queryset.filter(pet=pet)
 
 
-def recent_activity(pet, limit=40):
-    """The pet's latest entries, newest first. Potty breaks on a walk are listed inside it (children)."""
+ACTIVITY_PAGE = 40
+# What each All activity filter looks through: potties count on their own and on the walks they were part of.
+POTTY_FILTERS = {"pee": {"pee": True}, "poop": {"poop": True}, "accident": {"location": PottyBreak.INSIDE}}
+FILTER_KINDS = {"walk": ["walk"], "meal": ["meal"], "sleep": ["sleep"], "measurement": ["measurement"],
+                **{name: ["walk", "potty"] for name in POTTY_FILTERS}}
+
+
+def activity(pet, filter="all", page=0, size=ACTIVITY_PAGE):
+    """One page of the pet's whole history, newest first (PUP-143), and whether there's more. Potty breaks on a walk
+    are listed inside it (children); a potty filter shows the walks that had one, with just the matching potties."""
     from .schedule import remember_due
 
-    rows, on_walks = [], {}
-    for kind, (field, _summary, qs) in KINDS.items():
-        for e in for_pet(kind, qs(pet.household), pet).order_by(f"-{field}")[:limit]:
+    potty_match = POTTY_FILTERS.get(filter, {})
+    want = (page + 1) * size  # each kind's newest `want` are enough to know the first `want` overall
+    rows = []
+    for kind in FILTER_KINDS.get(filter, list(KINDS)):
+        field, _summary, qs = KINDS[kind]
+        entries = for_pet(kind, qs(pet.household), pet)
+        if kind == "potty":
+            entries = entries.filter(walk=None, **potty_match)
+        elif kind == "walk" and potty_match:
+            entries = entries.filter(potty_breaks__pet=pet, **{f"potty_breaks__{k}": v for k, v in potty_match.items()})
+        for e in entries.distinct().order_by(f"-{field}", "-pk")[:want + 1]:
             if kind == "potty" and e.location == PottyBreak.INSIDE and e.due_at is None and not e.found_later:
                 remember_due(e)  # logged before this was kept: work it out once
-            r = {**row(kind, e), "tags": _tags(kind, e), "colour": _colour(kind, e), "children": []}
-            if kind == "walk":
-                r["walk_pk"] = e.pk
-            if kind == "potty" and e.walk_id:
-                on_walks.setdefault(e.walk_id, []).append(r)
-            rows.append(r)
-    walks = {r["walk_pk"]: r for r in rows if "walk_pk" in r}
-    nested = []
-    for walk_id, potties in on_walks.items():
-        if walk_id in walks:
-            walks[walk_id]["children"] = sorted(potties, key=lambda r: r["time"])
-            walks[walk_id]["tags"] = sorted(set(walks[walk_id]["tags"]).union(*(p["tags"] for p in potties)))
-            nested += potties
-    rows = [r for r in rows if not any(r is n for n in nested)]
-    return sorted(rows, key=lambda r: r["time"], reverse=True)[:limit]
+            rows.append((kind, e, row(kind, e)))
+    rows.sort(key=lambda r: (r[2]["time"], r[1].pk), reverse=True)
+    more = len(rows) > want
+    result = []
+    for kind, e, r in rows[page * size:want]:
+        r.update(tags=_tags(kind, e), colour=_colour(kind, e), children=[])
+        if kind == "walk":
+            potties = PottyBreak.everything.filter(walk=e, pet=pet, **potty_match).select_related("pet", "spot")
+            r["children"] = [{**row("potty", p), "tags": _tags("potty", p), "colour": _colour("potty", p)}
+                             for p in potties.order_by("time")]
+            r["tags"] = sorted(set(r["tags"]).union(*(c["tags"] for c in r["children"])))
+        result.append(r)
+    return result, more
+
+
+def recent_activity(pet, limit=ACTIVITY_PAGE):
+    return activity(pet, size=limit)[0]

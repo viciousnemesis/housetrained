@@ -18,7 +18,7 @@ from babybuddy.mixins import LoginRequiredMixin
 from . import forms
 from .households import add_member, can_edit, current_household, is_owner
 from .models import AccidentSpot, Container, Fill, Meal, Measurement, Membership, Note, Pet, PottyBreak, Product, Sleep, SupplyItem, Walk
-from .entries import KINDS, LIST_TITLES, for_pet, recent_activity, row
+from .entries import KINDS, LIST_TITLES, activity, for_pet, row
 
 
 @dataclass
@@ -471,8 +471,25 @@ class PetDashboard(HouseholdMixin, TemplateView):
         from .schedule import setup_steps
 
         steps = setup_steps(pet, self.request.user) if can_edit(self.request.user, self.household) else []
-        return super().get_context_data(pet=pet, recent=recent_activity(pet), more_entries=more,
+        recent, more_activity = activity(pet)
+        return super().get_context_data(pet=pet, recent=recent, more_activity=more_activity, more_entries=more,
                                         activity_filters=filters, setup_steps=steps, **kwargs)
+
+
+class ActivityPage(HouseholdMixin, TemplateView):
+    """A page of All activity for the pet page: a filter, or more as you scroll (PUP-143)."""
+
+    template_name = "pets/_activity_items.html"
+
+    def get_context_data(self, **kwargs):
+        pet = get_object_or_404(Pet, household=self.household, slug=self.kwargs["slug"])
+        try:
+            page = max(int(self.request.GET.get("page", 0)), 0)
+        except ValueError:
+            page = 0
+        recent, more = activity(pet, self.request.GET.get("filter", "all"), page)
+        return super().get_context_data(recent=recent, more_activity=more, page=page,
+                                        next_url=reverse("pets:pet", args=[pet.slug]), **kwargs)
 
 
 class EntryList(HouseholdMixin, TemplateView):
