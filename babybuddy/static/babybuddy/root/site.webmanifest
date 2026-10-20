@@ -1,0 +1,39 @@
+{
+  "name": "Housetrained",
+  "short_name": "Housetrained",
+  "icons": [
+    {
+      "src": "android-chrome-192x192.png?v=20211218",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "android-chrome-512x512.png?v=20211218",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "lang": "en-US",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#daa520",
+  "background_color": "#212529",
+  "shortcuts": [
+    {
+      "name": "Log a potty break",
+      "url": "/log/potty/add/"
+    },
+    {
+      "name": "Fill a bowl",
+      "url": "/log/fill/add/"
+    },
+    {
+      "name": "Start a walk",
+      "url": "/log/walk/add/"
+    },
+    {
+      "name": "Log a sleep",
+      "url": "/log/sleep/add/"
+    }
+  ]
+}
