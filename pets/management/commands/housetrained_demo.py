@@ -12,8 +12,10 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
+from pets.models import Command as TrainingCommand
 from pets.models import (
-    Container, Fill, Household, Meal, Measurement, Membership, Note, Pet, PottyBreak, Product, Sleep, SupplyItem, Walk,
+    Container, Fill, Household, Meal, Measurement, Membership, Note, Pet, PottyBreak, Product, Sleep, SupplyItem,
+    TrainingLog, Walk,
 )
 
 NAME = "Demo home"
@@ -127,3 +129,21 @@ class Command(BaseCommand):
                                            value=round(9 + (days - back) * 0.12, 1), logged_by=owner)
         Note.objects.create(household=home, pet=puppy, time=now - datetime.timedelta(days=2), logged_by=owner,
                             text="Vet check: all good. Next vaccines in 4 weeks.")
+        # Training (PUP-150): a few commands getting better over the two weeks, a few tries a day.
+        for name, how, when, start, status in (
+                ("Sit", "Treat over the nose, then up and back. Say it once.", "Before meals, at the door", 3,
+                 TrainingCommand.KNOWN),
+                ("Down", "From a sit, treat to the floor between the paws.", "Settling in a cafe or at the vet", 2,
+                 TrainingCommand.WORKING),
+                ("Leave it", "Closed fist with a treat; reward from the other hand.", "Dropped food, things on walks",
+                 1, TrainingCommand.WORKING),
+                ("Come", "Happy voice, run backwards, big reward.", "In the garden, off the lead later", 1,
+                 TrainingCommand.WORKING)):
+            command = TrainingCommand.objects.create(pet=puppy, name=name, how_to=how, when_to_use=when, status=status)
+            for back in range(days - 1, -1, -1):
+                level = min(5, start + (days - back) * (5 - start) / days)
+                for hour in rnd.sample([9, 12, 15, 18], 2):
+                    when_at = at(today - datetime.timedelta(days=back), hour, rnd.randint(0, 50))
+                    if when_at:
+                        TrainingLog.objects.create(command=command, time=when_at, logged_by=owner,
+                                                   score=max(1, min(5, round(level + rnd.choice((-1, 0, 0, 1))))))

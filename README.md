@@ -12,8 +12,8 @@ Housetrained started as a fork of [Baby Buddy](https://github.com/babybuddy/baby
 it tracks pets only.
 
 <p align="center">
-  <img src="docs/screenshots/pet-dark.jpg" width="73.5%" alt="A pet's page on a computer">
-  <img src="docs/screenshots/pet-phone-dark.jpg" width="24.5%" alt="The same page on a phone">
+  <img src="docs/screenshots/computer-dark.jpg" width="73.5%" alt="A pet's page on a computer">
+  <img src="docs/screenshots/phone-dark.jpg" width="24.5%" alt="The same page on a phone">
 </p>
 
 ## What it does
