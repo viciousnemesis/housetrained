@@ -1,5 +1,5 @@
 {% extends "housetrained/page.html" %}
-{% load i18n pets_tags %}
+{% load i18n pets_tags static %}
 {% block title %}{{ pet.name }}{% endblock %}
 {% block breadcrumbs %}
     <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
@@ -37,21 +37,26 @@
         </div>
     {% endif %}
     {% include "pets/_buttons.html" %}
-    {# Three columns on a computer; on a phone one list in the order of their order styles (PUP-142). #}
-    <div class="row gx-3 pet-cards">
-        <div class="col-lg-4">
-            <div style="order: 1">{% card_status pet %}</div>
-            <div style="order: 4">{% card_today pet %}</div>
-            <div style="order: 3">{% card_training pet %}</div>
-            <div style="order: 6">{% card_potty_bars pet %}</div>
+    {# Default: three columns on a computer, one list on a phone by order style (PUP-142); each person's own layout replaces it (PUP-162). #}
+    <div class="d-none align-items-center gap-2 flex-wrap mb-3 p-2 rounded border border-primary small" id="arrange-bar">
+        <span class="me-auto">{% trans "Drag the cards where you want them (press and hold on a phone). Saved on this device." %}</span>
+        <button class="btn btn-sm btn-outline-light" type="button" id="arrange-reset">{% trans "Reset" %}</button>
+        <button class="btn btn-sm btn-primary" type="button" id="arrange-done">{% trans "Done" %}</button>
+    </div>
+    <div class="row gx-3 pet-cards" data-layout-key="housetrained:layout:{{ request.user.pk }}">
+        <div class="col-lg-4 pet-col">
+            <div class="pet-card" data-card="status" style="order: 1">{% card_status pet %}</div>
+            <div class="pet-card" data-card="training" style="order: 3">{% card_training pet %}</div>
+            <div class="pet-card" data-card="potty_bars" style="order: 6">{% card_potty_bars pet %}</div>
         </div>
-        <div class="col-lg-4">
-            <div style="order: 7">{% card_accidents pet %}</div>
-            <div style="order: 8">{% card_measurements pet %}</div>
+        <div class="col-lg-4 pet-col">
+            <div class="pet-card" data-card="accidents" style="order: 7">{% card_accidents pet %}</div>
+            <div class="pet-card" data-card="measurements" style="order: 8">{% card_measurements pet %}</div>
         </div>
-        <div class="col-lg-4">
-            <div style="order: 5">{% card_supplies pet low_only=True %}</div>
-            <div style="order: 2">
+        <div class="col-lg-4 pet-col">
+            <div class="pet-card" data-card="supplies" style="order: 5">{% card_supplies pet low_only=True %}</div>
+            <div class="pet-card" data-card="today" style="order: 4">{% card_today pet %}</div>
+            <div class="pet-card" data-card="activity" style="order: 2">
             <div class="card card-dashboard">
                 <div class="card-header">{% trans "All activity" %}</div>
                 <div class="d-flex flex-wrap gap-1 px-2 pt-2" id="activity-filters">
@@ -64,18 +69,95 @@
                 </div>
             </div>
             </div>
-            <div style="order: 9">{% card_notes pet %}</div>
+            <div class="pet-card" data-card="notes" style="order: 9">{% card_notes pet %}</div>
         </div>
     </div>
     <style>
         @media (max-width: 991.98px) {
-            .pet-cards { flex-direction: column; flex-wrap: nowrap; }
-            .pet-cards > .col-lg-4 { display: contents; }
-            .pet-cards > .col-lg-4 > div { padding-inline: calc(var(--bs-gutter-x) * .5); }
+            .pet-cards:not(.js-layout) { flex-direction: column; flex-wrap: nowrap; }
+            .pet-cards:not(.js-layout) > .col-lg-4 { display: contents; }
+            .pet-cards:not(.js-layout) > .col-lg-4 > div { padding-inline: calc(var(--bs-gutter-x) * .5); }
         }
+        .pet-col { min-height: 3rem; }  /* an empty column still takes a dropped card */
+        .arranging .pet-card { cursor: grab; outline: 2px dashed var(--bs-primary); outline-offset: -2px; border-radius: .5rem; }
+        .arranging .pet-card > * { pointer-events: none; user-select: none; }
+        .arranging .pet-card.sortable-ghost { opacity: .4; }
     </style>
 {% endblock %}
 {% block javascript %}
+    <script src="{% static 'pets/vendor/sortable.min.js' %}"></script>
+    <script>
+        // Card layout (PUP-161, PUP-162): a computer has three columns, a phone one. Each person's own arrangement is
+        // kept in this browser, separately for computer and phone; cards it doesn't mention keep their default place.
+        (function () {
+            var row = document.querySelector(".pet-cards");
+            if (!row || !window.Sortable) return;
+            var cols = Array.prototype.slice.call(row.querySelectorAll(".pet-col"));
+            var cards = {};
+            row.querySelectorAll(".pet-card").forEach(function (c) { cards[c.dataset.card] = c; });
+            var defaults = {
+                computer: [["status", "training", "potty_bars"], ["accidents", "measurements"],
+                           ["supplies", "today", "activity", "notes"]],
+                phone: [["status", "activity", "training", "today", "supplies", "potty_bars", "accidents",
+                         "measurements", "notes"]]
+            };
+            var wide = window.matchMedia("(min-width: 992px)");
+            var mode = function () { return wide.matches ? "computer" : "phone"; };
+            var key = function () { return row.dataset.layoutKey + ":" + mode(); };
+            var load = function () {
+                try { return JSON.parse(localStorage.getItem(key())); } catch (e) { return null; }
+            };
+            var apply = function () {
+                var layout = load() || defaults[mode()], placed = {};
+                layout.forEach(function (list, i) {
+                    var col = cols[Math.min(i, cols.length - 1)];
+                    list.forEach(function (id) { if (cards[id] && !placed[id]) { col.appendChild(cards[id]); placed[id] = true; } });
+                });
+                // Cards the saved layout doesn't know (new ones) go where the default puts them.
+                defaults[mode()].forEach(function (list, i) {
+                    list.forEach(function (id) { if (cards[id] && !placed[id]) { cols[i].appendChild(cards[id]); placed[id] = true; } });
+                });
+                Object.keys(cards).forEach(function (id) { cards[id].style.order = ""; });
+                cols.forEach(function (col, i) { col.classList.toggle("d-none", mode() === "phone" && i > 0); });
+                row.classList.add("js-layout");
+            };
+            var save = function () {
+                var layout = (mode() === "phone" ? cols.slice(0, 1) : cols).map(function (col) {
+                    return Array.prototype.map.call(col.querySelectorAll(":scope > .pet-card"), function (c) { return c.dataset.card; });
+                });
+                try { localStorage.setItem(key(), JSON.stringify(layout)); } catch (e) {}
+            };
+            apply();
+            wide.addEventListener("change", apply);
+
+            var sortables = [], bar = document.getElementById("arrange-bar");
+            var start = function () {
+                row.classList.add("arranging");
+                bar.classList.remove("d-none");
+                bar.classList.add("d-flex");
+                cols.forEach(function (col) {
+                    sortables.push(Sortable.create(col, {group: "pet-cards", draggable: ".pet-card", animation: 150,
+                                                         delay: 200, delayOnTouchOnly: true, onSort: save}));
+                });
+                bar.scrollIntoView({block: "nearest"});
+            };
+            var stop = function () {
+                sortables.forEach(function (s) { s.destroy(); });
+                sortables = [];
+                row.classList.remove("arranging");
+                bar.classList.add("d-none");
+                bar.classList.remove("d-flex");
+            };
+            document.querySelectorAll("[data-arrange]").forEach(function (a) {
+                a.addEventListener("click", function (event) { event.preventDefault(); start(); });
+            });
+            document.getElementById("arrange-done").addEventListener("click", stop);
+            document.getElementById("arrange-reset").addEventListener("click", function () {
+                try { localStorage.removeItem(key()); } catch (e) {}
+                apply();
+            });
+        })();
+    </script>
     {% include "pets/_fresh.html" %}
     <script>
         // All activity (PUP-143): a filter asks the server (it looks through everything); older entries load as you

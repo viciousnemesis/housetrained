@@ -33,6 +33,7 @@
                 <a class="dropdown-item" href="{% url 'pets:add' 'meal' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Log meal" %}</a>
                 <a class="dropdown-item" href="{% url 'pets:add' 'measurement' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Add measurement" %}</a>
                 <a class="dropdown-item" href="{% url 'pets:add' 'note' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Add note" %}</a>
+                {% if pet %}<a class="dropdown-item" href="#" data-arrange>{% trans "Arrange cards" %}</a>{% endif %}
                 {% if a.sleep %}
                     <form method="post" action="{% url 'pets:stop' 'sleep' a.sleep.pk 'end' %}" class="m-0">
                         {% csrf_token %}

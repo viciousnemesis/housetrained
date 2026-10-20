@@ -774,3 +774,17 @@ class WholeHistoryCardTests(PetTestCase):
         self.assertFalse(chart["recent_accidents"])  # the by-hour bars stay on the past 2 weeks
         page = self.client.get("/pets/ruby/").content.decode()
         self.assertEqual(page.count('class="overflow-auto" style="max-height: 28rem"'), 2)
+
+
+class CardLayoutTests(PetTestCase):
+    """PUP-161/162: each card can be moved; Today sits above All activity on a computer by default."""
+
+    def test_cards_are_movable_with_a_computer_default(self):
+        page = self.client.get("/pets/ruby/").content.decode()
+        for card in ("status", "training", "potty_bars", "accidents", "measurements", "supplies", "today", "activity",
+                     "notes"):
+            self.assertIn(f'data-card="{card}"', page)
+        self.assertLess(page.index('data-card="today"'), page.index('data-card="activity"'))
+        self.assertIn(f'data-layout-key="housetrained:layout:{self.owner.pk}"', page)  # per person (and device)
+        self.assertIn("data-arrange", page)
+        self.assertIn("pets/vendor/sortable.min", page)
