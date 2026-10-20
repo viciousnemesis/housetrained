@@ -8,7 +8,8 @@
 {% block content %}
     {% health_alerts pet as alerts %}
     {% for level, text in alerts %}
-        <div class="alert alert-{{ level }} py-2 small mb-2" role="alert">{{ text }}</div>
+        <div class="alert alert-{{ level }} py-2 small mb-2" role="alert">{{ text }}
+            <a class="alert-link ms-1 text-nowrap" href="{% url 'pets:health' %}">{% trans "Health checks" %}</a></div>
     {% endfor %}
     {% if setup_steps %}
         <div class="card card-dashboard border-warning-subtle mb-3">

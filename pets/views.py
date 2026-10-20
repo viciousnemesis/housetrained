@@ -795,3 +795,43 @@ class Training(HouseholdMixin, TemplateView):
             pet.training_sort = "manual"  # moving one means you're ordering them yourself
             pet.save(update_fields=["training_sort"])
         return HttpResponseRedirect(reverse("pets:training", args=[pet.slug]))
+
+
+class HealthChecks(HouseholdMixin, TemplateView):
+    """Setup > Health checks (PUP-159): every check, its numbers, and when it last went off for each pet."""
+
+    template_name = "pets/health.html"
+    NUMBERS = {"soft_count": (int, 1, 10), "dark_count": (int, 1, 10), "pee_factor": (float, 1.1, 5),
+               "pee_extra": (int, 0, 20), "usual_days": (int, 3, 28)}
+
+    def get_context_data(self, **kwargs):
+        from . import health
+
+        cfg = health.settings_for(self.household)
+        pets = list(self.household.pets.filter(active=True))
+        past = {pet: health.history(pet) for pet in pets}
+        checks = []
+        for key, label, level, what in health.CHECKS:
+            trips = [{"pet": pet, "last": past[pet][key][0] if past[pet][key] else None, "count": len(past[pet][key])}
+                     for pet in pets]
+            checks.append({"key": key, "label": label, "level": level, "what": what, "on": key not in cfg["off"],
+                           "trips": trips})
+        return super().get_context_data(checks=checks, cfg=cfg, is_owner=is_owner(self.request.user, self.household),
+                                        **kwargs)
+
+    def post(self, request):
+        from . import health
+
+        if not is_owner(request.user, self.household):
+            raise PermissionDenied
+        cfg = health.settings_for(self.household)
+        saved = {"off": [key for key, *_rest in health.CHECKS if not request.POST.get(key)]}
+        for name, (kind, low, high) in self.NUMBERS.items():
+            try:
+                saved[name] = min(max(kind(request.POST[name]), low), high)
+            except (KeyError, ValueError):
+                saved[name] = cfg[name]
+        self.household.health_checks = saved
+        self.household.save(update_fields=["health_checks"])
+        messages.success(request, _("Health checks saved."))
+        return HttpResponseRedirect(reverse("pets:health"))

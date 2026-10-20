@@ -13,6 +13,7 @@ urlpatterns = [
     path("pets/setup/export/", views.Export.as_view(), name="export"),
     path("pets/setup/skip/", views.SetupSkip.as_view(), name="setup-skip"),
     path("pets/notifications/", views.Notifications.as_view(), name="notifications"),
+    path("pets/setup/health/", views.HealthChecks.as_view(), name="health"),
     path("sw.js", views.service_worker, name="service-worker"),
     path("pets/<slug:slug>/", views.PetDashboard.as_view(), name="pet"),
     path("pets/<slug:slug>/progress/", views.Progress.as_view(), name="progress"),

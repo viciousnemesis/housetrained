@@ -1,0 +1,69 @@
+{% extends "housetrained/page.html" %}
+{% load i18n pets_tags %}
+{% block title %}{% trans "Health checks" %}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{% url 'pets:setup' %}">{% trans "Setup" %}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Health checks" %}</li>
+{% endblock %}
+{% block content %}
+    {# Every health check (PUP-159): what it watches, its numbers, and when it last went off for each pet. #}
+    <h1>{% trans "Health checks" %}</h1>
+    <p class="text-body-secondary small">
+        {% trans "A warning shows at the top of a pet's page while a check is tripped. They're simple rules over what you log, not a diagnosis: when in doubt, call your vet." %}
+    </p>
+    <form method="post">
+        {% csrf_token %}
+        {% for c in checks %}
+            <div class="card card-dashboard">
+                <div class="card-header d-flex justify-content-between align-items-center gap-2">
+                    <span>{{ c.label }}</span>
+                    <span class="form-check form-switch fs-6 fw-normal m-0">
+                        <input class="form-check-input" type="checkbox" role="switch" name="{{ c.key }}" id="check-{{ c.key }}"
+                               {% if c.on %}checked{% endif %} {% if not is_owner %}disabled{% endif %}>
+                        <label class="form-check-label" for="check-{{ c.key }}">{% if c.on %}{% trans "On" %}{% else %}{% trans "Off" %}{% endif %}</label>
+                    </span>
+                </div>
+                <div class="card-body small">
+                    <p class="mb-2">{{ c.what }}</p>
+                    {% if c.key == "soft_poop" or c.key == "dark_pee" or c.key == "more_pees" %}
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            {% if c.key == "soft_poop" %}
+                                <span class="text-body-secondary">{% trans "Goes off at" %}</span>
+                                <input class="form-control form-control-sm" style="width: 4.5rem" type="number" min="1" max="10" name="soft_count" value="{{ cfg.soft_count }}" {% if not is_owner %}disabled{% endif %} aria-label="{% trans 'Times' %}">
+                                <span class="text-body-secondary">{% trans "times in a day" %}</span>
+                            {% elif c.key == "dark_pee" %}
+                                <span class="text-body-secondary">{% trans "Goes off at" %}</span>
+                                <input class="form-control form-control-sm" style="width: 4.5rem" type="number" min="1" max="10" name="dark_count" value="{{ cfg.dark_count }}" {% if not is_owner %}disabled{% endif %} aria-label="{% trans 'Times' %}">
+                                <span class="text-body-secondary">{% trans "times in a day" %}</span>
+                            {% else %}
+                                <span class="text-body-secondary">{% trans "Goes off at" %}</span>
+                                <input class="form-control form-control-sm" style="width: 4.5rem" type="number" min="1.1" max="5" step="0.1" name="pee_factor" value="{{ cfg.pee_factor }}" {% if not is_owner %}disabled{% endif %} aria-label="{% trans 'Times the usual day' %}">
+                                <span class="text-body-secondary">{% trans "× a usual day, and at least" %}</span>
+                                <input class="form-control form-control-sm" style="width: 4.5rem" type="number" min="0" max="20" name="pee_extra" value="{{ cfg.pee_extra }}" {% if not is_owner %}disabled{% endif %} aria-label="{% trans 'More than usual' %}">
+                                <span class="text-body-secondary">{% trans "more. A usual day: the middle of the past" %}</span>
+                                <input class="form-control form-control-sm" style="width: 4.5rem" type="number" min="3" max="28" name="usual_days" value="{{ cfg.usual_days }}" {% if not is_owner %}disabled{% endif %} aria-label="{% trans 'Days' %}">
+                                <span class="text-body-secondary">{% trans "days" %}</span>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    {% for t in c.trips %}
+                        <div class="text-body-secondary">
+                            {{ t.pet.name }}:
+                            {% if t.last %}
+                                {% blocktrans with day=t.last.0|date:"M j" count n=t.count %}last went off {{ day }} ({{ n }} day in the past 90){% plural %}last went off {{ day }} ({{ n }} days in the past 90){% endblocktrans %}
+                                <span class="d-block fst-italic">{{ t.last.1 }}</span>
+                            {% else %}
+                                {% trans "hasn't gone off in the past 90 days" %}
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+        {% if is_owner %}
+            <button class="btn btn-primary" type="submit">{% trans "Save" %}</button>
+        {% else %}
+            <p class="text-body-secondary small">{% trans "An owner can change these." %}</p>
+        {% endif %}
+    </form>
+{% endblock %}

@@ -48,6 +48,8 @@ class Household(models.Model):
         _("bedtime"), default=datetime.time(23, 0),
         help_text=_("Quiet hours start: after the bedtime walk, the next one is at wake-up."))
     wake_time = models.TimeField(_("wake-up"), default=datetime.time(6, 30), help_text=_("Quiet hours end."))
+    health_checks = models.JSONField(default=dict, blank=True, editable=False,
+                                     help_text="Health checks switched off and their numbers (PUP-159).")
     setup_done = models.JSONField(default=list, blank=True, editable=False,
                                   help_text="First-run steps done or skipped: quiet, bowls, notifications, all.")
     members = models.ManyToManyField(settings.AUTH_USER_MODEL, through="Membership", related_name="households")
