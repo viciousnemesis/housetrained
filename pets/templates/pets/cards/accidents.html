@@ -18,7 +18,7 @@
             <text x="{{ tick.x }}" y="10" text-anchor="{% if forloop.first %}start{% elif forloop.last %}end{% else %}middle{% endif %}" font-size="10" fill="currentColor" opacity=".7">{{ tick.label }}</text>
         {% endfor %}
     </svg>
-    <div class="overflow-auto" style="max-height: 28rem">
+    <div class="overflow-auto"{% if scrolls %} id="accident-rows" data-rows="{{ chart.rows|length }}" style="aspect-ratio: {{ chart.width }} / {{ visible_h }}"{% endif %}>
     <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" class="w-100 d-block" role="img" aria-label="{% trans 'Accident times by day' %}">
         {% for s in sleeps %}
             <rect x="{{ s.x }}" y="{{ s.y }}" width="{{ s.w }}" height="{{ row_h }}" fill="#8e6cc8" opacity=".35" />
@@ -32,6 +32,20 @@
         {% endfor %}
     </svg>
     </div>
+    {% if scrolls %}
+        <script>
+            // Exactly 14 days in view: size the box from the drawing as shown (the scrollbar makes it a little narrower).
+            (function () {
+                var box = document.getElementById("accident-rows"), svg = box.querySelector("svg");
+                var fit = function () {
+                    var row = svg.getBoundingClientRect().height / Number(box.dataset.rows);
+                    if (row) { box.style.aspectRatio = "auto"; box.style.height = (row * 14) + "px"; }
+                };
+                fit();
+                window.addEventListener("resize", fit);
+            })();
+        </script>
+    {% endif %}
     {% if recent_accidents %}
         <div class="small mt-2 mb-2 pb-1 border-bottom">{% trans "Accidents by hour (past 2 weeks)" %}</div>
         <svg viewBox="0 0 {{ chart.width }} 40" class="w-100" role="img" aria-label="{% trans 'Accidents by hour of day' %}">

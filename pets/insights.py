@@ -13,7 +13,8 @@ from .models import Meal, PottyBreak, Walk
 
 WINDOW_DAYS = 14  # history behind the charts
 # Day x hour chart geometry (SVG units).
-LABEL_W, PLOT_W, ROW_H, AXIS_H = 46, 254, 14, 16
+LABEL_W, PLOT_W, ROW_H, AXIS_H = 62, 238, 14, 16
+VISIBLE_DAYS = 14  # rows shown at once in the whole-history cards; older ones by scrolling
 
 
 # --- Formatting --------------------------------------------------------------------------
@@ -42,9 +43,9 @@ def day_label(date):
     return formats.date_format(date, "D j")
 
 
-def history_label(date, today):
-    """A row in a whole-history list: the weekday this past week ("Mon 19"), the date before that ("Oct 5")."""
-    return day_label(date) if (today - date).days < 7 else formats.date_format(date, "M j")
+def history_label(date, today=None):
+    """A row in a whole-history list, the same way all the way down: "Mon Oct 19"."""
+    return formats.date_format(date, "D M j")
 
 
 def history_days(pet):
@@ -157,7 +158,8 @@ def potty_bars_card(pet):
     legend = [("pee_ok", "#8fd18a", _("Pee outside") if dog else _("Pee")),
               ("poop_ok", "#2e7d32", _("Poop outside") if dog else _("Poop")),
               ("pee_in", "#f5d33f", _("Pee accident")), ("poop_in", "#a72431", _("Poop accident"))]
-    return {"days": days, "legend": legend, "empty": not breaks, "show_walks": bool(walks)}
+    return {"days": days, "legend": legend, "empty": not breaks, "show_walks": bool(walks),
+            "scrolls": count > VISIBLE_DAYS}
 
 
 # --- Day x hour charts ---------------------------------------------------------------------
@@ -219,6 +221,7 @@ def accidents_chart(pet):
     hist = [{"x": round(LABEL_W + h * slot + 0.75, 2), "y": 26 - n / peak * 26, "h": n / peak * 26,
              "n": n, "label": f"{h:02d}", "even": h % 2 == 0} for h, n in enumerate(hours)]
     return {"chart": c, "dots": dots, "meals": meals, "sleeps": sleeps, "hist": hist, "recent_accidents": any(hours),
+            "scrolls": count > VISIBLE_DAYS, "visible_h": VISIBLE_DAYS * ROW_H,
             "hist_w": round(slot - 1.5, 2), "row_h": ROW_H, "hide_empty": True, "empty": not dots}
 
 

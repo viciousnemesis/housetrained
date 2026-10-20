@@ -122,7 +122,7 @@ class ScheduleTests(TestCase):
         self.potty(self.at(17, 38))
         self.potty(self.at(18, 8), pee=False, poop=True)
         self.meal(self.at(18, 12))
-        self.assertEqual(self.need(self.at(18, 14), "poop")["time"], self.at(23))  # the bedtime walk
+        self.assertEqual(self.need(self.at(18, 14), "poop")["time"], self.at(23, 8))  # 6:08 PM + 5h, not pulled to 11
 
     def test_waking_up_brings_it_forward_but_not_while_asleep(self):
         self.potty(self.at(13))
@@ -168,9 +168,19 @@ class ScheduleTests(TestCase):
         self.assertEqual(card["needs"][0]["time"], self.at(6, 30))
         self.assertIn("bedtime", card["needs"][0]["reason"])
 
-    def test_due_overnight_goes_on_the_bedtime_walk(self):
+    def test_a_walk_due_after_bedtime_is_not_pulled_earlier(self):
+        """PUP-164: pee at 9 PM, due 11:30 PM: a late last walk, not bedtime at 11 (out too soon makes a long night)."""
         self.potty(self.at(21))  # + 2h 30m = 11:30 PM, in the quiet hours
-        self.assertEqual(self.need(self.at(21, 5), "pee")["time"], self.at(23))
+        self.assertEqual(self.need(self.at(21, 5), "pee")["time"], self.at(23, 30))
+
+    def test_after_a_late_walk_the_rest_waits_for_morning(self):
+        """Poop at 8 PM (due 1 AM), pee on the late walk at 11:30 PM: no second walk at 1 AM."""
+        self.potty(self.at(20), pee=False, poop=True)
+        self.potty(self.at(21))
+        self.potty(self.at(23, 30))
+        wake = self.at(6, 30) + datetime.timedelta(days=1)
+        self.assertEqual(self.need(self.at(23, 35), "poop")["time"], wake)
+        self.assertEqual(self.card(self.at(23, 35))["head_out"].date(), wake.date())
 
     def test_found_later_accidents_dont_count(self):
         self.potty(self.at(9))

@@ -12,15 +12,15 @@
             <span class="me-3 text-nowrap d-inline-block"><span class="d-inline-block rounded-1 me-1" style="width:.8rem;height:.8rem;background:{{ color }}"></span>{{ label }}</span>
         {% endfor %}
     </div>
-    <div class="d-flex gap-2 small text-body-secondary pb-1 border-bottom">
-        <div class="text-end" style="width: 3.5rem">{% trans "Day" %}</div>
+    <div class="d-flex gap-2 small text-body-secondary pb-1 border-bottom{% if scrolls %} pe-3{% endif %}">
+        <div class="text-end" style="width: 4.75rem">{% trans "Day" %}</div>
         <div class="flex-grow-1">{% trans "Potty breaks" %}</div>
         {% if show_walks %}<div class="text-end" style="width: 3rem">{% trans "Walks" %}</div>{% endif %}
     </div>
-    <div class="overflow-auto" style="max-height: 28rem">
+    <div class="overflow-auto{% if scrolls %} pe-3{% endif %}" style="max-height: calc(14 * 1.9rem)">
     {% for d in days %}
-        <div class="d-flex align-items-center gap-2 {% if forloop.first %}mt-1{% else %}mt-2{% endif %}">
-            <div class="small text-nowrap text-end" style="width: 3.5rem">{{ d.label }}</div>
+        <div class="d-flex align-items-center gap-2" style="margin-top: .5rem">
+            <div class="small text-nowrap text-end" style="width: 4.75rem">{{ d.label }}</div>
             <div class="progress flex-grow-1 bg-transparent" style="height: 1.4rem">
                 {% if d.pee_ok %}<div class="progress-bar" style="width: {{ d.pee_ok_pct|safe }}%; background: #8fd18a; color: #000">{{ d.pee_ok }}</div>{% endif %}
                 {% if d.poop_ok %}<div class="progress-bar" style="width: {{ d.poop_ok_pct|safe }}%; background: #2e7d32; color: #fff">{{ d.poop_ok }}</div>{% endif %}

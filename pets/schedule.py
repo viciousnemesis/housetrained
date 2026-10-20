@@ -116,17 +116,23 @@ def next_walk(pet, now=None):
         tries += [b.time for b in breaks if b.time > t and b.location != PottyBreak.INSIDE and not getattr(b, kind)]
         return max(tries) if tries else None
 
+    # Times someone was out with the pet (potty breaks and walk ends): the last one at bedtime or later ends the night.
+    outs = [b.time for b in breaks] + [end for _start, end in outings]
+
     def overnight(due, last, reason):
-        """After the bedtime one, the next is at wake-up; anything else due in the quiet hours goes on the bedtime
-        walk if that's still ahead."""
+        """After the bedtime one, the next is at wake-up. A walk due after bedtime isn't pulled earlier to bedtime
+        (PUP-164): it's a late last walk, and once someone has been out at bedtime or later, anything else due in the
+        night waits for the morning."""
         if quiet.is_bedtime(last):
             wake = quiet.next_wake(last)
             return wake, _("bedtime at %(time)s; next when up, %(wake)s") % {
                 "time": fmt_time(last), "wake": fmt_time(wake)}
-        if quiet.contains(due) and not quiet.contains(now):
-            bedtime = quiet.next_bed(last)
-            if bedtime <= due:
-                return bedtime, _("the bedtime walk, %(time)s") % {"time": fmt_time(bedtime)}
+        if quiet.contains(due):
+            late = [t for t in outs if t > last and quiet.is_bedtime(t)]
+            if late:
+                wake = quiet.next_wake(max(late))
+                return wake, _("out at %(time)s for the night; next when up, %(wake)s") % {
+                    "time": fmt_time(max(late)), "wake": fmt_time(wake)}
         return due, reason
 
     needs = []

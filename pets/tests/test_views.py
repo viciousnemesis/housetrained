@@ -768,12 +768,14 @@ class WholeHistoryCardTests(PetTestCase):
         bars = insights.potty_bars_card(self.ruby)
         self.assertEqual(len(bars["days"]), 41)
         self.assertEqual(bars["days"][-1]["pee_in"], 1)
-        self.assertEqual(bars["days"][-1]["label"], formats.date_format(timezone.localdate(long_ago), "M j"))
+        self.assertEqual(bars["days"][-1]["label"], formats.date_format(timezone.localdate(long_ago), "D M j"))
+        self.assertEqual(bars["days"][0]["label"], formats.date_format(timezone.localdate(), "D M j"))  # same format
         chart = insights.accidents_chart(self.ruby)
         self.assertEqual((len(chart["chart"]["rows"]), len(chart["dots"])), (41, 1))
         self.assertFalse(chart["recent_accidents"])  # the by-hour bars stay on the past 2 weeks
-        page = self.client.get("/pets/ruby/").content.decode()
-        self.assertEqual(page.count('class="overflow-auto" style="max-height: 28rem"'), 2)
+        page = self.client.get("/pets/ruby/").content.decode()  # 14 days at once, older ones by scrolling
+        self.assertIn('style="max-height: calc(14 * 1.9rem)"', page)
+        self.assertIn('style="aspect-ratio: 300 / 196"', page)
 
 
 class CardLayoutTests(PetTestCase):

@@ -13,6 +13,11 @@ from django.utils.translation import ngettext_lazy
 from rest_framework.authtoken.models import Token
 
 
+def server_time_zone():
+    """New users start in the server's time zone (a function, so migrations don't depend on where they're made)."""
+    return timezone.get_default_timezone_name()
+
+
 class Settings(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     dashboard_refresh_rate = models.DurationField(
@@ -68,7 +73,7 @@ class Settings(models.Model):
         ],
     )
     timezone = models.CharField(  # the form offers the zones (housetrained.time_zones)
-        default=timezone.get_default_timezone_name(),
+        default=server_time_zone,
         max_length=100,
         verbose_name=_("Timezone"),
     )

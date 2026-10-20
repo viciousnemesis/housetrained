@@ -2,6 +2,7 @@
 
 import datetime
 import django.db.models.deletion
+import housetrained.models
 from django.conf import settings
 from django.core.management import call_command
 from django.db import migrations, models
@@ -25,7 +26,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('dashboard_refresh_rate', models.DurationField(blank=True, choices=[(None, 'disabled'), (datetime.timedelta(seconds=60), '1 minute'), (datetime.timedelta(seconds=120), '2 minutes'), (datetime.timedelta(seconds=180), '3 minutes'), (datetime.timedelta(seconds=240), '4 minutes'), (datetime.timedelta(seconds=300), '5 minutes'), (datetime.timedelta(seconds=600), '10 minutes'), (datetime.timedelta(seconds=900), '15 minutes'), (datetime.timedelta(seconds=1800), '30 minutes')], default=datetime.timedelta(seconds=60), help_text='Pages refresh only while they are showing, and when they get focus.', null=True, verbose_name='Refresh rate')),
-                ('timezone', models.CharField(default='UTC', max_length=100, verbose_name='Timezone')),
+                ('timezone', models.CharField(default=housetrained.models.server_time_zone, max_length=100, verbose_name='Timezone')),
                 ('pagination_count', models.PositiveIntegerField(choices=[(10, '10 Per Page'), (25, '25 Per Page'), (50, '50 Per Page'), (100, '100 Per Page'), (250, '250 Per Page'), (0, 'Show All')], default=25, verbose_name='Items Per Page')),
                 ('theme', models.CharField(blank=True, choices=[('auto', 'Automatic (follow the device)'), ('light', 'Light'), ('dark', 'Dark')], default='auto', max_length=5, verbose_name='Theme')),
                 ('clock', models.CharField(blank=True, choices=[('', 'Automatic (from language)'), ('12', '12-hour'), ('24', '24-hour')], default='', max_length=2, verbose_name='Time format')),
