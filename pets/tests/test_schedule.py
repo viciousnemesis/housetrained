@@ -103,14 +103,43 @@ class ScheduleTests(TestCase):
         self.assertEqual(card["needs"][0]["time"], self.at(14, 30))  # no extra walk for it
         self.assertEqual(card["expect"], "pee + poop")
 
-    def test_meal_brings_it_forward(self):
+    def test_meal_brings_the_walk_forward_but_not_the_poop(self):
+        """PUP-167: out 15 minutes after eating; poop still follows its own timer."""
         self.potty(self.at(8, 30), poop=True)
         self.meal(self.at(10))
         card = self.card(self.at(10, 1))
         self.assertEqual(card["head_out"], self.at(10, 15))  # out after a meal: 15 minutes after eating
         self.assertEqual(card["needs"][0]["time"], self.at(10, 25))  # + 10 minutes to get outside
         self.assertEqual(card["source"], "meal")
-        self.assertEqual(card["expect"], "pee + poop")
+        self.assertEqual(card["expect"], "pee")
+        self.assertEqual(self.need(self.at(10, 1), "poop")["time"], self.at(13, 30))  # 8:30 AM + 5h
+
+    def test_oct_20_lunch_expects_pee_only(self):
+        """Pooped 9:20, peed 9:39, ate 12:16: the 12:27 walk expects pee, poop at 2:20 PM."""
+        self.potty(self.at(9, 20), pee=False, poop=True)
+        self.potty(self.at(9, 39))
+        self.meal(self.at(12, 16))
+        card = self.card(self.at(12, 20))
+        self.assertEqual(card["expect"], "pee")
+        self.assertEqual(self.need(self.at(12, 20), "poop")["time"], self.at(14, 20))
+
+    def test_status_stays_on_the_walk_until_it_ends(self):
+        """PUP-168: out since 12:27 expecting pee + poop; a pee on the walk doesn't move Status to the next one."""
+        from pets.insights import status_card
+
+        self.potty(self.at(7), pee=False, poop=True)
+        self.potty(self.at(9, 50))
+        walk = Walk.objects.create(household=self.home, start=self.at(12, 27))
+        walk.pets.set([self.ruby])
+        self.potty(self.at(12, 30))
+        card = status_card(self.ruby, now=self.at(12, 35))
+        self.assertEqual(card["on_walk"], walk)
+        self.assertEqual(card["expect"], "pee + poop")  # as of leaving
+        walk.end = self.at(12, 40)
+        walk.save()
+        after = status_card(self.ruby, now=self.at(12, 41))
+        self.assertIsNone(after["on_walk"])
+        self.assertGreater(after["head_out"], self.at(14))  # now the next walk
 
     def test_water_brings_a_pee_not_a_poop(self):
         self.potty(self.at(9), poop=True)

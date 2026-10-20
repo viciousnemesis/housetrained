@@ -26,7 +26,6 @@ MINUTE = datetime.timedelta(minutes=1)
 RETRY = datetime.timedelta(minutes=15)  # out and nothing happened: try again this long after getting back
 BEDTIME_WINDOW = datetime.timedelta(hours=1)  # a pee this close before bedtime is the bedtime one
 TOGETHER = datetime.timedelta(minutes=30)  # needs this close together are expected on the same walk
-POOP_THEN_FOOD = datetime.timedelta(hours=1)  # pooped this soon before eating: that meal brings no poop
 COACH_WEEK = datetime.timedelta(days=7)
 COACH_SNOOZE = datetime.timedelta(days=2)
 LONGEST = {"pee": 8 * 60, "poop": 12 * 60}  # minutes
@@ -167,12 +166,8 @@ def next_walk(pet, now=None):
         due, reason = overnight(last + every, last, _("last poop %(time)s + every %(every)s") % {
             "time": fmt_time(last), "every": fmt_span(every)})
         source = None
-        start = max(last + POOP_THEN_FOOD, cleared) if cleared else last + POOP_THEN_FOOD
-        fed = [(t, logged) for t, food, logged in meals if food and t > start]
-        if fed and max(fed[0][0] + after_meal, ready(*fed[0])) < due:
-            due, source = max(fed[0][0] + after_meal, ready(*fed[0])), "meal"
-            reason = _("ate at %(time)s; out %(after)s later") % {"time": fmt_time(fed[0][0]),
-                                                                   "after": fmt_span(after_meal - to_outside)}
+        # A meal sends you out (that's on the pee side) but doesn't make a poop due early: poop follows its own timer
+        # (PUP-167).
         # Out since it was due and no poop: it doesn't keep its own walk, it's expected on the next one.
         back = out_since(due - TOGETHER, "poop")
         if back and back > due - TOGETHER:

@@ -11,14 +11,17 @@
         {# Head out on the left with Why? under it; Most recent at the bottom right, so the card doesn't grow. #}
         <div class="d-flex justify-content-between gap-3">
             <div class="flex-grow-1" style="min-width: 0">
-                {% if needs %}
+                {% if on_walk %}
+                    <div class="fs-4 fw-bold lh-sm">{% blocktrans with time=on_walk.start|clock %}On a walk since {{ time }}{% endblocktrans %}</div>
+                    {% if expect %}<div class="fw-bold mt-1">{% trans "expecting" %} {{ expect }}</div>{% endif %}
+                {% elif needs %}
                     <div class="fs-4 fw-bold lh-sm">{% blocktrans with time=head_out|clock %}Head out ~{{ time }}{% endblocktrans %}</div>
                     <div class="fw-bold mt-1">{{ due }} · {% trans "expect" %} {{ expect }}</div>
                 {% else %}
                     <div class="fw-bold">{% trans "Log a potty break to start the schedule" %}</div>
                 {% endif %}
                 {% if asleep %}<div class="small text-body-secondary mt-1">🌙 {% blocktrans with time=asleep.start|clock %}asleep since {{ time }}{% endblocktrans %}</div>{% endif %}
-            {% if source and pets_can_edit %}
+            {% if source and pets_can_edit and not on_walk %}
                 {# A meal or nap brought the time forward; it stays due until a potty break, or until this says it passed. #}
                 <form class="mt-2 d-flex align-items-center gap-2" method="post" action="{% url 'pets:disregard' pet.slug %}">
                     {% csrf_token %}

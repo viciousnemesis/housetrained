@@ -239,7 +239,9 @@ def status_card(pet, now=None):
     now = now or timezone.now()
     from .schedule import coach, next_walk
 
-    card = next_walk(pet, now=now)
+    # Out on a walk: show that walk (what was expected and why, as of leaving) until it ends (PUP-168).
+    on_walk = pet.walks.filter(end=None, start__lte=now).order_by("-start").first()
+    card = next_walk(pet, now=on_walk.start if on_walk else now)
     last_pee = pet.potty_breaks.filter(pee=True, time__lte=now).order_by("-time").first()
     last_poop = pet.potty_breaks.filter(poop=True, time__lte=now).order_by("-time").first()
     last_meal = Meal.objects.filter(pet=pet, food=True, time__lte=now).order_by("-time").first()
@@ -252,6 +254,7 @@ def status_card(pet, now=None):
         (_("Ate"), last_meal, last_meal and f"/log/meal/{last_meal.pk}/")) if entry]
     actual = {r["key"]: r["actual"] for r in schedule_vs_actual(pet, now=now)}
     return {**card, "latest": latest, "asleep": asleep, "coach": coach(pet, now=now), "streak": streak(pet, now=now),
+            "on_walk": on_walk,
             "actual": actual,
             "pee_every": pet.pee_minutes, "poop_every": pet.poop_minutes}
 

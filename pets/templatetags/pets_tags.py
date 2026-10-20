@@ -154,7 +154,7 @@ def running_activities(context):
     for walk in Walk.objects.filter(household=household, end=None).prefetch_related("pets"):
         pets = list(walk.pets.all())
         # What to expect on this walk (PUP-133): "pee + poop", or per pet when several are out.
-        expects = [(p.name, next_walk(p)["expect"]) for p in pets]
+        expects = [(p.name, next_walk(p, now=walk.start)["expect"]) for p in pets]  # as of leaving (PUP-168)
         expects = [(name, e) for name, e in expects if e]
         expect = expects[0][1] if len(pets) == 1 and expects else "; ".join(f"{n}: {e}" for n, e in expects)
         running.append({"kind": "walk", "label": "Walking", "id": walk.pk, "start": walk.start,
