@@ -4,5 +4,4 @@
 {% endfor %}
 {% for tick in chart.ticks %}
     <line x1="{{ tick.x }}" x2="{{ tick.x }}" y1="0" y2="{{ chart.height }}" stroke="currentColor" opacity=".2" />
-    <text x="{{ tick.x }}" y="{{ chart.total_h|add:-4 }}" text-anchor="{% if forloop.last %}end{% else %}middle{% endif %}" font-size="10" fill="currentColor" opacity=".7">{{ tick.label }}</text>
 {% endfor %}

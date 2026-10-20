@@ -5,7 +5,7 @@ import re
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
-from django.utils import timezone
+from django.utils import formats, timezone
 
 from pets import insights
 from pets.households import add_member
@@ -757,3 +757,20 @@ class AllActivityTests(PetTestCase):
         self.assertContains(self.client.get("/pets/ruby/"), "All activity")
         self.client.logout()
         self.assertNotEqual(self.client.get("/pets/ruby/activity/").status_code, 200)
+
+
+class WholeHistoryCardTests(PetTestCase):
+    """PUP-160: Potty Breaks and Accident Times go back to the first potty break, newest first."""
+
+    def test_both_cards_cover_the_whole_history(self):
+        long_ago = timezone.now() - datetime.timedelta(days=40)
+        PottyBreak.objects.create(pet=self.ruby, time=long_ago, pee=True, location=PottyBreak.INSIDE)
+        bars = insights.potty_bars_card(self.ruby)
+        self.assertEqual(len(bars["days"]), 41)
+        self.assertEqual(bars["days"][-1]["pee_in"], 1)
+        self.assertEqual(bars["days"][-1]["label"], formats.date_format(timezone.localdate(long_ago), "M j"))
+        chart = insights.accidents_chart(self.ruby)
+        self.assertEqual((len(chart["chart"]["rows"]), len(chart["dots"])), (41, 1))
+        self.assertFalse(chart["recent_accidents"])  # the by-hour bars stay on the past 2 weeks
+        page = self.client.get("/pets/ruby/").content.decode()
+        self.assertEqual(page.count('class="overflow-auto" style="max-height: 28rem"'), 2)

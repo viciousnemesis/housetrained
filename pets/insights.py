@@ -42,6 +42,19 @@ def day_label(date):
     return formats.date_format(date, "D j")
 
 
+def history_label(date, today):
+    """A row in a whole-history list: the weekday this past week ("Mon 19"), the date before that ("Oct 5")."""
+    return day_label(date) if (today - date).days < 7 else formats.date_format(date, "M j")
+
+
+def history_days(pet):
+    """How many days back a pet's history goes (its first potty break), counting today; at least a week."""
+    first = PottyBreak.everything.filter(pet=pet).order_by("time").values_list("time", flat=True).first()
+    if first is None:
+        return 7
+    return max(7, (timezone.localdate() - timezone.localdate(first)).days + 1)
+
+
 # Wording: (name, plural) for each kind.
 KINDS = {"pee": (gettext_lazy("Pee"), gettext_lazy("pees")), "poop": (gettext_lazy("Poop"), gettext_lazy("poops"))}
 
@@ -106,21 +119,30 @@ def avg_gap(breaks):
 
 # --- Cards -------------------------------------------------------------------------------
 def potty_bars_card(pet):
-    """Past week: pee/poop in the right place vs accidents, one stacked bar per day, scaled to the busiest day."""
+    """The whole history, newest first (PUP-160): pee/poop in the right place vs accidents, one stacked bar per day,
+    scaled to the busiest day."""
+    from collections import defaultdict
+
     today = timezone.localdate()
+    count = history_days(pet)
+    since = window_start(count)
     days = []
-    breaks = potty(pet, window_start(7))
+    by_day, walks_by_day = defaultdict(list), defaultdict(list)
+    for b in potty(pet, since):
+        by_day[timezone.localtime(b.time).date()].append(b)
     # Walks per day sit beside each bar, so a day with fewer walks and more accidents shows on one row.
-    walks = list(pet.walks.filter(start__gte=window_start(7)).exclude(end=None))
-    for i in range(7):
+    walks = list(pet.walks.filter(start__gte=since).exclude(end=None))
+    for w in walks:
+        walks_by_day[timezone.localtime(w.start).date()].append(w)
+    breaks = any(by_day.values())
+    for i in range(count):
         date = today - datetime.timedelta(days=i)
-        day = [b for b in breaks if timezone.localtime(b.time).date() == date]
-        day_walks = [w for w in walks if timezone.localtime(w.start).date() == date]
+        day, day_walks = by_day[date], walks_by_day[date]
         walk_time = sum((w.end - w.start for w in day_walks), datetime.timedelta())
         days.append({
             "walks": len(day_walks),
             "walk_time": fmt_duration(walk_time) if day_walks else "",
-            "label": day_label(date),
+            "label": history_label(date, today),
             "pee_ok": sum(b.pee and not is_accident(b) for b in day),
             "poop_ok": sum(b.poop and not is_accident(b) for b in day),
             "pee_in": sum(b.pee and is_accident(b) for b in day),
@@ -149,7 +171,7 @@ def chart(days=WINDOW_DAYS):
     rows = []
     for i in range(days):
         date = today - datetime.timedelta(days=i)
-        rows.append({"date": date, "y": i * ROW_H, "mid": i * ROW_H + ROW_H / 2, "label": day_label(date)})
+        rows.append({"date": date, "y": i * ROW_H, "mid": i * ROW_H + ROW_H / 2, "label": history_label(date, today)})
     height = days * ROW_H
     ticks = [{"x": LABEL_W + h / 24 * PLOT_W, "label": (("00", "06", "12", "18", "24") if uses_24h() else ("12a", "6a", "12p", "6p", "12a"))[h // 6]} for h in range(0, 25, 6)]
     return {"rows": rows, "by_date": {r["date"]: r for r in rows}, "height": height, "total_h": height + AXIS_H,
@@ -162,14 +184,18 @@ def _place(c, dt):
 
 
 def accidents_chart(pet):
-    c, since = chart(), window_start()
+    """Accidents by time of day, one row per day for the whole history, newest first (PUP-160); meals and sleep
+    behind them. The by-hour bars stay on the past 2 weeks."""
+    count = history_days(pet)
+    c, since, recent = chart(count), window_start(count), window_start()
     dots, meals, sleeps = [], [], []
     hours = [0] * 24
     for b in PottyBreak.objects.filter(pet=pet, location=PottyBreak.INSIDE, time__gte=since):
         pos = _place(c, b.time)
         if not pos:
             continue
-        hours[timezone.localtime(b.time).hour] += 1
+        if b.time >= recent:
+            hours[timezone.localtime(b.time).hour] += 1
         kind = _("Pee + poop") if b.pee and b.poop else (_("Poop") if b.poop else _("Pee"))
         dots.append({"x": pos[0], "y": pos[1], "color": "#a72431" if b.poop else "#f5d33f",
                      "label": _("%(kind)s inside %(time)s") % {"kind": kind, "time": fmt_time(b.time)}})
@@ -192,10 +218,8 @@ def accidents_chart(pet):
     slot = PLOT_W / 24
     hist = [{"x": round(LABEL_W + h * slot + 0.75, 2), "y": 26 - n / peak * 26, "h": n / peak * 26,
              "n": n, "label": f"{h:02d}", "even": h % 2 == 0} for h, n in enumerate(hours)]
-    return {"chart": c, "dots": dots, "meals": meals, "sleeps": sleeps, "hist": hist,
-            "hist_w": round(slot - 1.5, 2), "row_h": ROW_H, "hide_empty": True,
-            "empty": not dots and not PottyBreak.objects.filter(pet=pet, location=PottyBreak.INSIDE,
-                                                                 time__gte=since).exists()}
+    return {"chart": c, "dots": dots, "meals": meals, "sleeps": sleeps, "hist": hist, "recent_accidents": any(hours),
+            "hist_w": round(slot - 1.5, 2), "row_h": ROW_H, "hide_empty": True, "empty": not dots}
 
 
 # --- Health (PUP-79) -----------------------------------------------------------------------------

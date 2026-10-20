@@ -17,6 +17,7 @@
         <div class="flex-grow-1">{% trans "Potty breaks" %}</div>
         {% if show_walks %}<div class="text-end" style="width: 3rem">{% trans "Walks" %}</div>{% endif %}
     </div>
+    <div class="overflow-auto" style="max-height: 28rem">
     {% for d in days %}
         <div class="d-flex align-items-center gap-2 {% if forloop.first %}mt-1{% else %}mt-2{% endif %}">
             <div class="small text-nowrap text-end" style="width: 3.5rem">{{ d.label }}</div>
@@ -34,4 +35,5 @@
             {% endif %}
         </div>
     {% endfor %}
+    </div>
 {% endblock %}
