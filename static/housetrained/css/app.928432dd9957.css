@@ -11973,6 +11973,10 @@ textarea.form-control-lg {
   padding: var(--bs-pagination-padding-y) calc(var(--bs-pagination-padding-x) / 1.75);
 }
 
+.help-popover .popover-body {
+  white-space: pre-line;
+}
+
 @font-face {
   font-family: "housetrained";
   src: url("../font/housetrained.0b7cadaf4531.woff2?42677879") format("woff2"), url("../font/housetrained.10378d0b522d.woff?42677879") format("woff"), url("../font/housetrained.c2d40c60fce3.ttf?42677879") format("truetype"), url("../font/housetrained.edd7b4a52acb.svg?42677879#housetrained") format("svg");

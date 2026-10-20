@@ -59,6 +59,7 @@ def help_bubble(context, text):
     return format_html(
         '<button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline text-reset opacity-75 help-bubble" '
         'data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-content="{}" '
+        'data-bs-custom-class="help-popover" '
         'aria-label="{}">ⓘ</button>',
         text, _("Help"),
     )

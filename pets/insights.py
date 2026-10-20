@@ -500,4 +500,4 @@ def training_card(pet, now=None):
     return {"working": [r for r in rows if r["command"].status == Command.WORKING],
             "known": [r for r in rows if r["command"].status == Command.KNOWN],
             "scores": [(n, label, TrainingLog.SCORE_HELP[n]) for n, label in TrainingLog.SCORES],
-            "scale_text": " ".join(f"{n} {label}: {TrainingLog.SCORE_HELP[n]}" for n, label in TrainingLog.SCORES)}
+            "scale_text": "\n".join(f"{n} {label}: {TrainingLog.SCORE_HELP[n]}" for n, label in TrainingLog.SCORES)}

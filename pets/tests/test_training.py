@@ -215,6 +215,13 @@ class TrainingOrderTests(PetTestCase):
         self.login(self.viewer)
         self.assertEqual(self.client.post("/pets/ruby/training/", {"sort": "progress"}).status_code, 403)
 
+    def test_scale_bubble_has_one_line_per_score(self):
+        """PUP-158: the help bubble lists 1-5 on separate lines."""
+        self.assertIn("1 Not yet: No response.\n2 Needs help:", insights.training_card(self.ruby)["scale_text"])
+        page = self.client.get("/pets/ruby/").content.decode()
+        self.assertIn('data-bs-custom-class="help-popover"', page)
+        self.assertIn("No response.\n2 Needs help", page)
+
     def test_one_line_rows_with_small_buttons(self):
         page = self.client.get("/pets/ruby/").content.decode()
         self.assertIn('btn btn-sm btn-outline-light px-0" style="width: 2rem"', page)

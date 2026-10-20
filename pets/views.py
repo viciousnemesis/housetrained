@@ -769,7 +769,7 @@ class Training(HouseholdMixin, TemplateView):
         order = {Command.WORKING: 0, Command.KNOWN: 1, Command.RETIRED: 2}
         rows = sorted(sorted_commands(pet), key=lambda r: order[r[0].status])  # stable: keeps the chosen order
         commands = [{"command": c, "avg": f"{avg:.1f}" if avg else None, **training_chart(c)} for c, avg in rows]
-        scale = " ".join(f"{n} {label}: {TrainingLog.SCORE_HELP[n]}" for n, label in TrainingLog.SCORES)
+        scale = "\n".join(f"{n} {label}: {TrainingLog.SCORE_HELP[n]}" for n, label in TrainingLog.SCORES)
         return super().get_context_data(pet=pet, commands=commands, scores=TrainingLog.SCORES, scale_text=scale,
                                         sorts=Pet.TRAINING_SORTS, **kwargs)
 

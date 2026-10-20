@@ -41,3 +41,8 @@
 .page-link-icon {
     padding: var(--bs-pagination-padding-y) calc(var(--bs-pagination-padding-x) / 1.75);
 }
+
+// Help bubbles keep their line breaks (a list like the training scale reads one item per line).
+.help-popover .popover-body {
+    white-space: pre-line;
+}
