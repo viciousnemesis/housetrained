@@ -187,6 +187,11 @@ def next_walk(pet, now=None):
         walk_at = needs[0]["time"]
         for n in needs:
             n["this_walk"] = n["time"] <= walk_at + TOGETHER
+            # The next walk is the night's last one (PUP-166): anything else due overnight is the morning walk's.
+            if not n["this_walk"] and quiet.is_bedtime(walk_at) and quiet.contains(n["time"]):
+                n["time"] = quiet.next_wake(walk_at)
+                n["reason"] = _("after the last walk tonight, next when up, %(wake)s") % {"wake": fmt_time(n["time"])}
+        needs.sort(key=lambda n: (n["time"], n["key"] != "pee"))
         head_out = walk_at - to_outside  # she needs to go at walk_at; be out the door before that
         expect = " + ".join(str(n["kind"]).lower() for n in sorted(needs, key=lambda n: n["key"] != "pee")
                             if n["this_walk"])

@@ -173,6 +173,19 @@ class ScheduleTests(TestCase):
         self.potty(self.at(21))  # + 2h 30m = 11:30 PM, in the quiet hours
         self.assertEqual(self.need(self.at(21, 5), "pee")["time"], self.at(23, 30))
 
+    def test_nothing_after_the_last_walk_of_the_night(self):
+        """PUP-166: poop due 11:20 PM is the last walk; pee due 12:08 AM shows as the morning walk, not a second one."""
+        self.potty(self.at(19, 20), pee=False, poop=True)  # + 4h = 11:20 PM
+        self.potty(self.at(21, 38))  # + 2h 30m = 12:08 AM
+        self.ruby.poop_every = 240
+        self.ruby.save()
+        card = self.card(self.at(22, 50))
+        wake = self.at(6, 30) + datetime.timedelta(days=1)
+        self.assertEqual(card["head_out"], self.at(23, 10))
+        pee = next(n for n in card["needs"] if n["key"] == "pee")
+        self.assertEqual(pee["time"], wake)
+        self.assertIn("after the last walk tonight", pee["reason"])
+
     def test_after_a_late_walk_the_rest_waits_for_morning(self):
         """Poop at 8 PM (due 1 AM), pee on the late walk at 11:30 PM: no second walk at 1 AM."""
         self.potty(self.at(20), pee=False, poop=True)
