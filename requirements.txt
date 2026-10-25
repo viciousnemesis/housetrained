@@ -8,7 +8,7 @@ django-dbsettings==1.4.0
 django-filter==25.2; python_version >= '3.10'
 django-ipware==7.0.1; python_version >= '3.8'
 django-widget-tweaks==1.5.1; python_version >= '3.9'
-djangorestframework==3.18.1; python_version >= '3.10'
+djangorestframework==3.18.2; python_version >= '3.10'
 gunicorn==23.0.0; python_version >= '3.7'
 packaging==26.3; python_version >= '3.9'
 psycopg2-binary==2.9.13; python_version >= '3.10'
