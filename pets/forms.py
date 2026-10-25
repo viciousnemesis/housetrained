@@ -780,11 +780,17 @@ class PetForm(HouseholdOwnedForm):
                    "notes": forms.Textarea(attrs={"rows": 3})}
 
     picture_crop = forms.CharField(required=False, widget=forms.HiddenInput)
+    # The framed square as a JPEG data: URL, drawn by the page (PUP-169).
+    picture_square = forms.CharField(required=False, widget=forms.HiddenInput)
+
+    PICTURE_MAX = 10 * 1024 * 1024
+    SQUARE_MAX = 2 * 1024 * 1024
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.show_when = {"birth_date_estimated": ("birth_date", self.ANY)}
         self.fields["picture"].help_text = _("Drag and resize the box to frame your pet.")
+        self.fields["picture"].widget.attrs["accept"] = "image/*"
         self.fields["after_meal"].required = False
         if self.instance.pk:
             self.initial["potty_locations"] = self.instance.allowed_potty_locations()
@@ -796,6 +802,32 @@ class PetForm(HouseholdOwnedForm):
     def clean_after_meal(self):
         value = self.cleaned_data.get("after_meal")
         return 15 if value is None else value
+
+    def clean_picture(self):
+        """A new photo must be what the page makes of it: a JPEG, stored under a .jpg name whatever it was called."""
+        picture = self.cleaned_data.get("picture")
+        if picture and "picture" in self.changed_data and hasattr(picture, "content_type"):
+            head = picture.read(3)
+            picture.seek(0)
+            if head != JPEG_START or picture.size > self.PICTURE_MAX:
+                raise forms.ValidationError(_("That photo didn't come through. Pick it again."))
+            picture.name = "photo.jpg"
+        return picture
+
+    def clean_picture_square(self):
+        """The framed square from the page, as JPEG bytes; anything else is ignored."""
+        import base64
+        import binascii
+
+        raw = self.cleaned_data.get("picture_square") or ""
+        prefix = "data:image/jpeg;base64,"
+        if not raw.startswith(prefix):
+            return None
+        try:
+            data = base64.b64decode(raw[len(prefix):], validate=True)
+        except (binascii.Error, ValueError):
+            return None
+        return data if data.startswith(JPEG_START) and len(data) <= self.SQUARE_MAX else None
 
     def clean_picture_crop(self):
         """The crop box from the page: fractions of the picture, {x, y, w, h}; anything odd is ignored."""
@@ -818,25 +850,19 @@ class PetForm(HouseholdOwnedForm):
         self.instance.schedule_checked = True  # seen and saved: the setup checklist's schedule step is done
         pet = super().save(commit=commit)
         if commit:
-            crop = self.cleaned_data.get("picture_crop")
+            crop, square = self.cleaned_data.get("picture_crop"), self.cleaned_data.get("picture_square")
             if not pet.picture:
-                crop = None
-            elif crop is None and "picture" in self.changed_data:
-                crop = _centered_square(pet)  # a new picture without a box: the middle square
-            if crop != pet.picture_crop or "picture" in self.changed_data or (pet.picture_crop and not pet.picture_cropped):
-                pet.picture_crop = crop if pet.picture else None
-                pet.make_cropped_picture()
+                crop, square = None, None
+            # A new picture without a square shows its middle (object-fit on the page) until it's framed.
+            if ("picture" in self.changed_data or not pet.picture
+                    or (square and (crop != pet.picture_crop or not pet.picture_cropped))):
+                pet.picture_crop = crop if square else None
+                pet.set_cropped_picture(square)
                 pet.save(update_fields=["picture_crop", "picture_cropped"])
         return pet
 
 
-def _centered_square(pet):
-    from PIL import Image, ImageOps
-
-    with pet.picture.open("rb") as handle:
-        width, height = ImageOps.exif_transpose(Image.open(handle)).size
-    side = min(width, height)
-    return {"x": (width - side) / 2 / width, "y": (height - side) / 2 / height, "w": side / width, "h": side / height}
+JPEG_START = b"\xff\xd8\xff"
 
 
 class ContainerForm(HouseholdOwnedForm):

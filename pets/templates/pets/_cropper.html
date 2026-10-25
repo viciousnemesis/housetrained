@@ -7,15 +7,16 @@
 </div>
 <script>
     (function () {
-        // Pet photo framing: a square box to drag, resize and zoom. Only the box is sent; the original is kept.
+        // Pet photo framing: a square box to drag, resize and zoom. The browser does all the image work (PUP-169): a
+        // picked photo is redrawn as a JPEG of at most 2000px (which also drops its location and other metadata), and
+        // on saving the framed square goes along as an 800px JPEG. The server only stores what it gets.
         var input = document.getElementById("id_picture"), crop = document.getElementById("id_picture_crop");
-        if (!input || !crop || !window.Cropper) return;
+        var square = document.getElementById("id_picture_square"), form = document.getElementById("entry-form");
+        if (!input || !crop || !square || !form || !window.Cropper) return;
         var box = document.getElementById("crop-box");
         input.closest(".col-sm-10, .row").appendChild(box);
-        var img = box.querySelector("img"), cropper = null;
+        var img = box.querySelector("img"), cropper = null, busy = false;
 
-        // The photo shown is either the saved one (drawn by the page) or a file just picked (a blob: address the
-        // browser makes for it); nothing from the page's text becomes an address.
         var start = function (saved) {
             if (cropper) cropper.destroy();
             box.classList.remove("d-none");
@@ -39,14 +40,49 @@
             crop.value = JSON.stringify({x: Math.max(0, d.x / w), y: Math.max(0, d.y / h),
                                          w: Math.min(1, d.width / w), h: Math.min(1, d.height / h)});
         };
+        var failed = function () {
+            busy = false;
+            input.value = "";
+            alert("{% trans "That photo couldn't be opened. Try another one." %}");
+        };
 
         input.addEventListener("change", function () {
             var file = input.files && input.files[0];
-            if (!file || !/^image\//.test(file.type)) return;
+            if (!file) return;
             crop.value = "";
+            square.value = "";
             if (cropper) { cropper.destroy(); cropper = null; }
-            img.onload = function () { img.onload = null; start(null); };
-            img.src = URL.createObjectURL(file);
+            if (!window.createImageBitmap || !window.DataTransfer) { failed(); return; }
+            busy = true;
+            createImageBitmap(file).then(function (bitmap) {
+                var scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+                var canvas = document.createElement("canvas");
+                canvas.width = Math.round(bitmap.width * scale);
+                canvas.height = Math.round(bitmap.height * scale);
+                var ctx = canvas.getContext("2d");
+                ctx.fillStyle = "#fff";  // transparent parts of a PNG come out white, not black
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+                bitmap.close();
+                canvas.toBlob(function (blob) {
+                    if (!blob) { failed(); return; }
+                    var files = new DataTransfer();
+                    files.items.add(new File([blob], "photo.jpg", {type: "image/jpeg"}));
+                    input.files = files.files;
+                    img.onload = function () { img.onload = null; busy = false; start(null); };
+                    img.src = URL.createObjectURL(blob);
+                }, "image/jpeg", 0.9);
+            }, failed);
+        });
+        form.addEventListener("submit", function (event) {
+            if (busy) { event.preventDefault(); return; }  // still redrawing the photo: a moment, then save again
+            if (!cropper) return;
+            store();
+            // An explicit size: Cropper's maxWidth comes out smaller than asked.
+            var side = Math.max(1, Math.min(800, cropper.getData(true).width));
+            var canvas = cropper.getCroppedCanvas({width: side, height: side, fillColor: "#fff",
+                                                   imageSmoothingQuality: "high"});
+            if (canvas) square.value = canvas.toDataURL("image/jpeg", 0.88);
         });
         if (img.getAttribute("src")) {
             var saved = null;

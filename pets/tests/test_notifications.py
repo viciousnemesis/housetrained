@@ -216,12 +216,13 @@ class NotificationTests(TestCase):
         self.subscribe()
         NotificationPreference.objects.create(user=self.user, walk_due=False, low_supply=False, weekly_progress=True,
                                               weekly_day=4, weekly_hour=18)
-        PottyBreak.objects.create(pet=self.pet, time=timezone.now() - datetime.timedelta(days=2), pee=True,
-                                  location=PottyBreak.INSIDE)
         today = timezone.localdate()
         friday = today + datetime.timedelta(days=(4 - today.weekday()) % 7)
         monday = friday - datetime.timedelta(days=4)
         at = lambda day, h: timezone.make_aware(datetime.datetime.combine(day, datetime.time(h)))
+        # Something to report in the week before that Friday (not before today: on a weekend that's 6 days off).
+        PottyBreak.objects.create(pet=self.pet, time=at(friday - datetime.timedelta(days=2), 12), pee=True,
+                                  location=PottyBreak.INSIDE)
         reminders.check(now=at(monday, 10))
         reminders.check(now=at(friday, 17))
         self.assertEqual(webpush.call_count, 0)

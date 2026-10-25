@@ -1,5 +1,5 @@
 {% extends "housetrained/page.html" %}
-{% load i18n imagekit pets_tags static %}
+{% load i18n pets_tags static %}
 {% block title %}{% trans "Pets" %}{% endblock %}
 {% block breadcrumbs %}
     <li class="breadcrumb-item fw-bold">{{ household.name }}</li>
@@ -18,8 +18,7 @@
             <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
                 <a class="card text-reset text-decoration-none h-100" href="{% url 'pets:pet' pet.slug %}">
                     {% if pet.card_picture %}
-                        {% thumbnail '300x300' pet.card_picture as thumb %}
-                            <img src="{{ thumb.url }}" class="card-img-top" alt="" style="height: 12rem; object-fit: cover">
+                        <img src="{{ pet.card_picture.url }}" class="card-img-top" alt="" loading="lazy" style="height: 12rem; object-fit: cover">
                         {% elif pet.type == "dog" %}
                             <img src="{% static 'pets/img/pet-placeholder.png' %}" class="card-img-top" alt="" style="height: 12rem; object-fit: contain">
                         {% else %}

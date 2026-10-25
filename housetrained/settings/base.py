@@ -53,7 +53,6 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "widget_tweaks",
-    "imagekit",
     "dbsettings",
     "django.contrib.admin",
     "django.contrib.auth",

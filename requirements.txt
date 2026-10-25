@@ -2,19 +2,15 @@
 asgiref==3.12.1; python_version >= '3.10'
 dj-database-url==2.3.0
 django==5.2.17; python_version >= '3.10'
-django-appconf==1.2.0; python_version >= '3.9'
 django-axes[ipware]==7.1.0; python_version >= '3.9'
 django-cors-headers==4.9.0; python_version >= '3.9'
 django-dbsettings==1.4.0
 django-filter==25.2; python_version >= '3.10'
-django-imagekit==6.1.1; python_version >= '3.9'
 django-ipware==7.0.1; python_version >= '3.8'
 django-widget-tweaks==1.5.1; python_version >= '3.9'
 djangorestframework==3.18.1; python_version >= '3.10'
 gunicorn==23.0.0; python_version >= '3.7'
 packaging==26.3; python_version >= '3.9'
-pilkit==3.0
-pillow==12.3.0; python_version >= '3.10'
 psycopg2-binary==2.9.13; python_version >= '3.10'
 python-dotenv==1.2.3; python_version >= '3.10'
 python-ipware==3.0.0; python_version >= '3.7'
