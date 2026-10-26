@@ -157,13 +157,15 @@ class Pet(models.Model):
             self.picture_cropped.save(f"{self.slug or 'pet'}-{self.pk or 'new'}.jpg", ContentFile(square), save=False)
 
     def allowed_potty_locations(self):
-        """The pet's chosen potty locations, or sensible ones for its type."""
+        """The pet's chosen potty locations, or sensible ones for its type; then the household's own (PUP-181)."""
         if self.potty_locations:
-            return list(self.potty_locations)
-        return {
-            self.DOG: [PottyBreak.OUTSIDE, PottyBreak.INSIDE, PottyBreak.PAD],
-            self.CAT: [PottyBreak.LITTER_BOX, PottyBreak.INSIDE],
-        }.get(self.type, [code for code, _label in PottyBreak.LOCATIONS])
+            chosen = list(self.potty_locations)
+        else:
+            chosen = {
+                self.DOG: [PottyBreak.OUTSIDE, PottyBreak.INSIDE, PottyBreak.PAD],
+                self.CAT: [PottyBreak.LITTER_BOX, PottyBreak.INSIDE],
+            }.get(self.type, [code for code, _label in PottyBreak.LOCATIONS])
+        return chosen + [p.code for p in self.household.potty_places.all()]
 
     @property
     def pee_minutes(self):
@@ -343,10 +345,11 @@ class PottyBreak(Logged):
     time = models.DateTimeField(_("time"), default=timezone.now)
     pee = models.BooleanField(_("pee"), default=False)
     poop = models.BooleanField(_("poop"), default=False)
-    location = models.CharField(
-        _("location"), max_length=20, default=OUTSIDE,
-        choices=LOCATIONS,
-    )
+    # One of LOCATIONS, or a household's own (PottyLocation.code, PUP-181): see location_choices.
+    location = models.CharField(_("location"), max_length=20, default=OUTSIDE)
+    # Inside, or a household location marked as one: kept in step with location on save, so every count of
+    # accidents (streaks, the schedule, charts) is one filter.
+    accident = models.BooleanField(default=False, editable=False)
     walk = models.ForeignKey(Walk, on_delete=models.SET_NULL, null=True, blank=True, related_name="potty_breaks")
     # Accident context (PUP-76): where in the house, and what was going on.
     UNSUPERVISED, AFTER_PLAY, AFTER_DRINKING, EXCITED, AFTER_CRATE = (
@@ -394,6 +397,74 @@ class PottyBreak(Logged):
     @property
     def nothing(self):
         return not self.pee and not self.poop
+
+    def get_location_display(self):
+        return location_label(self.location)
+
+    def save(self, *args, **kwargs):
+        self.accident = location_is_accident(self.location)
+        fields = kwargs.get("update_fields")
+        if fields is not None and "location" in fields:
+            kwargs["update_fields"] = set(fields) | {"accident"}
+        super().save(*args, **kwargs)
+
+
+class PottyLocation(models.Model):
+    """A household's own potty location (PUP-181), e.g. balcony or garage, besides Outside, Inside, Pad and Litter
+    box: marked once as an accident (counts like Inside) or the right place (like Outside). Potty breaks store its
+    code."""
+
+    PREFIX = "place-"
+
+    household = models.ForeignKey(Household, on_delete=models.CASCADE, related_name="potty_places")
+    name = models.CharField(_("name"), max_length=100)
+    accident = models.BooleanField(
+        _("counts as an accident"), default=False,
+        help_text=_("On: going here is an accident, like Inside. Off: it's a right place, like Outside or a pad."))
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def code(self):
+        return f"{self.PREFIX}{self.pk}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        PottyBreak.everything.filter(location=self.code).update(accident=self.accident)  # a change applies to all
+
+
+def _place(code):
+    if code and code.startswith(PottyLocation.PREFIX) and code[len(PottyLocation.PREFIX):].isdigit():
+        return PottyLocation.objects.filter(pk=int(code[len(PottyLocation.PREFIX):])).first()
+    return None
+
+
+def location_is_accident(code):
+    if code == PottyBreak.INSIDE:
+        return True
+    place = _place(code)
+    return bool(place and place.accident)
+
+
+def location_label(code):
+    built_in = dict(PottyBreak.LOCATIONS)
+    if code in built_in:
+        return built_in[code]
+    place = _place(code)
+    return place.name if place else _("Other")  # a removed location
+
+
+def location_choices(household):
+    """Where a potty break can be: the built-in locations, then the household's own."""
+    return PottyBreak.LOCATIONS + [(p.code, p.name) for p in household.potty_places.all()]
+
+
+def accident_locations(household):
+    return [PottyBreak.INSIDE] + [p.code for p in household.potty_places.filter(accident=True)]
 
 
 class Sleep(Logged):

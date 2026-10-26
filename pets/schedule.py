@@ -112,7 +112,7 @@ def next_walk(pet, now=None):
         """When she was last out since `t` without doing `kind`, if she was: a walk, Nothing on the Potty panel, or
         an outdoor potty break that was the other kind."""
         tries = [n for n in nothing if n > t] + [end for start, end in outings if start > t]
-        tries += [b.time for b in breaks if b.time > t and b.location != PottyBreak.INSIDE and not getattr(b, kind)]
+        tries += [b.time for b in breaks if b.time > t and not b.accident and not getattr(b, kind)]
         return max(tries) if tries else None
 
     # Times someone was out with the pet (potty breaks and walk ends): the last one at bedtime or later ends the night.
@@ -211,7 +211,7 @@ def due_before(accident):
 def remember_due(accident):
     """Store (or clear) an accident's due time; returns it."""
     due = None
-    if accident.location == PottyBreak.INSIDE and not accident.found_later and (accident.pee or accident.poop):
+    if accident.accident and not accident.found_later and (accident.pee or accident.poop):
         due = due_before(accident)
     PottyBreak.everything.filter(pk=accident.pk).update(due_at=due)
     accident.due_at = due
@@ -237,7 +237,7 @@ def coach(pet, now=None):
         # Only accidents that came before the walk was due say the interval is too long; ones after it was due
         # were missed walks, which a shorter interval wouldn't fix.
         soon = [b.time - a.time for a, b in zip(of_kind, of_kind[1:])
-                if b.location == PottyBreak.INSIDE and not b.found_later and b.time >= since
+                if b.accident and not b.found_later and b.time >= since
                 and (b.due_at or remember_due(b) or b.time) > b.time]
         if len(soon) >= 2:
             typical = median(soon)
@@ -253,7 +253,7 @@ def coach(pet, now=None):
     settled = (changed or first) and (changed or first) <= week
     for kind in ("pee", "poop"):
         recent = [b for b in breaks if getattr(b, kind) and b.time >= week]
-        accidents = [b for b in recent if b.location == PottyBreak.INSIDE]
+        accidents = [b for b in recent if b.accident]
         if settled and not accidents and len(recent) >= 7 and current[kind] < LONGEST[kind]:
             suggested = min(current[kind] + STEP[kind], LONGEST[kind])
             return {"kind": kind, "current": current[kind], "suggested": suggested, "text": _(

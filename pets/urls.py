@@ -23,6 +23,7 @@ urlpatterns = [
     path("log/<str:kind>/<int:pk>/", views.EntryEdit.as_view(), name="edit"),
     path("log/<str:kind>/<int:pk>/delete/", views.EntryDelete.as_view(), name="delete"),
     path("log/potty/quick/", views.QuickPotty.as_view(), name="quick-potty"),
+    path("log/potty/location/", views.NewPottyLocation.as_view(), name="new-location"),
     path("log/training/quick/", views.QuickTraining.as_view(), name="quick-training"),
     path("undo/", views.Undo.as_view(), name="undo"),
     path("pets/<slug:slug>/training/", views.Training.as_view(), name="training"),

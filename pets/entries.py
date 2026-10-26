@@ -29,7 +29,7 @@ def _potty(b):
 
 def _vs_schedule(b):
     """For an accident: how it compared with when the schedule said to go out ("25m before due")."""
-    if b.location != PottyBreak.INSIDE or not b.due_at:
+    if not b.accident or not b.due_at:
         return ""
     from .schedule import fmt_minutes
 
@@ -137,7 +137,7 @@ def _tags(kind, entry):
     """What the Recent activity filters match: pee, poop, accident, nothing, walk, meal, sleep, fill, other."""
     if kind == "potty":
         tags = [t for t, flag in (("pee", entry.pee), ("poop", entry.poop)) if flag] or ["nothing"]
-        return tags + (["accident"] if entry.location == PottyBreak.INSIDE else [])
+        return tags + (["accident"] if entry.accident else [])
     return [kind] if kind in ("walk", "meal", "sleep", "fill", "measurement") else ["other"]
 
 
@@ -145,7 +145,7 @@ def _colour(kind, entry):
     if kind == "potty":
         if not entry.pee and not entry.poop:
             return COLOURS["nothing"]
-        if entry.location == PottyBreak.INSIDE:
+        if entry.accident:
             return COLOURS["accident_poop" if entry.poop else "accident_pee"]
         return COLOURS["poop" if entry.poop else "pee"]
     return COLOURS.get(kind)
@@ -163,7 +163,7 @@ def for_pet(kind, queryset, pet):
 
 ACTIVITY_PAGE = 40
 # What each All activity filter looks through: potties count on their own and on the walks they were part of.
-POTTY_FILTERS = {"pee": {"pee": True}, "poop": {"poop": True}, "accident": {"location": PottyBreak.INSIDE}}
+POTTY_FILTERS = {"pee": {"pee": True}, "poop": {"poop": True}, "accident": {"accident": True}}
 FILTER_KINDS = {"walk": ["walk"], "meal": ["meal"], "sleep": ["sleep"], "measurement": ["measurement"],
                 **{name: ["walk", "potty"] for name in POTTY_FILTERS}}
 
@@ -184,7 +184,7 @@ def activity(pet, filter="all", page=0, size=ACTIVITY_PAGE):
         elif kind == "walk" and potty_match:
             entries = entries.filter(potty_breaks__pet=pet, **{f"potty_breaks__{k}": v for k, v in potty_match.items()})
         for e in entries.distinct().order_by(f"-{field}", "-pk")[:want + 1]:
-            if kind == "potty" and e.location == PottyBreak.INSIDE and e.due_at is None and not e.found_later:
+            if kind == "potty" and e.accident and e.due_at is None and not e.found_later:
                 remember_due(e)  # logged before this was kept: work it out once
             rows.append((kind, e, row(kind, e)))
     rows.sort(key=lambda r: (r[2]["time"], r[1].pk), reverse=True)

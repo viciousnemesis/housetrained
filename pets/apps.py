@@ -8,7 +8,7 @@ def end_retry(sender, instance, raw=False, created=False, **kwargs):
         return
     if created and instance.pet.retry_at:
         type(instance.pet).objects.filter(pk=instance.pet_id).update(retry_at=None)
-    if instance.location == "inside" or instance.due_at:
+    if instance.accident or instance.due_at:
         from .schedule import remember_due
 
         remember_due(instance)

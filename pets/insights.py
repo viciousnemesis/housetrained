@@ -100,7 +100,7 @@ def potty(pet, since, until=None):
 
 
 def is_accident(b):
-    return b.location == PottyBreak.INSIDE
+    return b.accident
 
 
 def feeding_times(pet, since, water=False, until=None):
@@ -192,7 +192,7 @@ def accidents_chart(pet):
     c, since, recent = chart(count), window_start(count), window_start()
     dots, meals, sleeps = [], [], []
     hours = [0] * 24
-    for b in PottyBreak.objects.filter(pet=pet, location=PottyBreak.INSIDE, time__gte=since):
+    for b in PottyBreak.objects.filter(pet=pet, accident=True, time__gte=since):
         pos = _place(c, b.time)
         if not pos:
             continue

@@ -78,6 +78,20 @@
             </div>
             <div class="card card-dashboard">
                 <div class="card-header d-flex justify-content-between">
+                    {% trans "Potty locations" %} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'location' %}">+ {% trans "Add" %}</a>{% endif %}
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for p in places %}
+                        <a class="list-group-item list-group-item-action d-flex justify-content-between" href="{% url 'pets:edit' 'location' p.pk %}">
+                            {{ p.name }} <span class="text-body-secondary small">{% if p.accident %}{% trans "accident" %}{% else %}{% trans "right place" %}{% endif %}</span>
+                        </a>
+                    {% empty %}
+                        <div class="list-group-item text-body-secondary small">{% trans "Your own, besides Outside, Inside, Pad and Litter box, each an accident or a right place. Add them here or with + New while logging." %}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card card-dashboard">
+                <div class="card-header d-flex justify-content-between">
                     {% trans "Products" %} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'product' %}">+ {% trans "Add" %}</a>{% endif %}
                 </div>
                 <div class="list-group list-group-flush">

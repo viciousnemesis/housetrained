@@ -20,10 +20,10 @@ def _days(td):
 def streak(pet, now=None):
     """Time since the last accident (or since logging began), and the best accident-free stretch so far."""
     now = now or timezone.now()
-    breaks = list(PottyBreak.objects.filter(pet=pet, time__lte=now).order_by("time").values_list("time", "location"))
+    breaks = list(PottyBreak.objects.filter(pet=pet, time__lte=now).order_by("time").values_list("time", "accident"))
     if not breaks:
         return None
-    accidents = [t for t, location in breaks if location == PottyBreak.INSIDE]
+    accidents = [t for t, accident in breaks if accident]
     start = breaks[0][0]
     current = now - (accidents[-1] if accidents else start)
     marks = [start] + accidents + [now]
@@ -47,7 +47,7 @@ def weeks(pet, now=None, count=WEEKS):
         start = timezone.make_aware(datetime.datetime.combine(start_day, datetime.time()))
         end = timezone.make_aware(datetime.datetime.combine(end_day + datetime.timedelta(days=1), datetime.time()))
         breaks = list(PottyBreak.objects.filter(pet=pet, time__gte=start, time__lt=min(end, now)).order_by("time"))
-        accidents = [b for b in breaks if b.location == PottyBreak.INSIDE]
+        accidents = [b for b in breaks if b.accident]
         rows.append({
             "start": start_day, "end": end_day, "breaks": len(breaks), "accidents": len(accidents),
             "right_place": round(100 * (len(breaks) - len(accidents)) / len(breaks)) if breaks else None,
@@ -74,7 +74,7 @@ def patterns(pet, now=None, days=28):
     from collections import Counter
 
     now = now or timezone.now()
-    accidents = list(PottyBreak.objects.filter(pet=pet, location=PottyBreak.INSIDE,
+    accidents = list(PottyBreak.objects.filter(pet=pet, accident=True,
                                                time__gte=now - datetime.timedelta(days=days)).select_related("spot"))
     spots = Counter(a.spot.name for a in accidents if a.spot_id)
     labels = dict(PottyBreak.CONTEXTS)

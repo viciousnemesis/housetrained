@@ -4,7 +4,7 @@ from django.utils.translation import gettext as _
 from .. import insights, units
 from ..clock import show_datetime, show_time
 from ..households import current_household
-from ..models import Sleep, Walk
+from ..models import Sleep, Walk, location_choices
 
 register = template.Library()
 
@@ -136,7 +136,7 @@ def pet_actions(context, pet=None):
         for spot in p.allowed_potty_locations():
             if spot not in allowed:
                 allowed.append(spot)
-    labels = dict(PottyBreak.LOCATIONS)
+    labels = dict(location_choices(household))
     walks = Walk.objects.filter(household=household, end=None)
     sleeps = Sleep.objects.filter(pet__household=household, end=None)
     if pet:

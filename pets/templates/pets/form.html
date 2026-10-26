@@ -80,6 +80,71 @@
                 r.addEventListener("change", function () { if (r.checked) { text.value = ""; hidden.value = ""; } });
             });
         });
+        // "+ New" location (PUP-181): name it, then say whether going there is an accident or the right place. It's
+        // made straight away and picked, so the accident rows (Where, What was going on) show for it like Inside.
+        document.querySelectorAll('.pill-new[data-add-to="location_new"]').forEach(function (box) {
+            var button = box.querySelector("button"), text = box.querySelector("input");
+            var form = document.getElementById("entry-form");
+            var choices = document.createElement("span");
+            choices.className = "d-none";
+            [["true", "{% trans 'Accident' %}"], ["false", "{% trans 'Right place' %}"]].forEach(function (c) {
+                var b = document.createElement("button");
+                b.type = "button";
+                b.className = "btn btn-sm btn-outline-light ms-1";
+                b.dataset.accident = c[0];
+                b.textContent = c[1];
+                choices.appendChild(b);
+            });
+            box.appendChild(choices);
+            button.addEventListener("click", function () {
+                button.classList.add("d-none");
+                text.classList.remove("d-none");
+                text.style.display = "inline-block";
+                choices.classList.remove("d-none");
+                text.focus();
+            });
+            text.addEventListener("keydown", function (event) { if (event.key === "Enter") event.preventDefault(); });
+            choices.addEventListener("click", function (event) {
+                var pick = event.target.closest("button");
+                if (!pick || !text.value.trim()) { text.focus(); return; }
+                var body = new FormData();
+                body.append("name", text.value.trim());
+                body.append("accident", pick.dataset.accident);
+                body.append("csrfmiddlewaretoken", form.querySelector("[name=csrfmiddlewaretoken]").value);
+                fetch("{% url 'pets:new-location' %}", {method: "POST", body: body, credentials: "same-origin"})
+                    .then(function (r) { return r.json(); }).then(function (place) {
+                        if (!place.ok) return;
+                        var radio = form.querySelector('input[name=location][value="' + place.code + '"]');
+                        if (!radio) {
+                            radio = document.createElement("input");
+                            radio.type = "radio";
+                            radio.name = "location";
+                            radio.value = place.code;
+                            radio.id = "id_location_" + place.code;
+                            radio.className = "btn-check d-none";
+                            var label = document.createElement("label");
+                            label.htmlFor = radio.id;
+                            label.className = "btn btn-outline-light btn-no-hover";
+                            label.textContent = place.name;
+                            box.before(radio, label);
+                        }
+                        if (place.accident && window.showWhen) {
+                            Object.keys(window.showWhen.rules).forEach(function (name) {
+                                window.showWhen.rules[name].forEach(function (rule) {
+                                    if (rule[0] === "location" && rule[1].indexOf("inside") >= 0 &&
+                                        rule[1].indexOf(place.code) < 0) rule[1].push(place.code);
+                                });
+                            });
+                        }
+                        radio.checked = true;
+                        radio.dispatchEvent(new Event("change", {bubbles: true}));
+                        text.value = "";
+                        text.classList.add("d-none");
+                        choices.classList.add("d-none");
+                        button.classList.remove("d-none");
+                    });
+            });
+        });
     </script>
     {% if form.location_map %}{{ form.location_map|json_script:"potty-locations" }}{% endif %}
     {% if form.container_info %}{{ form.container_info|json_script:"fill-containers" }}{% endif %}
@@ -167,6 +232,7 @@
                 form.addEventListener("change", apply);
                 form.addEventListener("input", apply);
                 apply();
+                window.showWhen = {rules: rules, apply: apply};  // a location added on the page joins the rules
             }
             // Fill: litter boxes have no meal; a new fill repeats the last one for that bowl.
             var info = document.getElementById("fill-containers");

@@ -19,7 +19,7 @@ from . import forms
 from .households import add_member, can_edit, current_household, is_owner
 from .models import (
     AccidentContext, AccidentSpot, Command, Container, Fill, Meal, Measurement, Membership, Note, Pet, PottyBreak,
-    Product, Sleep, SupplyItem, TrainingLog, Walk,
+    PottyLocation, Product, Sleep, SupplyItem, TrainingLog, Walk,
 )
 from . import undo
 from .entries import KINDS, LIST_TITLES, activity, for_pet, row
@@ -50,8 +50,9 @@ ENTRIES = {
     "supply": Entry(SupplyItem, forms.SupplyItemForm, _("Bag"), "product__household"),
     "spot": Entry(AccidentSpot, forms.AccidentSpotForm, _("Accident spot"), "household"),
     "context": Entry(AccidentContext, forms.AccidentContextForm, _("What was going on"), "household"),
+    "location": Entry(PottyLocation, forms.PottyLocationForm, _("Potty location"), "household"),
 }
-SETUP_KINDS = ("pet", "container", "product", "supply", "spot", "context")
+SETUP_KINDS = ("pet", "container", "product", "supply", "spot", "context", "location")
 
 
 class HouseholdMixin(LoginRequiredMixin):
@@ -98,7 +99,7 @@ def entry_pets(entry):
         return [entry.command.pet]
     if isinstance(entry, Command):
         return [entry.pet]
-    if isinstance(entry, (Product, AccidentSpot, AccidentContext)):
+    if isinstance(entry, (Product, AccidentSpot, AccidentContext, PottyLocation)):
         return []
     if hasattr(entry, "pet"):
         return [entry.pet] if entry.pet_id else []
@@ -461,7 +462,7 @@ class QuickPotty(HouseholdMixin, View):
         Pet.objects.filter(pk__in=[p.pk for p in pets]).update(retry_at=None)
         labels = {"pee": _("pee"), "poop": _("poop"), "both": _("pee + poop")}
         undo.offer(request, _("Logged %(what)s for %(names)s.") % {"what": labels[what], "names": names}, logged, back)
-        if len(pets) == 1 and entry.location == PottyBreak.INSIDE:
+        if len(pets) == 1 and entry.accident:
             # An accident: offer its details (where, what was going on, found later); all optional.
             back = self.back_url(pets)
             return HttpResponseRedirect(reverse("pets:edit", args=["potty", entry.pk]) + f"?next={back}")
@@ -483,6 +484,7 @@ class Setup(HouseholdMixin, TemplateView):
             products=self.household.products.all(),
             spots=self.household.accident_spots.all(),
             contexts=self.household.accident_contexts.all(),
+            places=self.household.potty_places.all(),
             bags=[status(b, unit) for b in bags],
             **kwargs,
         )
@@ -726,6 +728,25 @@ class Undo(HouseholdMixin, View):
             return JsonResponse({"ok": True, "text": _("Undone.")})
         messages.info(request, _("Undone."))
         return HttpResponseRedirect(back)
+
+
+class NewPottyLocation(HouseholdMixin, View):
+    """"+ New" location on the potty form (PUP-181): made straight away, so the form can pick it and show the accident
+    rows for it. A name that's already there (any capitals, or a built-in one) is that one."""
+
+    http_method_names = ["post"]
+
+    def post(self, request):
+        self.require("add", PottyLocation)
+        name = request.POST.get("name", "").strip()[:100]
+        if not name:
+            return JsonResponse({"ok": False, "text": _("Type a name.")}, status=400)
+        for code, label in PottyBreak.LOCATIONS:
+            if name.lower() in (code, str(label).lower()):
+                return JsonResponse({"ok": True, "code": code, "name": str(label), "accident": code == PottyBreak.INSIDE})
+        place = self.household.potty_places.filter(name__iexact=name).first() or PottyLocation.objects.create(
+            household=self.household, name=name, accident=request.POST.get("accident") == "true")
+        return JsonResponse({"ok": True, "code": place.code, "name": place.name, "accident": place.accident})
 
 
 class QuickTraining(HouseholdMixin, View):
