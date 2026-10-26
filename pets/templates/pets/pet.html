@@ -81,9 +81,13 @@
         /* All activity day headings (PUP-178): a heavier bar between days, pinned while you scroll through that day. */
         .activity-day {
             position: sticky; top: 0; z-index: 2;
-            padding: .3rem .75rem; font-weight: 600;
+            display: flex; align-items: center; gap: .5rem; width: 100%; text-align: start;
+            padding: .3rem .75rem; font-weight: 600; color: var(--bs-body-color);
             background: var(--bs-tertiary-bg); border-top: 3px solid var(--bs-secondary-color) !important;
         }
+        /* Folded days (PUP-179): the arrow points right and the heading says how many entries are tucked away. */
+        .activity-chevron { display: inline-block; width: 1em; transition: transform .15s; }
+        .activity-day[aria-expanded="false"] .activity-chevron { transform: rotate(-90deg); }
         .activity-day:first-child { border-top-width: 0 !important; }
         .pet-col { min-height: 3rem; }  /* an empty column still takes a dropped card */
         .arranging .pet-card { cursor: grab; outline: 2px dashed var(--bs-primary); outline-offset: -2px; border-radius: .5rem; }
@@ -187,8 +191,32 @@
                     list.querySelectorAll(".activity-day").forEach(function (h) {
                         if (days[h.dataset.day]) h.remove(); else days[h.dataset.day] = true;
                     });
+                    fold();
                 }).finally(function () { loading = false; check(); });
             }
+            // Tap a day's heading to fold it away (PUP-179); it stays folded as more loads and across filters.
+            var folded = {};
+            function fold() {
+                var counts = {};
+                list.querySelectorAll("[data-in-day]").forEach(function (row) {
+                    var day = row.dataset.inDay;
+                    counts[day] = (counts[day] || 0) + 1;
+                    row.classList.toggle("d-none", !!folded[day]);
+                });
+                list.querySelectorAll(".activity-day").forEach(function (h) {
+                    var open = !folded[h.dataset.day], n = counts[h.dataset.day] || 0;
+                    h.setAttribute("aria-expanded", open ? "true" : "false");
+                    h.querySelector(".activity-count").textContent = open ? "" : n + (n === 1 ? " entry" : " entries");
+                });
+            }
+            list.addEventListener("click", function (event) {
+                var heading = event.target.closest(".activity-day");
+                if (!heading) return;
+                folded[heading.dataset.day] = !folded[heading.dataset.day];
+                fold();
+                if (heading.getBoundingClientRect().top < list.getBoundingClientRect().top) heading.scrollIntoView({block: "nearest"});
+                check();  // folding can bring "Loading…" into view
+            });
             // "Loading…" at the end of the list: fetch the next page once it comes into view.
             var watcher = "IntersectionObserver" in window ? new IntersectionObserver(function (seen) {
                 if (seen.some(function (e) { return e.isIntersecting; })) load(false);

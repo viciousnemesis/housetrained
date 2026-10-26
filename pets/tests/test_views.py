@@ -643,7 +643,8 @@ class MeasurementTests(PetTestCase):
         for days in (0, 0, 1, 3):
             PottyBreak.objects.create(pet=self.ruby, time=noon - datetime.timedelta(days=days), pee=True)
         page = self.client.get("/pets/ruby/").content.decode()
-        headings = re.findall(r'class="list-group-item activity-day" data-day="[\d-]+">([^<]+)<', page)
+        headings = re.findall(r'class="list-group-item activity-day" data-day="[\d-]+" aria-expanded="true">\s*'
+                              r'<span[^>]*>▾</span>\s*<span class="me-auto">([^<]+)<', page)
         older = insights.history_label(timezone.localdate() - datetime.timedelta(days=3))
         self.assertEqual(headings, ["Today", "Yesterday", older])
 

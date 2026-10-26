@@ -2,10 +2,14 @@
 {# All activity rows (PUP-143): on the pet page, and each page loaded as you scroll or filter. #}
 {% for item in recent %}
     {% ifchanged item.time|day_key %}
-        {# A heading per day (PUP-178); the page script drops a repeat where a loaded page carries on the same day. #}
-        <div class="list-group-item activity-day" data-day="{{ item.time|day_key }}">{{ item.time|day_heading }}</div>
+        {# A heading per day (PUP-178), tap to fold the day away (PUP-179); the page script drops a repeat where a loaded page carries on the same day. #}
+        <button type="button" class="list-group-item activity-day" data-day="{{ item.time|day_key }}" aria-expanded="true">
+            <span class="activity-chevron" aria-hidden="true">▾</span>
+            <span class="me-auto">{{ item.time|day_heading }}</span>
+            <span class="activity-count fw-normal text-body-secondary"></span>
+        </button>
     {% endifchanged %}
-    <div class="list-group-item p-0" data-tags="{{ item.tags|join:' ' }}"
+    <div class="list-group-item p-0" data-in-day="{{ item.time|day_key }}" data-tags="{{ item.tags|join:' ' }}"
          {% if item.colour %}style="background: rgba({{ item.colour }}, .12); border-left: 4px solid rgba({{ item.colour }}, .75)"{% endif %}>
         <a class="d-flex justify-content-between gap-2 px-3 py-2 text-reset text-decoration-none" href="{{ item.edit_url }}?next={{ next_url|urlencode }}">
             <span>{{ item.summary }}</span>
