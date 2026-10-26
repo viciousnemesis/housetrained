@@ -77,6 +77,34 @@ def clock_dt(dt):
     return show_datetime(dt)
 
 
+def _local_date(value):
+    import datetime
+
+    from django.utils import timezone
+
+    return timezone.localdate(value) if isinstance(value, datetime.datetime) else value
+
+
+@register.filter
+def day_key(value):
+    """The local day of a time (or a date), for grouping a list by day."""
+    return _local_date(value).isoformat() if value else ""
+
+
+@register.filter
+def day_heading(value):
+    """A day heading in a list (PUP-178): "Today", "Yesterday", then "Fri Oct 23"."""
+    from django.utils import timezone
+
+    date = _local_date(value)
+    days = (timezone.localdate() - date).days
+    if days == 0:
+        return _("Today")
+    if days == 1:
+        return _("Yesterday")
+    return insights.history_label(date)
+
+
 @register.filter
 def minutes(value):
     """150 -> "2h 30m"."""

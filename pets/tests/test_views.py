@@ -637,6 +637,16 @@ class MeasurementTests(PetTestCase):
         self.assertIn("Measurements", page)
         self.assertIn('data-tags="measurement"', page)
 
+    def test_recent_activity_has_a_heading_per_day(self):
+        """PUP-178: Today, Yesterday, then the date; one heading per day, and the rows show just the time."""
+        noon = timezone.localtime().replace(hour=12, minute=0, second=0, microsecond=0)
+        for days in (0, 0, 1, 3):
+            PottyBreak.objects.create(pet=self.ruby, time=noon - datetime.timedelta(days=days), pee=True)
+        page = self.client.get("/pets/ruby/").content.decode()
+        headings = re.findall(r'class="list-group-item activity-day" data-day="[\d-]+">([^<]+)<', page)
+        older = insights.history_label(timezone.localdate() - datetime.timedelta(days=3))
+        self.assertEqual(headings, ["Today", "Yesterday", older])
+
 
 class UnitsAndZoneTests(PetTestCase):
     """PUP-140/141: one system or a unit per kind; time zones by UTC offset."""
