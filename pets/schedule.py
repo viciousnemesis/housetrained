@@ -124,8 +124,12 @@ def next_walk(pet, now=None):
         night waits for the morning."""
         if quiet.is_bedtime(last):
             wake = quiet.next_wake(last)
-            return wake, _("bedtime at %(time)s; next when up, %(wake)s") % {
-                "time": fmt_time(last), "wake": fmt_time(wake)}
+            # Only ever later, to wake-up: one shortly before wake-up time is the morning walk, and the next is due
+            # on its own timer after it (PUP-183).
+            if due < wake:
+                return wake, _("bedtime at %(time)s; next when up, %(wake)s") % {
+                    "time": fmt_time(last), "wake": fmt_time(wake)}
+            return due, reason
         if quiet.contains(due):
             late = [t for t in outs if t > last and quiet.is_bedtime(t)]
             if late:

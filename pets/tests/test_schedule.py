@@ -197,6 +197,23 @@ class ScheduleTests(TestCase):
         self.assertEqual(card["needs"][0]["time"], self.at(6, 30))
         self.assertIn("bedtime", card["needs"][0]["reason"])
 
+    def test_out_before_wake_up_is_the_morning_walk(self):
+        """PUP-183: wake-up 6:30; a walk at 6:09 with a pee and a poop. Next pee 8:39 and poop 11:13, not "due at
+        6:30" and then "nothing when out at 6:13; try again 6:28" (it took the 6:09 pee for the bedtime one)."""
+        self.walk(self.at(6, 9), self.at(6, 17))
+        self.potty(self.at(6, 9))
+        self.potty(self.at(6, 13), pee=False, poop=True)
+        card = self.card(self.at(7, 48))
+        pee, poop = (next(n for n in card["needs"] if n["key"] == k) for k in ("pee", "poop"))
+        self.assertEqual((pee["time"], poop["time"]), (self.at(8, 39), self.at(11, 13)))
+        self.assertEqual(card["head_out"], self.at(8, 29))
+        self.assertEqual(card["expect"], "pee")
+
+    def test_a_pee_in_the_night_still_waits_for_wake_up(self):
+        """A 3 AM pee: due 5:30 would be in the quiet hours, so it's the morning walk at 6:30."""
+        self.potty(self.at(3))
+        self.assertEqual(self.need(self.at(3, 5), "pee")["time"], self.at(6, 30))
+
     def test_a_walk_due_after_bedtime_is_not_pulled_earlier(self):
         """PUP-164: pee at 9 PM, due 11:30 PM: a late last walk, not bedtime at 11 (out too soon makes a long night)."""
         self.potty(self.at(21))  # + 2h 30m = 11:30 PM, in the quiet hours
