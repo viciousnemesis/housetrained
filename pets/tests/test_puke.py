@@ -11,7 +11,7 @@ from pets.tests.test_views import PetTestCase
 @override_settings(TIME_ZONE="UTC")
 class PukeTests(PetTestCase):
     def add(self, **data):
-        base = {"pets": [self.ruby.pk], "time": self.now, "location": "inside"}
+        base = {"pets": [self.ruby.pk], "time": self.now, "location": "inside", "contents": "food"}
         return self.client.post("/log/puke/add/", {**base, **data})
 
     def test_logged_with_where_what_and_what_came_up(self):
