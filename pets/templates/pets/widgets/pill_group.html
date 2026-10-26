@@ -1,3 +1,4 @@
+{% load i18n %}
 {% with id=widget.attrs.id %}
     <div {% if id %}id="{{ id }}"{% endif %} class="pill-container">
         {% for group, options, index in widget.optgroups %}
@@ -7,5 +8,13 @@
                 {% endif %}
             {% endfor %}
         {% endfor %}
+        {% if widget.addable %}
+            {# "+ New" (PUP-180): type a choice that isn't in the list; it's added when the entry is saved. #}
+            <span class="pill-new" data-add-to="{{ widget.addable }}" data-multiple="{{ widget.allow_multiple_selected|yesno:'1,' }}">
+                <button type="button" class="btn btn-outline-light btn-no-hover">+ {% trans "New" %}</button>
+                <input type="text" class="form-control form-control-sm d-none" style="width: 12rem" maxlength="100"
+                       placeholder="{% trans 'Name' %}" aria-label="{% trans 'New choice' %}">
+            </span>
+        {% endif %}
     </div>
 {% endwith %}

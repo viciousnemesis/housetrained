@@ -56,6 +56,31 @@
         {% endif %}
     </div>
     {% if kind == "pet" %}{% include "pets/_cropper.html" %}{% endif %}
+    <script>
+        // "+ New" pills (PUP-180): type a choice that isn't in the list yet; it goes in the form's hidden <name>_new
+        // field and is added when the entry is saved. One pick only (Where): typing replaces the picked pill.
+        document.querySelectorAll(".pill-new").forEach(function (box) {
+            var button = box.querySelector("button"), text = box.querySelector("input");
+            var hidden = document.querySelector('input[name="' + box.dataset.addTo + '"]');
+            var radios = box.dataset.multiple ? [] : box.closest(".pill-container").querySelectorAll("input[type=radio]");
+            if (!hidden) return;
+            var show = function () {
+                button.classList.add("d-none");
+                text.classList.remove("d-none");
+                text.style.display = "inline-block";
+            };
+            if (hidden.value) { text.value = hidden.value; show(); }  // the form came back with an error
+            button.addEventListener("click", function () { show(); text.focus(); });
+            text.addEventListener("keydown", function (event) { if (event.key === "Enter") event.preventDefault(); });
+            text.addEventListener("input", function () {
+                hidden.value = text.value.trim();
+                if (hidden.value) radios.forEach(function (r) { r.checked = false; });
+            });
+            radios.forEach(function (r) {
+                r.addEventListener("change", function () { if (r.checked) { text.value = ""; hidden.value = ""; } });
+            });
+        });
+    </script>
     {% if form.location_map %}{{ form.location_map|json_script:"potty-locations" }}{% endif %}
     {% if form.container_info %}{{ form.container_info|json_script:"fill-containers" }}{% endif %}
     {% if form.show_when_json %}{{ form.show_when_json|json_script:"show-when" }}{% endif %}

@@ -598,9 +598,22 @@ class ReminderLog(models.Model):
 
 
 class AccidentSpot(models.Model):
-    """A place in the house where accidents happen (named once in Setup)."""
+    """A place in the house where accidents happen (named in Setup, or with "+ New" while logging)."""
 
     household = models.ForeignKey(Household, on_delete=models.CASCADE, related_name="accident_spots")
+    name = models.CharField(_("name"), max_length=100)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class AccidentContext(models.Model):
+    """A household's own "What was going on" choice, besides the built-in ones (PUP-180). Potty breaks keep its name."""
+
+    household = models.ForeignKey(Household, on_delete=models.CASCADE, related_name="accident_contexts")
     name = models.CharField(_("name"), max_length=100)
 
     class Meta:

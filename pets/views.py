@@ -18,8 +18,8 @@ from housetrained.mixins import LoginRequiredMixin
 from . import forms
 from .households import add_member, can_edit, current_household, is_owner
 from .models import (
-    AccidentSpot, Command, Container, Fill, Meal, Measurement, Membership, Note, Pet, PottyBreak, Product, Sleep, SupplyItem,
-    TrainingLog, Walk,
+    AccidentContext, AccidentSpot, Command, Container, Fill, Meal, Measurement, Membership, Note, Pet, PottyBreak,
+    Product, Sleep, SupplyItem, TrainingLog, Walk,
 )
 from . import undo
 from .entries import KINDS, LIST_TITLES, activity, for_pet, row
@@ -49,8 +49,9 @@ ENTRIES = {
     "product": Entry(Product, forms.ProductForm, _("Product"), "household"),
     "supply": Entry(SupplyItem, forms.SupplyItemForm, _("Bag"), "product__household"),
     "spot": Entry(AccidentSpot, forms.AccidentSpotForm, _("Accident spot"), "household"),
+    "context": Entry(AccidentContext, forms.AccidentContextForm, _("What was going on"), "household"),
 }
-SETUP_KINDS = ("pet", "container", "product", "supply", "spot")
+SETUP_KINDS = ("pet", "container", "product", "supply", "spot", "context")
 
 
 class HouseholdMixin(LoginRequiredMixin):
@@ -97,7 +98,7 @@ def entry_pets(entry):
         return [entry.command.pet]
     if isinstance(entry, Command):
         return [entry.pet]
-    if isinstance(entry, (Product, AccidentSpot)):
+    if isinstance(entry, (Product, AccidentSpot, AccidentContext)):
         return []
     if hasattr(entry, "pet"):
         return [entry.pet] if entry.pet_id else []
@@ -481,6 +482,7 @@ class Setup(HouseholdMixin, TemplateView):
             containers=self.household.containers.prefetch_related("pets"),
             products=self.household.products.all(),
             spots=self.household.accident_spots.all(),
+            contexts=self.household.accident_contexts.all(),
             bags=[status(b, unit) for b in bags],
             **kwargs,
         )

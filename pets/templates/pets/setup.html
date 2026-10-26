@@ -66,6 +66,18 @@
             </div>
             <div class="card card-dashboard">
                 <div class="card-header d-flex justify-content-between">
+                    {% trans "What was going on" %} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'context' %}">+ {% trans "Add" %}</a>{% endif %}
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for c in contexts %}
+                        <a class="list-group-item list-group-item-action" href="{% url 'pets:edit' 'context' c.pk %}">{{ c.name }}</a>
+                    {% empty %}
+                        <div class="list-group-item text-body-secondary small">{% trans "Your own choices, besides the usual ones (unsupervised, after play…). Add them here or with + New while logging." %}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card card-dashboard">
+                <div class="card-header d-flex justify-content-between">
                     {% trans "Products" %} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'product' %}">+ {% trans "Add" %}</a>{% endif %}
                 </div>
                 <div class="list-group list-group-flush">

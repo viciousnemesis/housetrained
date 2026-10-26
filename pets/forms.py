@@ -10,8 +10,8 @@ from housetrained.widgets import DateInput, DateTimeInput, TimeInput
 
 from . import units
 from .models import (
-    AccidentSpot, Command, Container, Fill, Household, Meal, Measurement, Note, Pet, PottyBreak, Product, Sleep, SupplyItem,
-    TrainingLog, Walk,
+    AccidentContext, AccidentSpot, Command, Container, Fill, Household, Meal, Measurement, Note, Pet, PottyBreak,
+    Product, Sleep, SupplyItem, TrainingLog, Walk,
 )
 from .widgets import PetCheckboxSelect, PetRadioSelect, PillCheckboxSelect, PillRadioSelect
 
@@ -167,6 +167,9 @@ HEALTH_FIELDS = ["pee_amount", "pee_colour", "poop_amount", "poop_consistency", 
 class PottyBreakForm(PerPetForm):
     unusual = forms.BooleanField(label=_("Something unusual?"), required=False, help_text=_(
         "Amount, colour or consistency that isn't normal for this pet. Leave off when all looks fine."))
+    # Typed into a "+ New" pill (PUP-180): added to the household's choices when the entry is saved.
+    spot_new = forms.CharField(required=False, max_length=100, widget=forms.HiddenInput)
+    context_new = forms.CharField(required=False, max_length=100, widget=forms.HiddenInput)
     show_when = {
         "container": ("location", [PottyBreak.LITTER_BOX]),
         "found_later": ("location", [PottyBreak.INSIDE]),
@@ -180,7 +183,7 @@ class PottyBreakForm(PerPetForm):
         {"fields": ["pets", "pet", "time"], "layout": "required"},
         {"fields": ["pee", "poop"], "layout": "choices", "layout_attrs": {"label": _("Contents")}},
         {"fields": ["location"], "layout": "required"},
-        {"fields": ["found_later"], "layout": "choices", "layout_attrs": {"label": _("Accident")}},
+        {"fields": ["found_later"], "layout": "choices", "layout_attrs": {"label": _("Timing")}},
         {"fields": ["spot", "context", "container"]},
         {"fields": ["unusual"], "layout": "choices", "layout_attrs": {"label": _("Health")}},
         {"fields": HEALTH_FIELDS + ["notes"]},
@@ -204,15 +207,12 @@ class PottyBreakForm(PerPetForm):
         self.fields["container"].queryset = self.fields["container"].queryset.filter(
             kind__in=[Container.LITTER_BOX, Container.AUTO_LITTER_BOX]
         )
-        from .models import AccidentSpot
-
         self.fields["spot"].queryset = AccidentSpot.objects.filter(household=self.household)
-        self.fields["spot"].widget = PillRadioSelect(choices=self.fields["spot"].choices)
+        self.fields["spot"].widget = PillRadioSelect(choices=self.fields["spot"].choices, addable="spot_new")
         self.fields["spot"].empty_label = None
-        if not self.fields["spot"].queryset.exists():
-            self.fields.pop("spot")  # nothing named yet (Setup > Accident spots)
         self.fields["context"] = forms.MultipleChoiceField(
-            label=_("What was going on"), choices=PottyBreak.CONTEXTS, required=False, widget=PillCheckboxSelect)
+            label=_("What was going on"), choices=context_choices(self.household), required=False,
+            widget=PillCheckboxSelect(addable="context_new"))
         if self.instance.pk:
             self.initial["context"] = self.instance.context
             self.initial["unusual"] = any(getattr(self.instance, f) for f in HEALTH_FIELDS)
@@ -245,6 +245,13 @@ class PottyBreakForm(PerPetForm):
             if not data.get(kind):
                 for name in names:
                     data[name] = ""
+        # A "+ New" Where or What was going on: the household gets it once the rest of the entry is fine (PUP-180).
+        if not self.errors and data.get("location") == PottyBreak.INSIDE:
+            if data.get("spot_new"):
+                data["spot"] = new_spot(self.household, data["spot_new"])
+            if data.get("context_new"):
+                data["context"] = list(dict.fromkeys(data.get("context", []) + [
+                    new_context(self.household, data["context_new"])]))
         return data
 
     def before_save(self, entry):
@@ -257,6 +264,29 @@ class PottyBreakForm(PerPetForm):
         if commit:
             entry.save()
         return entry
+
+
+def context_choices(household):
+    """What was going on: the built-in choices, then the household's own (stored by name)."""
+    return PottyBreak.CONTEXTS + [(c.name, c.name) for c in AccidentContext.objects.filter(household=household)]
+
+
+def new_spot(household, name):
+    """The household's spot with that name (any capitalisation), made if it's new."""
+    name = name.strip()
+    return (AccidentSpot.objects.filter(household=household, name__iexact=name).first()
+            or AccidentSpot.objects.create(household=household, name=name))
+
+
+def new_context(household, name):
+    """The value to store for a typed What was going on: a built-in one's code if it's that, else the household's own
+    by name (made if it's new)."""
+    name = name.strip()
+    for code, label in PottyBreak.CONTEXTS:
+        if name.lower() in (code.lower(), str(label).lower()):
+            return code
+    existing = AccidentContext.objects.filter(household=household, name__iexact=name).first()
+    return (existing or AccidentContext.objects.create(household=household, name=name)).name
 
 
 def link_walk(entry):
@@ -913,6 +943,24 @@ class AccidentSpotForm(HouseholdOwnedForm):
         model = AccidentSpot
         fields = ["name"]
         help_texts = {"name": _("A place accidents happen, e.g. dining room rug, by the back door.")}
+
+
+class AccidentContextForm(HouseholdOwnedForm):
+    class Meta:
+        model = AccidentContext
+        fields = ["name"]
+        help_texts = {"name": _("Something that was going on before an accident, e.g. doorbell, new toy.")}
+
+    def save(self, commit=True):
+        """Potty breaks keep the name, so a rename carries over to the ones already logged."""
+        old = AccidentContext.objects.get(pk=self.instance.pk).name if self.instance.pk else None
+        obj = super().save(commit=commit)
+        if commit and old and old != obj.name:
+            for b in PottyBreak.everything.filter(pet__household=obj.household).exclude(context=[]):
+                if old in b.context:
+                    b.context = [obj.name if c == old else c for c in b.context]
+                    b.save(update_fields=["context"])
+        return obj
 
 
 class ProductForm(HouseholdOwnedForm):

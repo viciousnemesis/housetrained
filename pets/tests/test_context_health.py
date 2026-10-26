@@ -5,7 +5,7 @@ from django.test import override_settings
 from django.utils import timezone
 
 from pets import insights, progress
-from pets.models import AccidentSpot, PottyBreak
+from pets.models import AccidentContext, AccidentSpot, PottyBreak
 from pets.tests.test_views import PetTestCase
 
 
@@ -48,6 +48,33 @@ class AccidentContextTests(PetTestCase):
         self.assertEqual(found["spots"], [("Dining rug", 2)])
         self.assertEqual(found["contexts"], [("After play", 2)])
         self.assertContains(self.client.get("/pets/ruby/progress/"), "Dining rug")
+
+    def test_new_where_and_what_while_logging(self):
+        """PUP-180: "+ New" adds a Where or What was going on for the household, once, whatever the capitals."""
+        self.add(spot_new="Back door", context_new="Doorbell", context=["after_play"])
+        b = PottyBreak.objects.get()
+        self.assertEqual((b.spot.name, b.context), ("Back door", ["after_play", "Doorbell"]))
+        self.add(spot_new="back door", context_new="doorbell")
+        self.assertEqual(AccidentSpot.objects.filter(household=self.household).count(), 2)  # the rug and the door
+        self.assertEqual(list(AccidentContext.objects.values_list("name", flat=True)), ["Doorbell"])
+        self.assertEqual(PottyBreak.objects.order_by("-pk").first().context, ["Doorbell"])
+        self.add(context_new="after PLAY")  # a built-in one by its name
+        self.assertEqual(PottyBreak.objects.order_by("-pk").first().context, ["after_play"])
+        page = self.client.get("/log/potty/add/").content.decode()
+        self.assertIn('data-add-to="spot_new"', page)
+        self.assertIn('value="Doorbell"', page)  # now one of the choices
+
+    def test_new_choices_wait_for_a_valid_entry_and_an_accident(self):
+        self.add(pee="", spot_new="Hallway")  # no pee or poop: the entry isn't saved, so neither is the spot
+        self.add(location="outside", spot_new="Garden")  # only accidents have a Where
+        self.assertFalse(AccidentSpot.objects.filter(name__in=["Hallway", "Garden"]).exists())
+
+    def test_renaming_a_what_carries_over(self):
+        self.add(context_new="Doorbell")
+        c = AccidentContext.objects.get()
+        self.client.post(f"/log/context/{c.pk}/", {"name": "Door knock"})
+        self.assertEqual(PottyBreak.objects.get().context, ["Door knock"])
+        self.assertContains(self.client.get("/pets/setup/"), "Door knock")
 
 
 @override_settings(TIME_ZONE="UTC")

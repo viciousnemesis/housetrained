@@ -2,7 +2,17 @@ from django.forms import CheckboxSelectMultiple, RadioSelect
 
 
 class _ButtonInputs:
-    """Inputs drawn as buttons: the real radio or checkbox is hidden behind its label."""
+    """Inputs drawn as buttons: the real radio or checkbox is hidden behind its label. With `addable` (the name of the
+    form's text field for it), a "+ New" pill lets you type a choice that isn't there yet (PUP-180)."""
+
+    def __init__(self, attrs=None, choices=(), addable=None):
+        super().__init__(attrs, choices)
+        self.addable = addable
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        context["widget"]["addable"] = self.addable
+        return context
 
     def build_attrs(self, base_attrs, extra_attrs=None):
         attrs = super().build_attrs(base_attrs, extra_attrs)
