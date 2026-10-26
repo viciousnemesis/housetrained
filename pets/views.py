@@ -19,7 +19,7 @@ from . import forms
 from .households import add_member, can_edit, current_household, is_owner
 from .models import (
     AccidentContext, AccidentSpot, Command, Container, Fill, Meal, Measurement, Membership, Note, Pet, PottyBreak,
-    PottyLocation, Product, Sleep, SupplyItem, TrainingLog, Walk,
+    PottyLocation, Product, Puke, Sleep, SupplyItem, TrainingLog, Walk,
 )
 from . import undo
 from .entries import KINDS, LIST_TITLES, activity, for_pet, row
@@ -39,6 +39,7 @@ ENTRIES = {
     "sleep": Entry(Sleep, forms.SleepForm, _("Sleep"), "pet__household"),
     "fill": Entry(Fill, forms.FillForm, _("Fill a bowl"), "container__household"),
     "meal": Entry(Meal, forms.MealForm, _("Meal"), "pet__household"),
+    "puke": Entry(Puke, forms.PukeForm, _("Puke"), "pet__household"),
     "measurement": Entry(Measurement, forms.MeasurementForm, _("Measurement"), "pet__household"),
     "note": Entry(Note, forms.NoteForm, _("Note"), "household"),
     "training": Entry(TrainingLog, forms.TrainingLogForm, _("Training"), "command__pet__household"),
@@ -89,7 +90,7 @@ def entry_household(entry):
 
 
 # Kinds whose "saved" banner offers Undo (PUP-151): the things logged as they happen.
-UNDOABLE = {"potty", "walk", "sleep", "fill", "meal", "measurement", "note", "training"}
+UNDOABLE = {"potty", "walk", "sleep", "fill", "meal", "puke", "measurement", "note", "training"}
 
 
 def entry_pets(entry):
@@ -497,7 +498,7 @@ class PetDashboard(HouseholdMixin, TemplateView):
         pet = get_object_or_404(Pet, household=self.household, slug=self.kwargs["slug"])
         more = [(kind, ENTRIES[kind].title) for kind in ("walk", "sleep", "meal", "measurement", "note")]
         filters = [("all", _("All")), ("walk", _("Walks")), ("pee", _("Pees")), ("poop", _("Poops")),
-                   ("accident", _("Accidents")), ("meal", _("Meals")), ("sleep", _("Sleep")),
+                   ("accident", _("Accidents")), ("puke", _("Puke")), ("meal", _("Meals")), ("sleep", _("Sleep")),
                    ("measurement", _("Measurements"))]
         from .schedule import setup_steps
 

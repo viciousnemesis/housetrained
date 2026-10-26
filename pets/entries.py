@@ -6,7 +6,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from . import units
-from .models import Fill, Meal, Measurement, Note, PottyBreak, Sleep, TrainingLog, Walk
+from .models import Fill, Meal, Measurement, Note, PottyBreak, Puke, Sleep, TrainingLog, Walk
 
 
 def _when(value):
@@ -78,6 +78,13 @@ def _meal(m):
     return ", ".join(parts) + (f" · {m.notes[:40]}" if m.notes else "")
 
 
+def _puke(p):
+    text = _("Puke, %(where)s") % {"where": p.get_location_display().lower()}
+    if p.spot_id:
+        text += f" ({p.spot.name})"
+    return text + (f" · {p.get_contents_display().lower()}" if p.contents != Puke.FOOD else "")
+
+
 def _measurement(m):
     kind = "weight" if m.kind == Measurement.WEIGHT else "length"
     return f"{m.get_kind_display()} {units.show(m.value, kind, m.pet.household, digits=2)}"
@@ -98,13 +105,14 @@ KINDS = {
     "sleep": ("start", _sleep, lambda h: Sleep.objects.filter(pet__household=h).select_related("pet")),
     "fill": ("time", _fill, lambda h: Fill.objects.filter(container__household=h).select_related("container__household").prefetch_related("container__pets")),
     "meal": ("time", _meal, lambda h: Meal.objects.filter(pet__household=h).select_related("pet__household")),
+    "puke": ("time", _puke, lambda h: Puke.objects.filter(pet__household=h).select_related("pet", "spot")),
     "measurement": ("date", _measurement, lambda h: Measurement.objects.filter(pet__household=h).select_related("pet__household")),
     "note": ("time", _note, lambda h: Note.objects.filter(household=h).select_related("pet")),
     "training": ("time", _training, lambda h: TrainingLog.objects.filter(command__pet__household=h).select_related("command__pet")),
 }
 LIST_TITLES = {
     "potty": _("Potty breaks"), "walk": _("Walks"), "sleep": _("Sleep"), "fill": _("Bowl fills"),
-    "meal": _("Meals"), "measurement": _("Measurements"), "note": _("Notes"), "training": _("Training"),
+    "meal": _("Meals"), "puke": _("Puke"), "measurement": _("Measurements"), "note": _("Notes"), "training": _("Training"),
 }
 
 
@@ -129,7 +137,7 @@ def row(kind, entry):
 # Recent activity colours, as on the charts: outdoor potties green, accidents yellow (pee) and red (poop), meals
 # blue, sleep purple, walks green. Shown as a faint tint with a coloured edge.
 COLOURS = {"pee": "143,209,138", "poop": "46,125,50", "accident_pee": "245,211,63", "accident_poop": "167,36,49",
-           "walk": "76,175,80", "meal": "74,144,226", "sleep": "142,108,200", "nothing": "150,150,150",
+           "walk": "76,175,80", "meal": "74,144,226", "sleep": "142,108,200", "puke": "196,120,60", "nothing": "150,150,150",
            "measurement": "23,162,184"}
 
 
@@ -138,7 +146,7 @@ def _tags(kind, entry):
     if kind == "potty":
         tags = [t for t, flag in (("pee", entry.pee), ("poop", entry.poop)) if flag] or ["nothing"]
         return tags + (["accident"] if entry.accident else [])
-    return [kind] if kind in ("walk", "meal", "sleep", "fill", "measurement") else ["other"]
+    return [kind] if kind in ("walk", "meal", "sleep", "fill", "measurement", "puke") else ["other"]
 
 
 def _colour(kind, entry):
@@ -164,7 +172,7 @@ def for_pet(kind, queryset, pet):
 ACTIVITY_PAGE = 40
 # What each All activity filter looks through: potties count on their own and on the walks they were part of.
 POTTY_FILTERS = {"pee": {"pee": True}, "poop": {"poop": True}, "accident": {"accident": True}}
-FILTER_KINDS = {"walk": ["walk"], "meal": ["meal"], "sleep": ["sleep"], "measurement": ["measurement"],
+FILTER_KINDS = {"walk": ["walk"], "meal": ["meal"], "sleep": ["sleep"], "measurement": ["measurement"], "puke": ["puke"],
                 **{name: ["walk", "potty"] for name in POTTY_FILTERS}}
 
 

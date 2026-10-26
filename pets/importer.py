@@ -11,7 +11,7 @@ from django.db import transaction
 from django.utils.translation import gettext as _
 
 from . import forms
-from .models import Container, Fill, Meal, Measurement, Pet, PottyBreak, Sleep, Walk
+from .models import AccidentSpot, Container, Fill, Meal, Measurement, Pet, PottyBreak, Puke, Sleep, Walk
 
 MAX_BYTES = 2 * 1024 * 1024
 MAX_ROWS = 5000
@@ -42,6 +42,8 @@ KINDS = {
                  ["Food bowl", "2026-10-07 07:30", "0.5", "bowls", "yes", ""], Fill),
     "measurement": Kind(_("Measurements"), forms.MeasurementForm, ["pet", "date", "kind", "value", "unit", "notes"],
                         ["Ruby", "2026-10-07", "weight", "12.5", "lb", ""], Measurement),
+    "puke": Kind(_("Puke"), forms.PukeForm, ["pet", "time", "location", "found_later", "spot", "contents", "notes"],
+                 ["Ruby", "2026-10-07 08:15", "inside", "no", "Kitchen", "grass", ""], Puke),
 }
 
 
@@ -143,6 +145,17 @@ class Importer:
             for flag in ("pee", "poop"):
                 if _yes(v.get(flag)):
                     data[flag] = "on"
+        elif k == "puke":
+            data.update(time=v.get("time"), location=v.get("location", "").lower() or "inside",
+                        contents=v.get("contents", "").lower() or Puke.FOOD)
+            if v.get("spot"):  # only spots already named: checking a file doesn't add any
+                spot = AccidentSpot.objects.filter(household=self.household, name__iexact=v["spot"].strip()).first()
+                if spot:
+                    data["spot"] = spot.pk
+                else:
+                    row.errors.append(_("Unknown spot “%(name)s”.") % {"name": v["spot"]})
+            if _yes(v.get("found_later")):
+                data["found_later"] = "on"
         elif k == "sleep":
             data.update(start=v.get("start"), end=v.get("end"), kind=v.get("kind", "").lower() or "nap")
         elif k == "meal":
@@ -181,6 +194,8 @@ class Importer:
             return PottyBreak.objects.filter(pet__in=pets, time=data["time"]).exists()
         if k == "meal":
             return Meal.objects.filter(pet__in=pets, time=data["time"]).exists()
+        if k == "puke":
+            return Puke.objects.filter(pet__in=pets, time=data["time"]).exists()
         if k == "sleep":
             return Sleep.objects.filter(pet__in=pets, start=data["start"]).exists()
         if k == "measurement":

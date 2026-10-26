@@ -10,7 +10,9 @@ import zipfile
 
 from django.utils import timezone
 
-from .models import Command, Container, Fill, Meal, Measurement, Note, Pet, PottyBreak, Sleep, TrainingLog, Walk
+from .models import (
+    Command, Container, Fill, Meal, Measurement, Note, Pet, PottyBreak, Puke, Sleep, TrainingLog, Walk,
+)
 
 
 def _time(dt):
@@ -38,6 +40,7 @@ def tables(household):
     walks = Walk.objects.filter(household=household).select_related("walker").prefetch_related("pets").order_by("start")
     sleeps = Sleep.objects.filter(pet__household=household).select_related("pet").order_by("start")
     meals = Meal.objects.filter(pet__household=household).select_related("pet").order_by("time")
+    pukes = Puke.objects.filter(pet__household=household).select_related("pet", "spot").order_by("time")
     fills = Fill.objects.filter(container__household=household).select_related("container").order_by("time")
     measurements = Measurement.objects.filter(pet__household=household).select_related("pet").order_by("date")
     notes = Note.objects.filter(household=household).select_related("pet").order_by("time")
@@ -50,6 +53,9 @@ def tables(household):
         "walk.csv": (["pets", "start", "end", "walker", "distance", "distance_unit", "notes"], [
             ["; ".join(p.name for p in w.pets.all()), _time(w.start), _time(w.end), _walker(w), _num(w.distance),
              "m" if w.distance is not None else "", w.notes] for w in walks]),
+        "puke.csv": (["pet", "time", "location", "found_later", "spot", "contents", "notes"], [
+            [p.pet.name, _time(p.time), p.location, _yes(p.found_later), p.spot.name if p.spot_id else "", p.contents,
+             p.notes] for p in pukes]),
         "sleep.csv": (["pet", "start", "end", "kind", "notes"], [
             [s.pet.name, _time(s.start), _time(s.end), s.kind, s.notes] for s in sleeps]),
         "meal.csv": (["pet", "time", "food", "amount", "unit", "water", "water_amount", "water_unit", "notes",

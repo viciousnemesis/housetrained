@@ -11,7 +11,7 @@ from housetrained.widgets import DateInput, DateTimeInput, TimeInput
 from . import units
 from .models import (
     AccidentContext, AccidentSpot, Command, Container, Fill, Household, Meal, Measurement, Note, Pet, PottyBreak,
-    PottyLocation, Product, Sleep, SupplyItem, TrainingLog, Walk, accident_locations, location_choices,
+    PottyLocation, Product, Puke, Sleep, SupplyItem, TrainingLog, Walk, accident_locations, location_choices,
     location_is_accident,
 )
 from .widgets import PetCheckboxSelect, PetRadioSelect, PillCheckboxSelect, PillRadioSelect
@@ -165,17 +165,56 @@ class PerPetForm(PetsForm):
 HEALTH_FIELDS = ["pee_amount", "pee_colour", "poop_amount", "poop_consistency", "poop_colour"]
 
 
-class PottyBreakForm(PerPetForm):
-    unusual = forms.BooleanField(label=_("Something unusual?"), required=False, help_text=_(
-        "Amount, colour or consistency that isn't normal for this pet. Leave off when all looks fine."))
+class WhereForm(PerPetForm):
+    """The rows a potty break and a puke share (PUP-182): the location (the household's own too, and "+ New"), then
+    for an accident location Found it later, Where and What was going on (each with "+ New", PUP-180)."""
+
     # Typed into a "+ New" pill (PUP-180): added to the household's choices when the entry is saved.
     spot_new = forms.CharField(required=False, max_length=100, widget=forms.HiddenInput)
     context_new = forms.CharField(required=False, max_length=100, widget=forms.HiddenInput)
+    show_when = {}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.show_when = dict(self.show_when)  # this form's own: it depends on the household
+        self.fields["spot"].queryset = AccidentSpot.objects.filter(household=self.household)
+        self.fields["spot"].widget = PillRadioSelect(choices=self.fields["spot"].choices, addable="spot_new")
+        self.fields["spot"].empty_label = None
+        self.fields["context"] = forms.MultipleChoiceField(
+            label=_("What was going on"), choices=context_choices(self.household), required=False,
+            widget=PillCheckboxSelect(addable="context_new"))
+        if self.instance.pk:
+            self.initial["context"] = self.instance.context
+        # Only the locations the pets use (a dog never uses a litter box); the page script narrows it further to
+        # the pets picked.
+        pets = [self.instance.pet] if self.instance.pk else list(self.fields["pets"].queryset)
+        self.location_map = {pet.pk: pet.allowed_potty_locations() for pet in pets}
+        self.allowed_locations = {loc for locs in self.location_map.values() for loc in locs} | {self.instance.location}
+        # The model keeps any code (the household's own locations); the form only takes this household's.
+        self.fields["location"] = forms.ChoiceField(
+            label=_("Location"),
+            choices=[(c, l) for c, l in location_choices(self.household) if c in self.allowed_locations],
+            widget=PillRadioSelect(addable="location_new"))  # the page asks: accident or right place?
+        for name in ("found_later", "spot", "context"):
+            self.show_when[name] = ("location", accident_locations(self.household))
+        if not self.instance.pk and pets:
+            self.initial.setdefault("location", self.location_map[pets[0].pk][0])
+
+    def add_new_choices(self, data):
+        """A "+ New" Where or What was going on: the household gets it once the rest of the entry is fine."""
+        if not self.errors and location_is_accident(data.get("location")):
+            if data.get("spot_new"):
+                data["spot"] = new_spot(self.household, data["spot_new"])
+            if data.get("context_new"):
+                data["context"] = list(dict.fromkeys(data.get("context", []) + [
+                    new_context(self.household, data["context_new"])]))
+
+
+class PottyBreakForm(WhereForm):
+    unusual = forms.BooleanField(label=_("Something unusual?"), required=False, help_text=_(
+        "Amount, colour or consistency that isn't normal for this pet. Leave off when all looks fine."))
     show_when = {
         "container": ("location", [PottyBreak.LITTER_BOX]),
-        "found_later": ("location", [PottyBreak.INSIDE]),  # accident locations, set per household below
-        "spot": ("location", [PottyBreak.INSIDE]),
-        "context": ("location", [PottyBreak.INSIDE]),
         "pee_amount": ("unusual", [True]), "pee_colour": ("unusual", [True]),
         "poop_amount": ("unusual", [True]), "poop_consistency": ("unusual", [True]),
         "poop_colour": ("unusual", [True]),
@@ -207,14 +246,7 @@ class PottyBreakForm(PerPetForm):
         self.fields["container"].queryset = self.fields["container"].queryset.filter(
             kind__in=[Container.LITTER_BOX, Container.AUTO_LITTER_BOX]
         )
-        self.fields["spot"].queryset = AccidentSpot.objects.filter(household=self.household)
-        self.fields["spot"].widget = PillRadioSelect(choices=self.fields["spot"].choices, addable="spot_new")
-        self.fields["spot"].empty_label = None
-        self.fields["context"] = forms.MultipleChoiceField(
-            label=_("What was going on"), choices=context_choices(self.household), required=False,
-            widget=PillCheckboxSelect(addable="context_new"))
         if self.instance.pk:
-            self.initial["context"] = self.instance.context
             self.initial["unusual"] = any(getattr(self.instance, f) for f in HEALTH_FIELDS)
         for name in HEALTH_FIELDS:
             self.fields[name].widget = PillRadioSelect(choices=self.fields[name].choices)
@@ -225,21 +257,7 @@ class PottyBreakForm(PerPetForm):
                 self.show_when[name] = [("unusual", [True]), (kind, [True])]
         self.health_kinds = {"pee": ["pee_amount", "pee_colour"],
                              "poop": ["poop_amount", "poop_consistency", "poop_colour"]}
-        # Only the locations the pets use (a dog never uses a litter box); the page script narrows it further to
-        # the pets picked.
-        pets = [self.instance.pet] if self.instance.pk else list(self.fields["pets"].queryset)
-        self.location_map = {pet.pk: pet.allowed_potty_locations() for pet in pets}
-        allowed = {loc for locs in self.location_map.values() for loc in locs} | {self.instance.location}
-        # The model keeps any code (the household's own locations); the form only takes this household's.
-        self.fields["location"] = forms.ChoiceField(
-            label=_("Location"), choices=[(c, l) for c, l in location_choices(self.household) if c in allowed],
-            widget=PillRadioSelect(addable="location_new"))  # the page asks: accident or right place?
-        self.show_when = dict(self.show_when)  # this form's own: the household's accident locations
-        for name in ("found_later", "spot", "context"):
-            self.show_when[name] = ("location", accident_locations(self.household))
-        if not self.instance.pk and pets:
-            self.initial.setdefault("location", self.location_map[pets[0].pk][0])
-        if PottyBreak.LITTER_BOX not in allowed or not self.fields["container"].queryset.exists():
+        if PottyBreak.LITTER_BOX not in self.allowed_locations or not self.fields["container"].queryset.exists():
             self.fields.pop("container")
 
     def clean(self):
@@ -251,13 +269,7 @@ class PottyBreakForm(PerPetForm):
             if not data.get(kind):
                 for name in names:
                     data[name] = ""
-        # A "+ New" Where or What was going on: the household gets it once the rest of the entry is fine (PUP-180).
-        if not self.errors and location_is_accident(data.get("location")):
-            if data.get("spot_new"):
-                data["spot"] = new_spot(self.household, data["spot_new"])
-            if data.get("context_new"):
-                data["context"] = list(dict.fromkeys(data.get("context", []) + [
-                    new_context(self.household, data["context_new"])]))
+        self.add_new_choices(data)
         return data
 
     def before_save(self, entry):
@@ -270,6 +282,35 @@ class PottyBreakForm(PerPetForm):
         if commit:
             entry.save()
         return entry
+
+
+class PukeForm(WhereForm):
+    """Throwing up (PUP-182): the potty break's where and when, and what came up."""
+
+    fieldsets = [
+        {"fields": ["pets", "pet", "time"], "layout": "required"},
+        {"fields": ["location"], "layout": "required"},
+        {"fields": ["found_later"], "layout": "choices", "layout_attrs": {"label": _("Timing")}},
+        {"fields": ["spot", "context"]},
+        {"fields": ["contents", "notes"]},
+    ]
+
+    class Meta:
+        model = Puke
+        fields = ["pet", "time", "location", "found_later", "spot", "context", "contents", "notes"]
+        labels = {"found_later": _("Found it later")}
+        widgets = {"pet": PetRadioSelect, "time": DateTimeInput(), "notes": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["contents"].widget = PillRadioSelect(choices=self.fields["contents"].choices)
+        if not self.instance.pk and PottyBreak.INSIDE in self.allowed_locations:
+            self.initial["location"] = PottyBreak.INSIDE  # mostly indoors
+
+    def clean(self):
+        data = super().clean()
+        self.add_new_choices(data)
+        return data
 
 
 def context_choices(household):

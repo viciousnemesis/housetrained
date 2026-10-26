@@ -409,6 +409,36 @@ class PottyBreak(Logged):
         super().save(*args, **kwargs)
 
 
+class Puke(Logged):
+    """Throwing up (PUP-182): its own log, with the potty break's options (location, found later, where, what was
+    going on) and what came up. Never a potty accident, and it doesn't move Next Walk."""
+
+    FOOD = "food"
+    CONTENTS = [(FOOD, _("Food")), ("foam", _("Foam / bile")), ("grass", _("Grass")), ("water", _("Water")),
+                ("blood", _("Blood")), ("other", _("Other"))]
+
+    pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name="pukes")
+    time = models.DateTimeField(_("time"), default=timezone.now)
+    location = models.CharField(_("location"), max_length=20, default=PottyBreak.INSIDE)  # as PottyBreak.location
+    found_later = models.BooleanField(
+        _("found it later"), default=False,
+        help_text=_("Didn't see it happen, so the time is only when it was found."))
+    spot = models.ForeignKey("AccidentSpot", on_delete=models.SET_NULL, null=True, blank=True,
+                             related_name="pukes", verbose_name=_("where"))
+    context = models.JSONField(_("what was going on"), default=list, blank=True)
+    contents = models.CharField(_("what came up"), max_length=10, default=FOOD, choices=CONTENTS)
+
+    class Meta:
+        ordering = ["-time"]
+        indexes = [models.Index(fields=["pet", "time"])]
+
+    def __str__(self):
+        return f"{self.pet} puke at {self.time:%Y-%m-%d %H:%M}"
+
+    def get_location_display(self):
+        return location_label(self.location)
+
+
 class PottyLocation(models.Model):
     """A household's own potty location (PUP-181), e.g. balcony or garage, besides Outside, Inside, Pad and Litter
     box: marked once as an accident (counts like Inside) or the right place (like Outside). Potty breaks store its

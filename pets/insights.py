@@ -9,7 +9,7 @@ from django.utils.translation import gettext as _, gettext_lazy, ngettext
 
 from . import units
 from .clock import show_time, uses_24h
-from .models import Meal, PottyBreak, Walk
+from .models import Meal, PottyBreak, Puke, Walk
 
 WINDOW_DAYS = 14  # history behind the charts
 # Day x hour chart geometry (SVG units).
@@ -277,7 +277,8 @@ def today_card(pet, now=None):
         (ngettext("Accident", "Accidents", accidents), str(accidents), ""),
         (_("Eaten"), units.show(eaten, "mass", pet.household), "") if eaten else
         (ngettext("Meal", "Meals", count), str(count), ""),
-    ]}
+    ] + ([(_("Puke"), str(pukes), "")] if (pukes := Puke.objects.filter(pet=pet, time__gte=today,
+                                                                         time__lte=now).count()) else [])}
 
 
 def averages(pet, now=None):
