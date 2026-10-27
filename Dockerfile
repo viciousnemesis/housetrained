@@ -1,5 +1,5 @@
 # Housetrained: Python and its packages, nothing else. Data lives in /config (see etc/entrypoint.sh).
-FROM python:3.13-slim
+FROM python:3.13.17-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
