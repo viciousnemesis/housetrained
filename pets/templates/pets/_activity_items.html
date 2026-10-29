@@ -13,7 +13,7 @@
          {% if item.colour %}style="background: rgba({{ item.colour }}, .12); border-left: 4px solid rgba({{ item.colour }}, .75)"{% endif %}>
         <a class="d-flex justify-content-between gap-2 px-3 py-2 text-reset text-decoration-none" href="{{ item.edit_url }}?next={{ next_url|urlencode }}">
             <span>{{ item.summary }}</span>
-            {% if not item.date_only %}<span class="text-body-secondary text-nowrap">{{ item.time|clock }}</span>{% endif %}
+            {% if not item.date_only %}<span class="text-body-secondary text-nowrap">{{ item.time|clock }}{% if item.kind == "walk" %}–{% if item.end %}{{ item.end|clock }}{% else %}{% trans "now" %}{% endif %}{% endif %}</span>{% endif %}
         </a>
         {% if item.children %}
             <div class="px-2 pb-2 d-grid gap-1">

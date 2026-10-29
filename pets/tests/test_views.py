@@ -349,6 +349,19 @@ class CardTests(PetTestCase):
         walk_row = next(r for r in recent_activity(self.ruby) if r["kind"] == "walk")
         self.assertEqual([c["summary"] for c in walk_row["children"]], ["Pee, outside", "Poop, outside"])
 
+    def test_walks_show_start_and_end(self):
+        """PUP-189: "6:09 AM–6:17 AM" in All activity; a walk still going says "–now"."""
+        from pets.clock import show_time
+
+        start = timezone.now().replace(second=0, microsecond=0) - datetime.timedelta(minutes=30)
+        done = Walk.objects.create(household=self.household, start=start, end=start + datetime.timedelta(minutes=8))
+        going = Walk.objects.create(household=self.household, start=start + datetime.timedelta(minutes=20))
+        for w in (done, going):
+            w.pets.set([self.ruby])
+        page = self.client.get("/pets/ruby/").content.decode()
+        self.assertIn(f"{show_time(done.start)}–{show_time(done.end)}", page)
+        self.assertIn(f"{show_time(going.start)}–now", page)
+
 
 class DeleteTests(PetTestCase):
     def test_edit_page_has_delete_with_confirmation(self):

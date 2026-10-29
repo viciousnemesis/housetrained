@@ -131,7 +131,8 @@ def row(kind, entry):
     field, summary, _qs = KINDS[kind]
     return {"time": _when(getattr(entry, field)), "kind": kind, "summary": summary(entry),
             "pets": pet_names(kind, entry), "edit_url": reverse("pets:edit", args=[kind, entry.pk]),
-            "date_only": field == "date"}  # measurements have a day, not a time
+            "date_only": field == "date",  # measurements have a day, not a time
+            "end": entry.end if kind == "walk" else None}  # walks show start-end (PUP-189)
 
 
 # Recent activity colours, as on the charts: outdoor potties green, accidents yellow (pee) and red (poop), meals
