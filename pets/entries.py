@@ -203,7 +203,7 @@ def activity(pet, filter="all", page=0, size=ACTIVITY_PAGE):
         if kind == "walk":
             potties = PottyBreak.everything.filter(walk=e, pet=pet, **potty_match).select_related("pet", "spot")
             r["children"] = [{**row("potty", p), "tags": _tags("potty", p), "colour": _colour("potty", p)}
-                             for p in potties.order_by("time")]
+                             for p in potties.order_by("-time")]  # newest first, like the feed
             r["tags"] = sorted(set(r["tags"]).union(*(c["tags"] for c in r["children"])))
         result.append(r)
     return result, more

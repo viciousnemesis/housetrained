@@ -336,14 +336,20 @@ def new_context(household, name):
     return (existing or AccidentContext.objects.create(household=household, name=name)).name
 
 
+def _minute(dt):
+    return dt.replace(second=0, microsecond=0)
+
+
 def link_walk(entry):
-    """An outside potty break that happened during a walk belongs to it."""
+    """An outside potty break that happened during a walk belongs to it. By the minute (PUP-188): a walk's form
+    keeps whole minutes, so one ended at 6:17 still has the pee logged at 6:17:32."""
     if entry.location != PottyBreak.OUTSIDE:
         entry.walk = None
         return
+    minute = _minute(entry.time)
     entry.walk = (
-        Walk.objects.filter(pets=entry.pet, start__lte=entry.time)
-        .filter(Q(end__isnull=True) | Q(end__gte=entry.time))
+        Walk.objects.filter(pets=entry.pet, start__lt=minute + datetime.timedelta(minutes=1))
+        .filter(Q(end__isnull=True) | Q(end__gte=minute))
         .order_by("-start")
         .first()
     )
@@ -352,9 +358,9 @@ def link_walk(entry):
 def relink_walk(walk):
     """A walk logged or changed afterwards (back-dated, longer, other pets) takes in the potty breaks that now fall
     within it, and lets go of ones that no longer do (PUP-129). Same rule as link_walk."""
-    end = walk.end or timezone.now()
+    end = _minute(walk.end or timezone.now()) + datetime.timedelta(minutes=1)
     nearby = PottyBreak.everything.filter(
-        Q(walk=walk) | Q(pet__in=walk.pets.all(), time__gte=walk.start, time__lte=end)).distinct()
+        Q(walk=walk) | Q(pet__in=walk.pets.all(), time__gte=_minute(walk.start), time__lt=end)).distinct()
     for entry in nearby:
         before = entry.walk_id
         link_walk(entry)

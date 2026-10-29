@@ -325,6 +325,30 @@ class CardTests(PetTestCase):
         self.assertContains(page, 'data-filter="accident"')
         self.assertContains(page, "data-child")
 
+    def test_a_potty_in_the_walks_last_minute_stays_on_it(self):
+        """PUP-188: pee at 6:17:32, walk ended and saved at 6:17 (the form keeps minutes): it's still on the walk.
+        A walk's potties are listed newest first, like the rest of the feed."""
+        from pets.forms import link_walk, relink_walk
+
+        start = timezone.now().replace(second=0, microsecond=0) - datetime.timedelta(minutes=17)
+        walk = Walk.objects.create(household=self.household, start=start)
+        walk.pets.set([self.ruby])
+        poop = PottyBreak(pet=self.ruby, time=start + datetime.timedelta(minutes=4), poop=True)
+        pee = PottyBreak(pet=self.ruby, time=start + datetime.timedelta(minutes=17, seconds=32), pee=True)
+        for entry in (poop, pee):
+            link_walk(entry)
+            entry.save()
+        walk.end = start + datetime.timedelta(minutes=17)  # saved from the form: 6:17:00
+        walk.save()
+        relink_walk(walk)
+        self.assertEqual(list(walk.potty_breaks.order_by("time")), [poop, pee])
+        later = PottyBreak(pet=self.ruby, time=start + datetime.timedelta(minutes=18, seconds=5), pee=True)
+        link_walk(later)
+        self.assertIsNone(later.walk)  # the next minute is after the walk
+        from pets.entries import recent_activity
+        walk_row = next(r for r in recent_activity(self.ruby) if r["kind"] == "walk")
+        self.assertEqual([c["summary"] for c in walk_row["children"]], ["Pee, outside", "Poop, outside"])
+
 
 class DeleteTests(PetTestCase):
     def test_edit_page_has_delete_with_confirmation(self):
