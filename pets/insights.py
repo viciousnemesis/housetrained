@@ -253,8 +253,17 @@ def status_card(pet, now=None):
         (_("Poop"), last_poop, last_poop and f"/log/potty/{last_poop.pk}/"),
         (_("Ate"), last_meal, last_meal and f"/log/meal/{last_meal.pk}/")) if entry]
     actual = {r["key"]: r["actual"] for r in schedule_vs_actual(pet, now=now)}
+    # How the walk's start compared with the suggested head-out time; within 5 minutes is on time, like "now" above.
+    walk_timing = None
+    if on_walk and card["head_out"]:
+        from .schedule import fmt_minutes
+
+        mins = int((on_walk.start - card["head_out"]).total_seconds() // 60)
+        walk_timing = _("on time") if abs(mins) < 5 else (
+            _("%(time)s late") % {"time": fmt_minutes(mins)} if mins > 0 else
+            _("%(time)s early") % {"time": fmt_minutes(-mins)})
     return {**card, "latest": latest, "asleep": asleep, "coach": coach(pet, now=now), "streak": streak(pet, now=now),
-            "on_walk": on_walk,
+            "on_walk": on_walk, "walk_timing": walk_timing,
             "actual": actual,
             "pee_every": pet.pee_minutes, "poop_every": pet.poop_minutes}
 

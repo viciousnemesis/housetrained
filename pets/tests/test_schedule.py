@@ -141,6 +141,19 @@ class ScheduleTests(TestCase):
         self.assertIsNone(after["on_walk"])
         self.assertGreater(after["head_out"], self.at(14))  # now the next walk
 
+    def test_status_says_how_early_or_late_the_walk_left(self):
+        """Status on a walk: minutes early or late against the head-out time suggested as of leaving."""
+        from pets.insights import status_card
+
+        self.potty(self.at(9, 50))
+        head_out = self.card(self.at(9, 51))["head_out"]
+        for offset, text in ((30, "30m late"), (-20, "20m early"), (3, "on time")):
+            Walk.objects.all().delete()
+            walk = Walk.objects.create(household=self.home, start=head_out + datetime.timedelta(minutes=offset))
+            walk.pets.set([self.ruby])
+            card = status_card(self.ruby, now=walk.start + datetime.timedelta(minutes=1))
+            self.assertEqual(card["walk_timing"], text)
+
     def test_water_brings_a_pee_not_a_poop(self):
         self.potty(self.at(9), poop=True)
         self.meal(self.at(10), food=False, water=True)

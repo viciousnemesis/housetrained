@@ -139,13 +139,13 @@
             {# A walk or sleep in progress. A walk has everything you need while out: Pee, Poop, End walk, and a trash can to cancel. #}
             <div class="w-100 px-3 py-2{% if forloop.first %} mt-2{% endif %} border-top border-primary">
                 <div class="d-flex align-items-center gap-2">
+                    {# Start time and what's expected are on the pet's Status card; here only what's needed while out. #}
                     <a class="fs-5 text-reset text-decoration-none me-auto" href="{% url 'pets:edit' r.kind r.id %}" title="{% trans 'Edit start time' %}">
-                        {% if r.kind == "walk" %}🐾{% else %}🌙{% endif %} {{ r.label }} {{ r.names }}
+                        {% if r.kind == "walk" %}<svg class="text-primary align-baseline" width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><ellipse cx="3" cy="7" rx="1.6" ry="2"/><ellipse cx="6" cy="3.6" rx="1.6" ry="2.1"/><ellipse cx="10" cy="3.6" rx="1.6" ry="2.1"/><ellipse cx="13" cy="7" rx="1.6" ry="2"/><path d="M8 7.6c-2.2 0-4.6 2.9-4.6 5 0 1.5 1.3 2 2.4 2 .9 0 1.4-.5 2.2-.5s1.3.5 2.2.5c1.1 0 2.4-.5 2.4-2 0-2.1-2.4-5-4.6-5"/></svg>{% else %}🌙{% endif %}
+                        {{ r.label }} {{ r.names }} <small class="text-body-secondary">✎</small>
                         <span class="fw-bold text-primary ms-2 activity-elapsed" data-start="{{ r.start.isoformat }}"></span>
-                        <small class="ms-2 text-body-secondary text-nowrap">since {{ r.start|clock }} ✎</small>
                     </a>
                 </div>
-                {% if r.expect %}<div class="text-body-secondary">{% blocktrans with what=r.expect %}Expecting {{ what }}{% endblocktrans %}</div>{% endif %}
                 <div class="d-flex gap-2 mt-2">
                     {% if r.kind == "walk" %}
                         <form class="flex-fill d-flex m-0" method="post" action="{% url 'pets:quick-potty' %}">
