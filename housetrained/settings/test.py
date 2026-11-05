@@ -30,3 +30,8 @@ DBSETTINGS_USE_CACHE = False
 DEFAULT_ADMIN_PASSWORD = "admin"
 
 HOUSETRAINED_REMINDER_THREAD = False  # no background reminder thread in tests
+
+# Not the server's own address: run inside the live container, its HOUSETRAINED_URL made notification links absolute
+# and broke the tests that expect /pets/... (tests that need one set it themselves).
+
+HOUSETRAINED_URL = ""
