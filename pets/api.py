@@ -7,7 +7,11 @@ displays: grams (food, litter), millilitres (water), kilograms (weight), centime
 """
 from django.contrib.auth import get_user_model
 from django.urls import include, path
+from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework import permissions, routers, serializers, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from .forms import link_walk
 from .households import can_edit, current_household, is_owner
@@ -135,9 +139,31 @@ class HouseholdViewSet(EntryViewSet):
         return self.queryset.filter(pk=self.household.pk)
 
 
+@action(detail=True, methods=["get"], url_path="next-walk")
+def next_walk_view(self, request, pk=None):
+    """When to head out next, as on the pet page (PUP-196): for a Home Assistant sensor, its phone widget and a
+    pinned notification. `state` is ready to show; the times are ISO 8601, or null."""
+    from .clock import show_time
+    from .schedule import next_walk
+
+    pet = self.get_object()
+    now = timezone.now()
+    on_walk = pet.walks.filter(end=None, start__lte=now).order_by("-start").first()
+    card = next_walk(pet, now=on_walk.start if on_walk else now)
+    head_out = card["head_out"]
+    if on_walk:
+        state = _("On a walk since %(time)s") % {"time": show_time(on_walk.start)}
+    elif head_out:
+        state = _("Head out ~%(time)s") % {"time": show_time(head_out)}
+    else:
+        state = _("Nothing logged yet")
+    return Response({"pet": pet.name, "state": state, "head_out": head_out, "due": card["due"],
+                     "expect": card["expect"], "on_walk_since": on_walk.start if on_walk else None})
+
+
 router = routers.DefaultRouter()
 router.register("households", HouseholdViewSet)
-router.register("pets", viewset(Pet, "household", "name", ("type", "active", "slug")))
+router.register("pets", viewset(Pet, "household", "name", ("type", "active", "slug"), next_walk_view=next_walk_view))
 router.register("potty-breaks", viewset(PottyBreak, "pet__household", "-time", ("pet", "location", "walk", "pee", "poop")))
 router.register("walks", viewset(Walk, "household", "-start", ("pets", "walker")))
 router.register("sleeps", viewset(Sleep, "pet__household", "-start", ("pet", "kind")))

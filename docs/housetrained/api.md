@@ -29,3 +29,19 @@ Housetrained's API lives at `/api/v1/`.
 | `supplies/` | `product`, `finished` |
 
 Lists are paginated with `limit` and `offset` (100 per page) and sort with `ordering`.
+
+## Next walk (Home Assistant)
+
+`GET /api/v1/pets/<id>/next-walk/` gives what the pet page shows: when to head out, or the walk that's running.
+
+```json
+{"pet": "Ruby", "state": "Head out ~4:15 PM", "head_out": "2026-11-08T16:15:00-08:00", "due": "in 25 min",
+ "expect": "pee + poop", "on_walk_since": null}
+```
+
+`state` is ready to show ("Head out ~4:15 PM", "On a walk since 3:50 PM" or "Nothing logged yet"). Use an API
+key from a read-only member: it can read this and nothing can be changed with it.
+
+A Home Assistant REST sensor reads it, and the companion app shows it as a home-screen widget (Entity widget) or a
+pinned notification (an automation on the sensor's changes sending `notify.mobile_app_<phone>` with `persistent`,
+`sticky`, `tag`, `alert_once`, and `chronometer` + `when` for a live countdown).
