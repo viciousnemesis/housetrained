@@ -20,4 +20,4 @@ services:
       - 8000:8000
     restart: unless-stopped
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
