@@ -11,7 +11,7 @@ import threading
 import time
 
 from django.conf import settings
-from django.db import IntegrityError, close_old_connections, transaction
+from django.db import IntegrityError, close_old_connections, connection, transaction
 from django.utils import timezone, translation
 from django.utils.translation import gettext as _
 
@@ -126,6 +126,23 @@ def close_walk_reminders(pets, now=None):
             if _claim(f"walk-close:{pet.pk}:{user.pk}:{now:%Y%m%d%H%M}"):
                 closed += push.close(user, f"walk-{pet.pk}")
     return closed
+
+
+def close_walk_reminders_later(pets):
+    """close_walk_reminders without making the page wait on the push service (PUP-206): starting a walk took about a
+    second while each device was told. In the background when the reminder thread runs (not in tests)."""
+    if not settings.HOUSETRAINED_REMINDER_THREAD:
+        return close_walk_reminders(pets)
+
+    def run():
+        try:
+            close_walk_reminders(pets)
+        except Exception:
+            log.exception("Closing walk reminders failed")
+        finally:
+            connection.close()  # this thread's own database connection
+
+    threading.Thread(target=run, daemon=True).start()
 
 
 def supply_reminders(household, now):

@@ -663,9 +663,9 @@ class ActivityStart(HouseholdMixin, View):
                 back, names = self.back_url(pets), ", ".join(p.name for p in pets)
             walk = Walk.objects.create(household=self.household, start=start, walker=request.user, logged_by=request.user)
             walk.pets.set(pets)
-            from .reminders import close_walk_reminders
+            from .reminders import close_walk_reminders_later
 
-            close_walk_reminders(pets)  # the reminder was to get going: done
+            close_walk_reminders_later(pets)  # the reminder was to get going: done
             undo.offer(request, _("Walk started for %(names)s.") % {"names": names}, [walk], back)
         elif kind == "sleep":
             self.require("add", Sleep)
