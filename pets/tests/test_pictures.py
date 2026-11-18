@@ -72,6 +72,19 @@ class PictureTests(PetTestCase):
         with pet.picture_cropped.open("rb") as f:
             self.assertEqual(f.read(), b"\xff\xd8\xff\xe0again")
 
+    def test_a_new_crop_has_a_new_name_and_the_old_one_goes(self):
+        self.save(picture=photo(), picture_crop=json.dumps(BOX), picture_square=square())
+        first = self.pet().picture_cropped.name
+        self.save(picture_crop=json.dumps({**BOX, "x": 0.25}), picture_square=square(b"\xff\xd8\xff\xe0again"))
+        pet = self.pet()
+        self.assertNotEqual(pet.picture_cropped.name, first)  # browsers keep photos for a week (PUP-203)
+        self.assertFalse(pet.picture_cropped.storage.exists(first))
+
+    def test_photos_are_private_to_the_browser(self):
+        self.save(picture=photo(), picture_crop=json.dumps(BOX), picture_square=square())
+        response = self.client.get(self.pet().picture_cropped.url)
+        self.assertEqual(response["Cache-Control"], "private, max-age=604800")
+
     def test_bad_squares_and_boxes_are_ignored(self):
         for bad in ("nonsense", "data:image/png;base64," + base64.b64encode(b"png").decode(),
                     square(b"<html>"), "data:image/jpeg;base64,!!!"):

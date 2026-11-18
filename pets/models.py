@@ -151,10 +151,15 @@ class Pet(models.Model):
         framed again."""
         from django.core.files.base import ContentFile
 
-        if self.picture_cropped:
-            self.picture_cropped.delete(save=False)
+        # The new square is saved before the old one goes, so it gets a name of its own and browsers that kept the
+        # old one (PUP-203) load it fresh.
+        old = self.picture_cropped.name
         if self.picture and square:
             self.picture_cropped.save(f"{self.slug or 'pet'}-{self.pk or 'new'}.jpg", ContentFile(square), save=False)
+        else:
+            self.picture_cropped = None
+        if old:
+            self.picture_cropped.storage.delete(old)
 
     def allowed_potty_locations(self):
         """The pet's chosen potty locations, or sensible ones for its type; then the household's own (PUP-181)."""

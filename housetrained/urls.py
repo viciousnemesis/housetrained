@@ -57,8 +57,11 @@ urlpatterns = [
 
 @login_required
 def media(request, path):
-    """Pet photos, for signed-in people only (PUP-146)."""
-    return serve(request, path, document_root=settings.MEDIA_ROOT)
+    """Pet photos, for signed-in people only (PUP-146). Kept by the browser for a week, never by Cloudflare or another
+    shared cache (PUP-203); a new crop gets a new name, so it shows straight away."""
+    response = serve(request, path, document_root=settings.MEDIA_ROOT)
+    response["Cache-Control"] = "private, max-age=604800"
+    return response
 
 
 urlpatterns.append(re_path(r"^media/(?P<path>.*)$", media))
