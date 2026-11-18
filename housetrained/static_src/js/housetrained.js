@@ -74,10 +74,15 @@ Housetrained.canReload = function () {
         value: submitter.value,
       }).appendTo(this);
     }
+    // The spinner takes the label's place and the button keeps its size, so nothing moves (PUP-202).
     $(submitter)
+      .css({
+        width: submitter.offsetWidth + "px",
+        height: submitter.offsetHeight + "px",
+      })
       .prop("disabled", true)
-      .prepend(
-        '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>',
+      .html(
+        '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>',
       );
   });
 })();
