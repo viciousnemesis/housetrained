@@ -14,7 +14,9 @@ from .models import (
     PottyLocation, Product, Puke, Sleep, SupplyItem, TrainingLog, Walk, accident_locations, location_choices,
     location_is_accident,
 )
-from .widgets import PetCheckboxSelect, PetRadioSelect, PillCheckboxSelect, PillRadioSelect
+from .widgets import (
+    DurationSelect, PetCheckboxSelect, PetRadioSelect, PictureInput, PillCheckboxSelect, PillRadioSelect,
+)
 
 
 class PetsForm(forms.ModelForm):
@@ -882,6 +884,7 @@ class PetForm(HouseholdOwnedForm):
         fields = ["name", "type", "breed", "sex", "birth_date", "birth_date_estimated", "potty_locations",
                   "pee_every", "poop_every", "after_meal", "walks_together", "picture", "active", "notes"]
         widgets = {"type": PillRadioSelect(), "sex": PillRadioSelect(), "birth_date": DateInput(),
+                   "pee_every": DurationSelect(), "poop_every": DurationSelect(), "picture": PictureInput(),
                    "notes": forms.Textarea(attrs={"rows": 3})}
 
     picture_crop = forms.CharField(required=False, widget=forms.HiddenInput)

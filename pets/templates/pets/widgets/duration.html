@@ -1,0 +1,7 @@
+{% load i18n %}
+<div class="d-flex align-items-center gap-2">
+    {% for sub in widget.subwidgets %}
+        {% include sub.template_name with widget=sub %}
+        <span>{% if forloop.first %}{% trans "h" %}{% else %}{% trans "min" %}{% endif %}</span>
+    {% endfor %}
+</div>

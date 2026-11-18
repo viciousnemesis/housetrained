@@ -1,4 +1,4 @@
-from django.forms import CheckboxSelectMultiple, RadioSelect
+from django.forms import CheckboxSelectMultiple, ClearableFileInput, MultiWidget, RadioSelect, Select
 
 
 class _ButtonInputs:
@@ -52,3 +52,34 @@ class PillCheckboxSelect(_ButtonInputs, CheckboxSelectMultiple):
 
     template_name = "pets/widgets/pill_group.html"
     option_template_name = "pets/widgets/pill_option.html"
+
+
+class DurationSelect(MultiWidget):
+    """Minutes picked as hours and minutes (PUP-205), instead of one long list. Both blank: no value."""
+
+    template_name = "pets/widgets/duration.html"
+
+    def __init__(self, attrs=None):
+        attrs = {"class": "form-select w-auto", **(attrs or {})}
+        hours = [("", "–")] + [(h, h) for h in range(13)]
+        minutes = [("", "–")] + [(m, f"{m:02d}") for m in range(0, 60, 15)]
+        super().__init__([Select(attrs, hours), Select(attrs, minutes)])
+
+    def decompress(self, value):
+        if value in (None, ""):
+            return ["", ""]
+        return [int(value) // 60, int(value) % 60]
+
+    def value_from_datadict(self, data, files, name):
+        if name in data:  # one number of minutes, as the API and older pages send it
+            return data.get(name)
+        hours, minutes = super().value_from_datadict(data, files, name)
+        if hours in ("", None) and minutes in ("", None):
+            return ""
+        return str(int(hours or 0) * 60 + int(minutes or 0))
+
+
+class PictureInput(ClearableFileInput):
+    """The photo field without the stored file's path: the photo itself shows in the framing box (PUP-205)."""
+
+    template_name = "pets/widgets/picture.html"
