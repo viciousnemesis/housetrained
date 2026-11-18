@@ -32,11 +32,35 @@ Housetrained.PullToRefresh = (function (ptr) {
 })(PullToRefresh);
 
 /**
+ * Automatic reloads wait while someone is using the page (PUP-200): within 10
+ * seconds of a touch or key press, or once a form is on its way, a reload
+ * would swallow the tap.
+ */
+Housetrained.lastInput = 0;
+Housetrained.sending = false;
+["pointerdown", "keydown"].forEach(function (type) {
+  document.addEventListener(
+    type,
+    function () {
+      Housetrained.lastInput = Date.now();
+    },
+    true,
+  );
+});
+window.addEventListener("pageshow", function (event) {
+  if (event.persisted) Housetrained.sending = false; // back from the cache: the form went
+});
+Housetrained.canReload = function () {
+  return !Housetrained.sending && Date.now() - Housetrained.lastInput > 10000;
+};
+
+/**
  * Show a loading spinner on the submit button when a form is submitted and
  * prevent double-submission.
  */
 (function handleFormSubmit() {
   $("form").on("submit", function (event) {
+    Housetrained.sending = true;
     var submitter =
       (event.originalEvent && event.originalEvent.submitter) ||
       $(this).find('[type="submit"]')[0];
@@ -74,15 +98,15 @@ Housetrained.RememberAdvancedToggle = function (ptr) {
   });
 })();
 
-/* Page refresh: reloads the page every
- * `refresh_rate` milliseconds while it's showing, and when it gets focus. */
+/* Page refresh: reloads the page every `refresh_rate` milliseconds while it's
+ * showing and not in use. Not on focus: on a phone the first tap brings focus,
+ * and the reload swallowed it (PUP-200). */
 Housetrained.Dashboard = (function () {
   var Dashboard = {
     watch: function (element_id, refresh_rate) {
-      window.addEventListener("focus", Dashboard.update, false);
       if (refresh_rate) {
         setInterval(function () {
-          if (!document.hidden) Dashboard.update();
+          if (!document.hidden && Housetrained.canReload()) Dashboard.update();
         }, refresh_rate);
       }
     },

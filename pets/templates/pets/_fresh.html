@@ -13,7 +13,7 @@
             });
         }
         function refresh() {
-            if (!busy()) window.location.reload();
+            if (!busy() && (!window.Housetrained || Housetrained.canReload())) window.location.reload();
         }
         window.addEventListener("pageshow", function (event) {
             if (event.persisted) refresh();  // restored from the back/forward cache
