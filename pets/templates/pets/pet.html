@@ -7,6 +7,9 @@
 {% endblock %}
 {% block head %}
 <style>
+    /* The page is drawn as it arrives, so the cards stay out of sight until they're all in and placed (PUP-201):
+       otherwise Training shows under Status and All activity, near the end of the page, pushes in later. */
+    .pet-cards:not(.js-layout) { visibility: hidden; }
     @media (max-width: 991.98px) {
         .pet-cards:not(.js-layout) { flex-direction: column; flex-wrap: nowrap; }
         .pet-cards:not(.js-layout) > .col-lg-4 { display: contents; }
@@ -30,6 +33,7 @@
 </style>
 {% endblock %}
 {% block content %}
+    <noscript><style>.pet-cards { visibility: visible !important; }</style></noscript>
     {% health_alerts pet as alerts %}
     {% for level, text in alerts %}
         <div class="alert alert-{{ level }} py-2 small mb-2" role="alert">{{ text }}
@@ -138,7 +142,7 @@
                 });
                 try { localStorage.setItem(key(), JSON.stringify(layout)); } catch (e) {}
             };
-            apply();
+            try { apply(); } finally { row.classList.add("js-layout"); }
             wide.addEventListener("change", apply);
 
             var sortables = [], bar = document.getElementById("arrange-bar");
