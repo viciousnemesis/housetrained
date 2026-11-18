@@ -5,6 +5,30 @@
     <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
     <li class="breadcrumb-item fw-bold">{{ pet.name }}</li>
 {% endblock %}
+{% block head %}
+<style>
+    @media (max-width: 991.98px) {
+        .pet-cards:not(.js-layout) { flex-direction: column; flex-wrap: nowrap; }
+        .pet-cards:not(.js-layout) > .col-lg-4 { display: contents; }
+        .pet-cards:not(.js-layout) > .col-lg-4 > div { padding-inline: calc(var(--bs-gutter-x) * .5); }
+    }
+    /* All activity day headings (PUP-178): a heavier bar between days, pinned while you scroll through that day. */
+    .activity-day {
+        position: sticky; top: 0; z-index: 2;
+        display: flex; align-items: center; gap: .5rem; width: 100%; text-align: start;
+        padding: .3rem .75rem; font-weight: 600; color: var(--bs-body-color);
+        background: var(--bs-tertiary-bg); border-top: 3px solid var(--bs-secondary-color) !important;
+    }
+    /* Folded days (PUP-179): the arrow points right and the heading says how many entries are tucked away. */
+    .activity-chevron { display: inline-block; width: 1em; transition: transform .15s; }
+    .activity-day[aria-expanded="false"] .activity-chevron { transform: rotate(-90deg); }
+    .activity-day:first-child { border-top-width: 0 !important; }
+    .pet-col { min-height: 3rem; }  /* an empty column still takes a dropped card */
+    .arranging .pet-card { cursor: grab; outline: 2px dashed var(--bs-primary); outline-offset: -2px; border-radius: .5rem; }
+    .arranging .pet-card > * { pointer-events: none; user-select: none; }
+    .arranging .pet-card.sortable-ghost { opacity: .4; }
+</style>
+{% endblock %}
 {% block content %}
     {% health_alerts pet as alerts %}
     {% for level, text in alerts %}
@@ -72,37 +96,13 @@
             <div class="pet-card" data-card="notes" style="order: 9">{% card_notes pet %}</div>
         </div>
     </div>
-    <style>
-        @media (max-width: 991.98px) {
-            .pet-cards:not(.js-layout) { flex-direction: column; flex-wrap: nowrap; }
-            .pet-cards:not(.js-layout) > .col-lg-4 { display: contents; }
-            .pet-cards:not(.js-layout) > .col-lg-4 > div { padding-inline: calc(var(--bs-gutter-x) * .5); }
-        }
-        /* All activity day headings (PUP-178): a heavier bar between days, pinned while you scroll through that day. */
-        .activity-day {
-            position: sticky; top: 0; z-index: 2;
-            display: flex; align-items: center; gap: .5rem; width: 100%; text-align: start;
-            padding: .3rem .75rem; font-weight: 600; color: var(--bs-body-color);
-            background: var(--bs-tertiary-bg); border-top: 3px solid var(--bs-secondary-color) !important;
-        }
-        /* Folded days (PUP-179): the arrow points right and the heading says how many entries are tucked away. */
-        .activity-chevron { display: inline-block; width: 1em; transition: transform .15s; }
-        .activity-day[aria-expanded="false"] .activity-chevron { transform: rotate(-90deg); }
-        .activity-day:first-child { border-top-width: 0 !important; }
-        .pet-col { min-height: 3rem; }  /* an empty column still takes a dropped card */
-        .arranging .pet-card { cursor: grab; outline: 2px dashed var(--bs-primary); outline-offset: -2px; border-radius: .5rem; }
-        .arranging .pet-card > * { pointer-events: none; user-select: none; }
-        .arranging .pet-card.sortable-ghost { opacity: .4; }
-    </style>
-{% endblock %}
-{% block javascript %}
-    <script src="{% static 'pets/vendor/sortable.min.js' %}"></script>
     <script>
         // Card layout (PUP-161, PUP-162): a computer has three columns, a phone one. Each person's own arrangement is
         // kept in this browser, separately for computer and phone; cards it doesn't mention keep their default place.
+        // Right after the cards, so they're in place before the page is first drawn (PUP-201).
         (function () {
             var row = document.querySelector(".pet-cards");
-            if (!row || !window.Sortable) return;
+            if (!row) return;
             var cols = Array.prototype.slice.call(row.querySelectorAll(".pet-col"));
             var cards = {};
             row.querySelectorAll(".pet-card").forEach(function (c) { cards[c.dataset.card] = c; });
@@ -143,6 +143,7 @@
 
             var sortables = [], bar = document.getElementById("arrange-bar");
             var start = function () {
+                if (!window.Sortable) return;
                 row.classList.add("arranging");
                 bar.classList.remove("d-none");
                 bar.classList.add("d-flex");
@@ -169,6 +170,9 @@
             });
         })();
     </script>
+{% endblock %}
+{% block javascript %}
+    <script src="{% static 'pets/vendor/sortable.min.js' %}"></script>
     {% include "pets/_fresh.html" %}
     <script>
         // All activity (PUP-143): a filter asks the server (it looks through everything); older entries load as you
