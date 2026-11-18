@@ -2,12 +2,11 @@
 {% load i18n %}
 {% block title %}{% trans "Members" %}{% endblock %}
 {% block breadcrumbs %}
-    <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
     <li class="breadcrumb-item"><a href="{% url 'pets:setup' %}">{% trans "Setup" %}</a></li>
     <li class="breadcrumb-item active" aria-current="page">{% trans "Members" %}</li>
 {% endblock %}
 {% block content %}
-    <h1>{% trans "Members" %}: {{ household.name }}</h1>
+    <h1>{% trans "Members" %}</h1>
     <p class="text-body-secondary small">
         {% trans "Owners and members log entries and change setup. Read-only members can only look. Only owners change household settings and members." %}
     </p>

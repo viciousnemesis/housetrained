@@ -8,7 +8,7 @@
     <li class="breadcrumb-item active">{% trans "Settings" %}</li>
 {% endblock %}
 {% block content %}
-    <h1>{% trans "User Settings" %}</h1>
+    <h1>{% trans "User settings" %}</h1>
     <div class="container-fluid">
         <form role="form" method="post">
             {% csrf_token %}
@@ -81,7 +81,7 @@
                 </div>
             </fieldset>
             <input type="hidden" name="next" value="{% url 'housetrained:user-settings' %}" />
-            <button type="submit" name="save_settings" class="btn btn-primary">{% trans "Submit" %}</button>
+            <button type="submit" name="save_settings" class="btn btn-primary">{% trans "Save" %}</button>
         </form>
     </div>
 {% endblock %}

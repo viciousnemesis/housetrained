@@ -1,17 +1,25 @@
 {% extends "housetrained/page.html" %}
 {% load i18n %}
-{% block title %}{{ title }}{% endblock %}
+{# One wording everywhere (PUP-205): "Add …" and "Edit …", or the page's own heading; setup things sit under Setup. #}
+{% block title %}{% if heading %}{{ heading }}{% elif object %}{% trans "Edit" %} {{ title|lower }}{% else %}{% trans "Add" %} {{ title|lower }}{% endif %}{% endblock %}
 {% block breadcrumbs %}
-    <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
-    <li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
+    {% if setup %}
+        <li class="breadcrumb-item"><a href="{% url 'pets:setup' %}">{% trans "Setup" %}</a></li>
+    {% else %}
+        <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
+    {% endif %}
+    <li class="breadcrumb-item active" aria-current="page">{% firstof heading title %}</li>
 {% endblock %}
 {% block content %}
-    <h1>{% if object %}{% trans "Edit" %} {{ title|lower }}{% else %}{{ title }}{% endif %}</h1>
+    <h1>{% if heading %}{{ heading }}{% elif object %}{% trans "Edit" %} {{ title|lower }}{% else %}{% trans "Add" %} {{ title|lower }}{% endif %}</h1>
     {% if kind == "walk" and not request.user.first_name %}
         <p class="text-body-secondary small">
             {% trans "Walks show who walked by first name. You haven't set yours, so your username shows instead." %}
             <a href="{% url 'housetrained:user-settings' %}">{% trans "Set your name" %}</a>
         </p>
+    {% endif %}
+    {% if kind == "pet" and object %}
+        <p><a href="{% url 'pets:training' object.slug %}">{% trans "Training commands" %} →</a></p>
     {% endif %}
     {% for text, url, link in form.warnings %}
         <div class="alert alert-warning py-2 small">{{ text }} <a href="{{ url }}">{{ link }}</a></div>
@@ -37,7 +45,7 @@
                     {% endwith %}
                 {% endif %}
             {% endfor %}
-            <button type="submit" class="submit-primary btn btn-primary btn-lg">{% trans "Submit" %}</button>
+            <button type="submit" class="submit-primary btn btn-primary btn-lg">{% trans "Save" %}</button>
             {% if object and ended %}
                 <button type="submit" form="remove-entry" class="btn btn-outline-light btn-lg ms-2">{% trans "Cancel" %}</button>
             {% else %}

@@ -2,7 +2,6 @@
 {% load i18n pets_tags %}
 {% block title %}{% trans "Import" %}{% endblock %}
 {% block breadcrumbs %}
-    <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
     <li class="breadcrumb-item"><a href="{% url 'pets:setup' %}">{% trans "Setup" %}</a></li>
     <li class="breadcrumb-item active" aria-current="page">{% trans "Import" %}</li>
 {% endblock %}

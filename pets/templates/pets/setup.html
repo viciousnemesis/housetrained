@@ -2,21 +2,24 @@
 {% load i18n pets_tags %}
 {% block title %}{% trans "Setup" %}{% endblock %}
 {% block breadcrumbs %}
-    <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
     <li class="breadcrumb-item active" aria-current="page">{% trans "Setup" %}</li>
 {% endblock %}
 {% block content %}
-    <h1>
-        {% trans "Setup" %}: {{ household.name }}
-        <a class="btn btn-sm btn-outline-light" href="{% url 'pets:household-edit' %}">{% trans "Household settings" %}</a>
-        <a class="btn btn-sm btn-outline-light" href="{% url 'pets:members' %}">{% trans "Members" %}</a>
-        <a class="btn btn-sm btn-outline-light" href="{% url 'pets:health' %}">{% trans "Health checks" %}</a>
-        {% if pets_can_edit %}<a class="btn btn-sm btn-outline-light" href="{% url 'pets:import' %}">{% trans "Import" %}</a>{% endif %}
-        <a class="btn btn-sm btn-outline-light" href="{% url 'pets:export' %}">{% trans "Export" %}</a>
-    </h1>
-    <p class="text-body-secondary small">{% trans "Units" %}: {{ household.get_units_display }}</p>
+    <h1>{% trans "Setup" %}: {{ household.name }}</h1>
+    {# Every setting in one place (PUP-205): the household's own first, then what it has. #}
     <div class="row">
         <div class="col-lg-6">
+            <div class="card card-dashboard">
+                <div class="card-header">{% trans "Household" %}</div>
+                <div class="list-group list-group-flush">
+                    {% if is_owner %}<a class="list-group-item list-group-item-action" href="{% url 'pets:household-edit' %}">{% trans "Household settings" %} <span class="text-body-secondary small">· {{ household.get_units_display }}</span></a>{% endif %}
+                    <a class="list-group-item list-group-item-action" href="{% url 'pets:members' %}">{% trans "Members" %}</a>
+                    <a class="list-group-item list-group-item-action" href="{% url 'pets:notifications' %}">{% trans "Notifications" %}</a>
+                    <a class="list-group-item list-group-item-action" href="{% url 'pets:health' %}">{% trans "Health checks" %}</a>
+                    {% if pets_can_edit %}<a class="list-group-item list-group-item-action" href="{% url 'pets:import' %}">{% trans "Import" %}</a>{% endif %}
+                    <a class="list-group-item list-group-item-action" href="{% url 'pets:export' %}">{% trans "Export" %}</a>
+                </div>
+            </div>
             <div class="card card-dashboard">
                 <div class="card-header d-flex justify-content-between">
                     {% trans "Pets" %} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'pet' %}">+ {% trans "Add" %}</a>{% endif %}
@@ -38,7 +41,7 @@
                 <div class="list-group list-group-flush">
                     {% for c in containers %}
                         <a class="list-group-item list-group-item-action" href="{% url 'pets:edit' 'container' c.pk %}">
-                            {{ c.name }} · {{ c.get_kind_display }}
+                            {{ c.name }}{% if c.name != c.get_kind_display %} · {{ c.get_kind_display }}{% endif %}
                             <span class="text-body-secondary small">
                                 · {% for p in c.pets.all %}{{ p.name }}{% if not forloop.last %}, {% endif %}{% empty %}{% trans "no pets" %}{% endfor %}
                                 {% if c.amount_per_bowl %} · 1 bowl = {% if c.holds_water %}{% amount c.amount_per_bowl "volume" %}{% else %}{% amount c.amount_per_bowl "mass" %}{% endif %}
@@ -97,7 +100,7 @@
                 <div class="list-group list-group-flush">
                     {% for p in products %}
                         <a class="list-group-item list-group-item-action" href="{% url 'pets:edit' 'product' p.pk %}">
-                            {{ p }} · {{ p.get_category_display }}
+                            {{ p }}{% if p.name != p.get_category_display %} · {{ p.get_category_display }}{% endif %}
                         </a>
                     {% empty %}
                         <div class="list-group-item">{% trans "None yet." %}</div>

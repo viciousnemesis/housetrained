@@ -4,7 +4,7 @@
     {% if object %}
         {{ object }}
     {% else %}
-        {% trans "Create User" %}
+        {% trans "Create user" %}
     {% endif %}
 {% endblock %}
 {% block breadcrumbs %}
@@ -15,7 +15,7 @@
         <li class="breadcrumb-item fw-bold">{{ object }}</li>
         <li class="breadcrumb-item active" aria-current="page">{% trans "Update" %}</li>
     {% else %}
-        <li class="breadcrumb-item active" aria-current="page">{% trans "Create User" %}</li>
+        <li class="breadcrumb-item active" aria-current="page">{% trans "Create user" %}</li>
     {% endif %}
 {% endblock %}
 {% block content %}
@@ -32,7 +32,7 @@
             {% trans "Update" %} <span class="text-info">{{ object }}</span>
         </h1>
     {% else %}
-        <h1>{% trans "Create User" %}</h1>
+        <h1>{% trans "Create user" %}</h1>
     {% endif %}
     {% include "housetrained/form.html" %}
 {% endblock %}

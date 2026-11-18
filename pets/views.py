@@ -37,7 +37,7 @@ ENTRIES = {
     "potty": Entry(PottyBreak, forms.PottyBreakForm, _("Potty break"), "pet__household"),
     "walk": Entry(Walk, forms.WalkForm, _("Walk"), "household"),
     "sleep": Entry(Sleep, forms.SleepForm, _("Sleep"), "pet__household"),
-    "fill": Entry(Fill, forms.FillForm, _("Fill a bowl"), "container__household"),
+    "fill": Entry(Fill, forms.FillForm, _("Bowl fill"), "container__household"),
     "meal": Entry(Meal, forms.MealForm, _("Meal"), "pet__household"),
     "puke": Entry(Puke, forms.PukeForm, _("Puke"), "pet__household"),
     "measurement": Entry(Measurement, forms.MeasurementForm, _("Measurement"), "pet__household"),
@@ -123,8 +123,8 @@ class HouseholdEdit(HouseholdMixin, View):
             raise PermissionDenied
 
     def render_form(self, form):
-        return render(self.request, "pets/form.html", {"form": form, "title": _("Household"), "kind": "household",
-                                                        "cancel_url": reverse("pets:setup")})
+        return render(self.request, "pets/form.html", {"form": form, "heading": _("Household settings"), "kind": "household",
+                                                        "setup": True, "cancel_url": reverse("pets:setup")})
 
     def get(self, request):
         self.check()
@@ -479,7 +479,7 @@ class Setup(HouseholdMixin, TemplateView):
         unit = display_unit(self.household)
         bags = SupplyItem.objects.filter(product__household=self.household).select_related("product__household").prefetch_related("pets")
         return super().get_context_data(
-            household=self.household,
+            household=self.household, is_owner=is_owner(self.request.user, self.household),
             pets=self.household.pets.all(),
             containers=self.household.containers.prefetch_related("pets"),
             products=self.household.products.all(),
@@ -561,7 +561,7 @@ class EntryView(HouseholdMixin, View):
 
     def render_form(self, form, instance=None):
         return render(self.request, "pets/form.html", {
-            "form": form, "kind": self.kind, "title": self.entry.title, "object": instance,
+            "form": form, "kind": self.kind, "title": self.entry.title, "object": instance, "setup": self.kind in SETUP_KINDS,
             "ended": bool(self.request.GET.get("ended")), "next": self.request.GET.get("next", ""),
             "cancel_url": self.back_url(
                 self.household.pets.filter(slug=self.request.GET.get("pet")) if not instance else

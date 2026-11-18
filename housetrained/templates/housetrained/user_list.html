@@ -62,7 +62,7 @@
     {% include "housetrained/paginator.html" %}
     {% if perms.admin.add_user %}
         <a href="{% url 'housetrained:user-add' %}" class="btn btn-sm btn-success">
-            <i class="icon-add" aria-hidden="true"></i> {% trans "Create User" %}
+            <i class="icon-add" aria-hidden="true"></i> {% trans "Create user" %}
         </a>
     {% endif %}
 {% endblock %}
