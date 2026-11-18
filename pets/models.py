@@ -120,6 +120,10 @@ class Pet(models.Model):
         help_text=_("Expect a poop this long after the last one. Blank: twice pee every."))
     after_meal = models.PositiveSmallIntegerField(
         _("out after a meal"), default=15, help_text=_("Minutes after eating or drinking to go out."))
+    # Walk company (PUP-204): a new pet starts as its type does (dogs together, others alone).
+    walks_together = models.BooleanField(
+        _("walks with other pets"), default=False,
+        help_text=_("Logging this pet's walk lists the other pets that walk together. Off: never any other pets."))
     schedule_changed_at = models.DateTimeField(null=True, blank=True, editable=False)
     schedule_checked = models.BooleanField(default=False, editable=False)  # the pet's form was saved (setup)
     coach_snoozed_until = models.DateTimeField(null=True, blank=True, editable=False)

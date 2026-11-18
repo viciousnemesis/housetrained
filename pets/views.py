@@ -655,6 +655,12 @@ class ActivityStart(HouseholdMixin, View):
         names = ", ".join(p.name for p in pets)
         if kind == "walk":
             self.require("add", Walk)
+            if not pet and len(pets) > 1:
+                # No pet picked: the pets that walk together (PUP-204); if none do, pick on the form.
+                pets = [p for p in pets if p.walks_together]
+                if not pets:
+                    return HttpResponseRedirect(reverse("pets:add", args=["walk"]))
+                back, names = self.back_url(pets), ", ".join(p.name for p in pets)
             walk = Walk.objects.create(household=self.household, start=start, walker=request.user, logged_by=request.user)
             walk.pets.set(pets)
             from .reminders import close_walk_reminders

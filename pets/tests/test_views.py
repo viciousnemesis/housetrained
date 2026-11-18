@@ -28,9 +28,9 @@ class PetTestCase(TestCase):
         Membership.objects.create(household=self.household, user=self.owner, role=Membership.OWNER)
         add_member(self.household, self.member, Membership.MEMBER)
         add_member(self.household, self.viewer, Membership.VIEWER)
-        self.ruby = Pet.objects.create(household=self.household, name="Ruby", type=Pet.DOG,
+        self.ruby = Pet.objects.create(household=self.household, name="Ruby", type=Pet.DOG, walks_together=True,
                                        birth_date=timezone.localdate() - datetime.timedelta(days=70))
-        self.rex = Pet.objects.create(household=self.household, name="Rex", type=Pet.DOG)
+        self.rex = Pet.objects.create(household=self.household, name="Rex", type=Pet.DOG, walks_together=True)
         self.tom = Pet.objects.create(household=self.household, name="Tom", type=Pet.CAT)
         self.pets = [self.ruby, self.rex, self.tom]
         self.client.force_login(self.owner)
@@ -41,10 +41,10 @@ class PetTestCase(TestCase):
 
 
 class TimerTests(PetTestCase):
-    def test_start_walk_for_all_pets(self):
+    def test_start_walk_for_the_pets_that_walk_together(self):
         self.client.post("/log/walk/start/")
         walk = Walk.objects.get(end=None)
-        self.assertEqual(set(walk.pets.all()), set(self.pets))
+        self.assertEqual(set(walk.pets.all()), {self.ruby, self.rex})  # not Tom, who walks alone (PUP-204)
         self.assertEqual(walk.walker, self.owner)
 
     def test_start_walk_for_one_pet(self):
@@ -98,7 +98,7 @@ class TimerTests(PetTestCase):
         walk = Walk.objects.get(end=None)
         earlier = timezone.now() - datetime.timedelta(minutes=20)
         self.client.post(f"/log/walk/{walk.pk}/", {
-            "pets": [p.pk for p in self.pets], "start": local(earlier), "walker_choice": str(self.owner.pk),
+            "pets": [self.ruby.pk, self.rex.pk], "start": local(earlier), "walker_choice": str(self.owner.pk),
             "distance_unit": "km",
         })
         walk.refresh_from_db()

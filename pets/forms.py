@@ -371,6 +371,14 @@ def relink_walk(walk):
 OTHER_WALKER = "other"
 
 
+def walk_company(pets, anchor):
+    """Who can come along on a walk with `anchor`: the pets that walk together, unless one of them walks alone."""
+    ids = [p.pk for p in anchor]
+    if all(p.walks_together for p in anchor):
+        return pets.filter(Q(walks_together=True) | Q(pk__in=ids))
+    return pets.filter(pk__in=ids)
+
+
 class WalkForm(PetsForm):
     walker_choice = forms.ChoiceField(label=_("Walker"), widget=PillRadioSelect(), required=False)
     show_when = {"walker_name": ("walker_choice", [OTHER_WALKER]), "distance_unit": ("distance", "*")}
@@ -406,11 +414,25 @@ class WalkForm(PetsForm):
             )
         else:
             self.initial["walker_choice"] = str(self.user.pk)
+        # Walk company (PUP-204): logging a pet's walk lists the pets that walk together, or that pet alone.
+        anchor = list(self.instance.pets.all()) if self.instance.pk else (
+            [self.initial["pet"]] if self.initial.get("pet") else [])
+        if anchor:
+            self.fields["pets"].queryset = walk_company(self.fields["pets"].queryset, anchor)
+        elif not self.is_bound:
+            self.initial["pets"] = [p for p in self.initial.get("pets", []) if p.walks_together]
         self.fields["distance"].label = _("Distance")
         unit = self.default_unit("distance")
         self.initial["distance_unit"] = unit
         if self.instance.distance is not None:
             self.initial["distance"] = round(units.from_stored(self.instance.distance, unit, units.DISTANCE), 2)
+
+    def clean_pets(self):
+        pets = self.cleaned_data.get("pets")
+        alone = [p.name for p in pets if not p.walks_together] if pets and len(pets) > 1 else []
+        if alone and "pets" in self.changed_data:
+            raise forms.ValidationError(_("%(names)s walks alone: log that walk on its own.") % {"names": ", ".join(alone)})
+        return pets
 
     def clean(self):
         data = super().clean()
@@ -858,7 +880,7 @@ class PetForm(HouseholdOwnedForm):
     class Meta:
         model = Pet
         fields = ["name", "type", "breed", "sex", "birth_date", "birth_date_estimated", "potty_locations",
-                  "pee_every", "poop_every", "after_meal", "picture", "active", "notes"]
+                  "pee_every", "poop_every", "after_meal", "walks_together", "picture", "active", "notes"]
         widgets = {"type": PillRadioSelect(), "sex": PillRadioSelect(), "birth_date": DateInput(),
                    "notes": forms.Textarea(attrs={"rows": 3})}
 
@@ -875,6 +897,8 @@ class PetForm(HouseholdOwnedForm):
         self.fields["picture"].help_text = _("Drag and resize the box to frame your pet.")
         self.fields["picture"].widget.attrs["accept"] = "image/*"
         self.fields["after_meal"].required = False
+        if not self.instance.pk:
+            del self.fields["walks_together"]  # a new pet walks as its type does (PUP-204); changed afterwards
         if self.instance.pk:
             self.initial["potty_locations"] = self.instance.allowed_potty_locations()
             if self.instance.picture_crop:
@@ -931,6 +955,8 @@ class PetForm(HouseholdOwnedForm):
 
             self.instance.schedule_changed_at = timezone.now()  # the coach starts counting again
         self.instance.schedule_checked = True  # seen and saved: the setup checklist's schedule step is done
+        if not self.instance.pk:
+            self.instance.walks_together = self.instance.type == Pet.DOG
         pet = super().save(commit=commit)
         if commit:
             crop, square = self.cleaned_data.get("picture_crop"), self.cleaned_data.get("picture_square")

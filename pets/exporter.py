@@ -76,9 +76,9 @@ def tables(household):
         "training.csv": (["pet", "command", "time", "score", "notes"], [
             [t.command.pet.name, t.command.name, _time(t.time), t.score, t.notes] for t in training]),
         "pets.csv": (["name", "type", "breed", "sex", "birth_date", "pee_every_minutes", "poop_every_minutes",
-                      "out_after_meal_minutes", "active", "notes"], [
+                      "out_after_meal_minutes", "walks_together", "active", "notes"], [
             [p.name, p.type, p.breed, p.sex, p.birth_date.isoformat() if p.birth_date else "", _num(p.pee_minutes),
-             _num(p.poop_minutes), _num(p.after_meal), _yes(p.active), p.notes] for p in pets]),
+             _num(p.poop_minutes), _num(p.after_meal), _yes(p.walks_together), _yes(p.active), p.notes] for p in pets]),
         "bowls.csv": (["name", "kind", "used_by", "amount_per_bowl", "active"], [
             [c.name, c.kind, "; ".join(p.name for p in c.pets.all()), _num(c.amount_per_bowl), _yes(c.active)]
             for c in Container.objects.filter(household=household).prefetch_related("pets")]),
