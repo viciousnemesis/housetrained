@@ -73,7 +73,7 @@
                 <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" role="switch" name="low_supply" id="low_supply" {% if prefs.low_supply %}checked{% endif %}>
                     <label class="form-check-label" for="low_supply">{% trans "When it's time to buy more" %}
-                        <span class="d-block small text-body-secondary">{% trans "When a bag is down to its product's reorder days; at most once a day." %}
+                        <span class="d-block small text-body-secondary">{% trans "When a food or litter source is down to its product's reorder days; at most once a day." %}
                             <a href="{% url 'pets:setup' %}">{% trans "Reorder days are set per product in Setup." %}</a></span></label>
                 </div>
             </div>

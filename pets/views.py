@@ -50,7 +50,7 @@ ENTRIES = {
     "pet": Entry(Pet, forms.PetForm, _("Pet"), "household"),
     "container": Entry(Container, forms.ContainerForm, _("Bowl, feeder or litter box"), "household"),
     "product": Entry(Product, forms.ProductForm, _("Product"), "household"),
-    "supply": Entry(SupplyItem, forms.SupplyItemForm, _("Bag"), "product__household"),
+    "supply": Entry(SupplyItem, forms.SupplyItemForm, _("Food source"), "product__household"),
     "spot": Entry(AccidentSpot, forms.AccidentSpotForm, _("Accident spot"), "household"),
     "context": Entry(AccidentContext, forms.AccidentContextForm, _("What was going on"), "household"),
     "location": Entry(PottyLocation, forms.PottyLocationForm, _("Potty location"), "household"),
@@ -529,12 +529,15 @@ class Setup(HouseholdMixin, TemplateView):
         return super().get_context_data(
             household=self.household, is_owner=is_owner(self.request.user, self.household),
             pets=self.household.pets.all(),
+            has_cats=self.household.pets.filter(type=Pet.CAT).exists(),
             containers=self.household.containers.prefetch_related("pets"),
             products=self.household.products.all(),
             spots=self.household.accident_spots.all(),
             contexts=self.household.accident_contexts.all(),
             places=self.household.potty_places.all(),
-            bags=[status(b, unit) for b in bags],
+            # Food sources and litter sources (PUP-210), each with its own card.
+            source_cards=[(_("Food sources"), False, [status(b, unit) for b in bags if b.product.category != Product.LITTER]),
+                          (_("Litter sources"), True, [status(b, unit) for b in bags if b.product.category == Product.LITTER])],
             **kwargs,
         )
 
@@ -607,9 +610,14 @@ class EntryView(HouseholdMixin, View):
             **{self.entry.household_path: self.household}
         )
 
+    def form_kwargs(self):
+        """A new food or litter source (PUP-210): Setup's litter card adds with ?for=litter."""
+        return {"litter": self.request.GET.get("for") == "litter"} if self.kind == "supply" else {}
+
     def render_form(self, form, instance=None):
         return render(self.request, "pets/form.html", {
-            "form": form, "kind": self.kind, "title": self.entry.title, "object": instance, "setup": self.kind in SETUP_KINDS,
+            "form": form, "kind": self.kind, "setup": self.kind in SETUP_KINDS, "object": instance,
+            "title": _("Litter source") if getattr(form, "litter", False) else self.entry.title,
             "ended": bool(self.request.GET.get("ended")), "next": self.request.GET.get("next", ""),
             "cancel_url": self.back_url(
                 self.household.pets.filter(slug=self.request.GET.get("pet")) if not instance else
@@ -630,12 +638,13 @@ class EntryAdd(EntryView):
 
     def get(self, request, *args, **kwargs):
         self.require("add", self.entry.model)
-        form = self.entry.form(household=self.household, user=request.user, initial=self.initial())
+        form = self.entry.form(household=self.household, user=request.user, initial=self.initial(), **self.form_kwargs())
         return self.render_form(form)
 
     def post(self, request, *args, **kwargs):
         self.require("add", self.entry.model)
-        form = self.entry.form(request.POST, request.FILES, household=self.household, user=request.user)
+        form = self.entry.form(request.POST, request.FILES, household=self.household, user=request.user,
+                               **self.form_kwargs())
         if not form.is_valid():
             return self.render_form(form)
         saved = form.save_entries() if hasattr(form, "save_entries") else [form.save()]

@@ -118,25 +118,29 @@
                     {% endfor %}
                 </div>
             </div>
-            <div class="card card-dashboard">
-                <div class="card-header d-flex justify-content-between">
-                    {% trans "Bags and boxes" %} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'supply' %}">+ {% trans "Add" %}</a>{% endif %}
-                </div>
-                <div class="list-group list-group-flush">
-                    {% for s in bags %}
-                        <a class="list-group-item list-group-item-action" href="{% url 'pets:edit' 'supply' s.item.pk %}">
-                            {{ s.item.product }} · {{ s.left }} {% trans "left of" %} {{ s.size }}
-                            <span class="text-body-secondary small">
-                                {% if s.item.finished %}· {% trans "finished" %} {{ s.item.finished|date:"M j" }}
-                                {% elif s.days_left is not None %}· ~{{ s.days_left }} {% trans "days left" %}{% endif %}
-                                {% if s.pets %}· {{ s.pets }}{% endif %}
-                            </span>
-                        </a>
-                    {% empty %}
-                        <div class="list-group-item">{% trans "None yet. Add a bag to start tracking how much is left." %}</div>
-                    {% endfor %}
-                </div>
-            </div>
+            {% for heading, litter, sources in source_cards %}
+                {% if sources or not litter or has_cats %}
+                    <div class="card card-dashboard">
+                        <div class="card-header d-flex justify-content-between">
+                            {{ heading }} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'supply' %}{% if litter %}?for=litter{% endif %}">+ {% trans "Add" %}</a>{% endif %}
+                        </div>
+                        <div class="list-group list-group-flush">
+                            {% for s in sources %}
+                                <a class="list-group-item list-group-item-action" href="{% url 'pets:edit' 'supply' s.item.pk %}">
+                                    {{ s.item.product }} · {{ s.left }} {% trans "left of" %} {{ s.size }}
+                                    <span class="text-body-secondary small">
+                                        {% if s.item.finished %}· {% trans "finished" %} {{ s.item.finished|date:"M j" }}
+                                        {% elif s.days_left is not None %}· ~{{ s.days_left }} {% trans "days left" %}{% endif %}
+                                        {% if s.pets %}· {{ s.pets }}{% endif %}
+                                    </span>
+                                </a>
+                            {% empty %}
+                                <div class="list-group-item">{% trans "None yet. Add one (a bag, box or can) to track how much is left." %}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
         </div>
     </div>
 {% endblock %}

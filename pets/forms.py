@@ -519,7 +519,7 @@ class FillForm(PetsForm):
             "container": PillRadioSelect(),
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
-        labels = {"container": _("Into"), "supply_item": _("From bag")}
+        labels = {"container": _("Into"), "supply_item": _("From")}
         help_texts = {"amount": _("Decimals are fine, e.g. 0.5 bowls.")}
 
     def __init__(self, *args, **kwargs):
@@ -644,7 +644,7 @@ class LitterForm(PetsForm):
         model = Fill
         fields = ["container", "time", "amount", "supply_item", "notes"]
         widgets = {"time": DateTimeInput(), "container": PillRadioSelect(), "notes": forms.Textarea(attrs={"rows": 3})}
-        labels = {"container": _("Litter box"), "supply_item": _("From bag")}
+        labels = {"container": _("Litter box"), "supply_item": _("From")}
         help_texts = {"amount": ""}
 
     def __init__(self, *args, **kwargs):
@@ -1180,11 +1180,18 @@ class SupplyItemForm(PetsForm):
         model = SupplyItem
         fields = ["product", "size", "opened", "finished", "price", "pets"]
         widgets = {"opened": DateInput(), "finished": DateInput(), "pets": PetCheckboxSelect}
-        labels = {"size": _("Bag size")}
+        labels = {"size": _("Size")}
         help_texts = {"size": _("Leave empty to use the product's usual package size.")}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, litter=False, **kwargs):
         super().__init__(*args, **kwargs)
+        # A food source or a litter source (PUP-210): only that kind of product to pick from.
+        if self.instance.pk:
+            litter = self.instance.product.category == Product.LITTER
+        self.litter = litter
+        products = self.fields["product"].queryset
+        self.fields["product"].queryset = products.filter(category=Product.LITTER) if litter else products.exclude(
+            category=Product.LITTER)
         self.fields["size"].required = False
         self.fieldsets = [{"fields": ["product", "size", "size_unit", "opened", "finished", "price", "pets"],
                            "layout": "default"}]
@@ -1203,7 +1210,7 @@ class SupplyItemForm(PetsForm):
         elif data.get("product") and data["product"].package_size:
             data["size"] = data["product"].package_size
         else:
-            self.add_error("size", _("Enter the bag size (the product has no usual size yet)."))
+            self.add_error("size", _("Enter the size (the product has no usual size yet)."))
         return data
 
 

@@ -120,3 +120,20 @@ class LitterTests(PetTestCase):
         self.assertEqual((fill.contents, fill.amount), (Fill.LITTER, 500))
         self.assertContains(self.client.get("/pets/tom/"), "Add litter")
         self.assertNotContains(self.client.get("/pets/ruby/"), "Add litter")
+
+
+class SourceTests(PetTestCase):
+    """Bags, boxes and cans are food sources or litter sources (PUP-210)."""
+
+    def test_food_and_litter_sources_are_apart(self):
+        food = Product.objects.create(household=self.household, name="Kibble", category=Product.DRY_FOOD)
+        litter = Product.objects.create(household=self.household, name="Clay", category=Product.LITTER)
+        page = self.client.get("/pets/setup/")
+        self.assertContains(page, "Food sources")
+        self.assertContains(page, "Litter sources")  # Tom is a cat
+        form = self.client.get("/log/supply/add/?for=litter")
+        self.assertEqual(list(form.context["form"].fields["product"].queryset), [litter])
+        self.assertContains(form, "Add litter source")
+        form = self.client.get("/log/supply/add/")
+        self.assertEqual(list(form.context["form"].fields["product"].queryset), [food])
+        self.assertContains(form, "Add food source")

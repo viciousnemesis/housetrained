@@ -31,7 +31,7 @@ class Household(models.Model):
     unit_weight = models.CharField(_("pet weight"), max_length=10, blank=True)
     unit_length = models.CharField(_("pet height and length"), max_length=10, blank=True)
     unit_distance = models.CharField(_("walk distance"), max_length=10, blank=True)
-    unit_bag = models.CharField(_("food bags"), max_length=10, blank=True)
+    unit_bag = models.CharField(_("food and litter sources"), max_length=10, blank=True)
     time_zone = models.CharField(_("default time zone"), max_length=100, blank=True)
     water_cutoff_hours = models.PositiveSmallIntegerField(
         _("pick up water before bed"), default=2,
@@ -284,7 +284,7 @@ class Product(models.Model):
 
 
 class SupplyItem(models.Model):
-    """One physical bag or box of a product."""
+    """A food source or litter source (PUP-210): one bag, box or can of a product."""
 
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="items")
     size = models.FloatField(_("size (g)"))
@@ -708,7 +708,7 @@ class NotificationPreference(models.Model):
     late_limit_hours = models.PositiveSmallIntegerField(
         _("stop after (hours)"), default=2, help_text=_("A walk this many hours late isn't announced any more."))
     low_supply = models.BooleanField(_("Buy more"), default=True,
-                                     help_text=_("When a bag is down to its reorder days (once a day)."))
+                                     help_text=_("When a food or litter source is down to its reorder days (once a day)."))
     water_cutoff = models.BooleanField(_("Water bowl"), default=False,
                                        help_text=_("Pick it up before bedtime, put it back in the morning."))
     weekly_progress = models.BooleanField(_("Weekly progress"), default=False,
