@@ -1,9 +1,6 @@
 {% extends "housetrained/page.html" %}
 {% load i18n pets_tags static %}
 {% block title %}{% trans "Pets" %}{% endblock %}
-{% block breadcrumbs %}
-    <li class="breadcrumb-item fw-bold">{{ household.name }}</li>
-{% endblock %}
 {% block content %}
     {% include "pets/_buttons.html" %}
     <div class="d-flex gap-2 mb-3">
