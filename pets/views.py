@@ -498,6 +498,12 @@ class QuickPotty(HouseholdMixin, View):
         return HttpResponseRedirect(self.back_url(pets))
 
 
+class Resume(LoginRequiredMixin, TemplateView):
+    """Where the installed app opens (PUP-208): the last screen on this device, kept by the page in the browser."""
+
+    template_name = "pets/resume.html"
+
+
 class Setup(HouseholdMixin, TemplateView):
     template_name = "pets/setup.html"
 

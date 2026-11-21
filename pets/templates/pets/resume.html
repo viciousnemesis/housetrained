@@ -1,0 +1,21 @@
+{% load i18n %}<!DOCTYPE html>
+{# The installed app's start page (PUP-208): straight on to the last screen on this device, or Home. #}
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#daa520">
+        <title>Housetrained</title>
+        <noscript><meta http-equiv="refresh" content="0;url={% url 'housetrained:root-router' %}"></noscript>
+        <script>
+            (function () {
+                var last = null;
+                try { last = localStorage.getItem("housetrained:last"); } catch (e) {}
+                // Only a path on this site: never another address.
+                var ok = typeof last === "string" && /^\/(?![\/\\])/.test(last) && last.indexOf("/resume/") !== 0;
+                location.replace(ok ? last : "{% url 'housetrained:root-router' %}");
+            })();
+        </script>
+    </head>
+    <body style="background: #212529"></body>
+</html>

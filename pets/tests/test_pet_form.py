@@ -41,3 +41,24 @@ class PetOrderTests(PetTestCase):
     def test_viewers_cant_reorder(self):
         self.login(self.viewer)
         self.assertEqual(self.client.post("/pets/setup/", {"move": self.tom.pk, "direction": "up"}).status_code, 403)
+
+
+class ResumeTests(PetTestCase):
+    """The installed app reopens on the last screen (PUP-208)."""
+
+    def last(self, url):
+        page = self.client.get(url).content.decode()
+        return page.split('localStorage.setItem("housetrained:last", "')[1].split('"')[0]
+
+    def test_a_page_is_remembered_as_it_is(self):
+        self.assertEqual(self.last("/pets/ruby/progress/"), "/pets/ruby/progress/")
+
+    def test_a_form_is_remembered_as_the_page_it_came_from(self):
+        self.assertEqual(self.last("/log/meal/add/?pet=ruby"), "/pets/ruby/")
+        self.assertEqual(self.last(f"/log/pet/{self.ruby.pk}/?next=/pets/setup/"), "/pets/setup/")
+
+    def test_the_start_page_goes_on_from_there(self):
+        page = self.client.get("/resume/")
+        self.assertContains(page, 'localStorage.getItem("housetrained:last")')
+        self.client.logout()
+        self.assertEqual(self.client.get("/resume/").status_code, 302)  # signed out: the login page

@@ -68,7 +68,10 @@
         {% block page %}{% endblock %}
         <script src="{% static "housetrained/js/vendor.js" %}"></script>
         <script src="{% static "housetrained/js/app.js" %}"></script>
-        {% if user.is_authenticated %}<script>Housetrained.PullToRefresh.init()</script>{% endif %}
+        {% if user.is_authenticated %}<script>Housetrained.PullToRefresh.init()</script>
+            {# Where the app reopens on this device (PUP-208): this page, or for a form the page it came from. #}
+            <script>try { localStorage.setItem("housetrained:last", "{% block resume %}{{ request.get_full_path|escapejs }}{% endblock %}"); } catch (e) {}</script>
+        {% endif %}
         {% if user.is_authenticated and user.settings.timezone %}
             <div id="tz-mismatch" class="alert alert-info alert-dismissible d-none m-2" role="alert">
                 {% blocktrans with tz=user.settings.timezone %}Times show in <strong>{{ tz }}</strong>, but this device is in <strong class="tz-device"></strong>.{% endblocktrans %}

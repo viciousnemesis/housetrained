@@ -2,6 +2,7 @@
 {% load i18n %}
 {# One wording everywhere (PUP-205): "Add …" and "Edit …", or the page's own heading; setup things sit under Setup. #}
 {% block title %}{% if heading %}{{ heading }}{% elif object %}{% trans "Edit" %} {{ title|lower }}{% else %}{% trans "Add" %} {{ title|lower }}{% endif %}{% endblock %}
+{% block resume %}{% if next %}{{ next|escapejs }}{% else %}{{ cancel_url|escapejs }}{% endif %}{% endblock %}
 {% block breadcrumbs %}
     {% if setup %}
         <li class="breadcrumb-item"><a href="{% url 'pets:setup' %}">{% trans "Setup" %}</a></li>
