@@ -12,6 +12,13 @@ def pets(request):
         user = request.user
         return user.is_authenticated and can_edit(user, current_household(user))
 
+    def has_cats():
+        # Litter is for cats only (PUP-207).
+        from .models import Pet
+
+        user = request.user
+        return user.is_authenticated and current_household(user).pets.filter(type=Pet.CAT, active=True).exists()
+
     def help_on():
         user = request.user
         if not user.is_authenticated:
@@ -22,4 +29,5 @@ def pets(request):
     from . import __version__
 
     return {"housetrained_version": __version__, "housetrained_source_url": settings.HOUSETRAINED_SOURCE_URL,
-            "help_bubbles": SimpleLazyObject(help_on), "pets_can_edit": SimpleLazyObject(editable)}
+            "help_bubbles": SimpleLazyObject(help_on), "pets_can_edit": SimpleLazyObject(editable),
+            "pets_has_cats": SimpleLazyObject(has_cats)}

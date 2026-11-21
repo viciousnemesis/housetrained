@@ -1,0 +1,7 @@
+{# A boxed group with a heading, e.g. Food and Water on Log meal (PUP-207). #}
+<div class="border rounded-3 px-3 pt-2 mb-3">
+    <h2 class="h5 mb-2">{{ fieldset.layout_attrs.label }}</h2>
+    {% for field in fieldset.fields %}
+        <div class="row">{% include "housetrained/form_field.html" %}</div>
+    {% endfor %}
+</div>

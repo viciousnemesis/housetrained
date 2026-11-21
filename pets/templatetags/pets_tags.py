@@ -4,7 +4,7 @@ from django.utils.translation import gettext as _
 from .. import insights, units
 from ..clock import show_datetime, show_time
 from ..households import current_household
-from ..models import Sleep, Walk, location_choices
+from ..models import Pet, Sleep, Walk, location_choices
 
 register = template.Library()
 
@@ -142,7 +142,7 @@ def pet_actions(context, pet=None):
     if pet:
         walks, sleeps = walks.filter(pets=pet), sleeps.filter(pet=pet)
     return {
-        "pets": pets, "many": len(pets) > 1,
+        "pets": pets, "many": len(pets) > 1, "cats": any(p.type == Pet.CAT for p in pets),
         "locations": [(spot, labels.get(spot, spot)) for spot in allowed],
         "usual": pets[0].allowed_potty_locations()[0] if pets else None,
         "walk": walks.first(), "sleep": sleeps.first(),

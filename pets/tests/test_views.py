@@ -125,7 +125,7 @@ class AllPetsLoggingTests(PetTestCase):
         self.assertFalse(PottyBreak.objects.exists())
 
     def test_meal_for_every_pet(self):
-        self.client.post("/log/meal/add/", {"pets": [p.pk for p in self.pets], "time": self.now, "food": "on"})
+        self.client.post("/log/meal/add/", {"pets": [p.pk for p in self.pets], "time": self.now, "portion": "1.0"})
         self.assertEqual(Meal.objects.count(), 3)
 
     def test_shared_bowl_eaten_right_away_logs_meals_without_amounts(self):
@@ -155,20 +155,12 @@ class AllPetsLoggingTests(PetTestCase):
         water.pets.set([self.ruby])
         Fill.objects.create(container=food, time=timezone.now() - datetime.timedelta(minutes=10), contents=Fill.FOOD,
                             amount=60)
-        self.client.post("/log/meal/add/", {"pets": [self.ruby.pk], "time": self.now, "food": "on", "water": "on",
+        self.client.post("/log/meal/add/", {"pets": [self.ruby.pk], "time": self.now,
                                             "portion": "0.25", "water_portion": "0.5"})
         meal = Meal.objects.get()
-        self.assertEqual((meal.portion, meal.amount, meal.water_amount), (0.25, 15, 250))
+        self.assertEqual((meal.portion, meal.amount, meal.water_amount, meal.food, meal.water), (0.25, 15, 250, True, True))
         from pets.entries import _meal
-        self.assertEqual(_meal(meal), "Ate ¼ bowl (15 g), Drank ½ bowl (250 ml)")
-
-    def test_exact_amount_wins_over_the_portion(self):
-        food = Container.objects.create(household=self.household, name="Food bowl", kind=Container.FOOD_BOWL,
-                                        amount_per_bowl=60)
-        food.pets.set([self.ruby])
-        self.client.post("/log/meal/add/", {"pets": [self.ruby.pk], "time": self.now, "food": "on",
-                                            "portion": "1.0", "amount": "52", "unit": "g"})
-        self.assertEqual(Meal.objects.get().amount, 52)
+        self.assertEqual(_meal(meal), "Meal: Food & Water – Ate ¼, drank ½")
 
     def test_meal_form_warns_when_a_bowl_size_is_missing(self):
         food = Container.objects.create(household=self.household, name="Ruby's bowl", kind=Container.FOOD_BOWL)
@@ -375,14 +367,13 @@ class DeleteTests(PetTestCase):
         self.client.post(f"/log/potty/{potty.pk}/delete/")
         self.assertFalse(PottyBreak.objects.exists())
 
-    def test_deleting_a_fill_removes_its_meals(self):
+    def test_deleting_a_meal_removes_its_bowl_fill(self):
         bowl = Container.objects.create(household=self.household, name="Bowl", kind=Container.FOOD_BOWL)
         bowl.pets.set([self.ruby])
-        self.client.post("/log/fill/add/", {"container": bowl.pk, "time": self.now, "amount": "60", "unit": "g",
-                                            "eaten_now": "on"})
-        fill = Fill.objects.get()
-        self.client.post(f"/log/fill/{fill.pk}/delete/")
-        self.assertFalse(Meal.objects.exists())
+        self.client.post("/log/meal/add/", {"pets": [self.ruby.pk], "time": self.now, "food_added": "60",
+                                            "food_unit": "g", "portion": "1.0"})
+        self.client.post(f"/log/meal/{Meal.objects.get().pk}/delete/")
+        self.assertFalse(Fill.objects.exists())
 
     def test_viewer_cannot_delete(self):
         potty = PottyBreak.objects.create(pet=self.ruby, time=timezone.now(), pee=True)
@@ -394,13 +385,13 @@ class DeleteTests(PetTestCase):
 class FormTests(PetTestCase):
     """Fields that don't apply are hidden in the page and never saved, even if a browser sends them."""
 
-    def test_water_only_meal_drops_food_fields(self):
-        product = Product.objects.create(household=self.household, name="Kibble", category=Product.DRY_FOOD)
-        self.client.post("/log/meal/add/", {"pets": [self.ruby.pk], "time": self.now, "water": "on",
-                                            "water_amount": "100", "water_unit": "ml", "amount": "50", "unit": "g",
-                                            "product": product.pk})
+    def test_water_only_meal_has_no_food(self):
+        bowl = Container.objects.create(household=self.household, name="Water", kind=Container.WATER_BOWL)
+        bowl.pets.set([self.ruby])
+        self.client.post("/log/meal/add/", {"pets": [self.ruby.pk], "time": self.now, "water_added": "100",
+                                            "water_unit": "ml", "water_portion": "0.5"})
         meal = Meal.objects.get()
-        self.assertEqual((meal.food, meal.amount, meal.product, meal.water_amount), (False, None, None, 100))
+        self.assertEqual((meal.food, meal.fill, meal.water_fill.amount, meal.water_amount), (False, None, 100, 50))
 
     def test_outside_potty_drops_litter_box(self):
         box = Container.objects.create(household=self.household, name="Box", kind=Container.LITTER_BOX)

@@ -28,6 +28,7 @@ urlpatterns = [
     path("undo/", views.Undo.as_view(), name="undo"),
     path("pets/<slug:slug>/training/", views.Training.as_view(), name="training"),
     path("pets/<slug:slug>/disregard/", views.Disregard.as_view(), name="disregard"),
+    path("pets/<slug:slug>/meal-timing/", views.MealTiming.as_view(), name="meal-timing"),
     path("pets/<slug:slug>/coach/", views.Coach.as_view(), name="coach"),
     path("log/<str:kind>/start/", views.ActivityStart.as_view(), name="start"),
     path("log/<str:kind>/<int:pk>/<str:action>/", views.ActivityStop.as_view(), name="stop"),

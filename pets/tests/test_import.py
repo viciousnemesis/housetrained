@@ -54,8 +54,13 @@ class ImportTests(PetTestCase):
         self.assertEqual((second.walker, second.walker_name), (None, "Grandma"))
 
     def test_meals_sleep_measurements_and_fills(self):
-        self.upload("meal", "pet,time,food,amount,unit,water,water_amount,water_unit\nRuby,2026-10-01 07:30,yes,2,oz,no,,\n", confirm=True)
-        self.assertAlmostEqual(Meal.objects.get().amount, 56.7, places=1)
+        ruby_bowl = Container.objects.create(household=self.household, name="Ruby's bowl", kind=Container.FOOD_BOWL)
+        ruby_bowl.pets.set([self.ruby])
+        self.upload("meal", "pet,time,food_added,food_unit,eaten,water_added,water_unit,drank\n"
+                            "Ruby,2026-10-01 07:30,2,oz,1/2,,,\n", confirm=True)
+        meal = Meal.objects.get()
+        self.assertAlmostEqual(meal.fill.amount, 56.7, places=1)
+        self.assertAlmostEqual(meal.amount, 28.3, places=1)
         self.upload("sleep", "pet,start,end,kind\nTom,2026-10-01 13:00,2026-10-01 15:00,nap\n", confirm=True)
         self.assertEqual(Sleep.objects.get().pet, self.tom)
         self.upload("measurement", "pet,date,kind,value,unit\nRuby,2026-10-01,weight,10,lb\n", confirm=True)
@@ -64,7 +69,7 @@ class ImportTests(PetTestCase):
                                         amount_per_bowl=120)
         bowl.pets.set([self.ruby])
         self.upload("fill", "bowl,time,amount,unit,eaten_right_away\nfood bowl,2026-10-01 18:00,0.5,bowls,yes\n", confirm=True)
-        fill = Fill.objects.get()
+        fill = Fill.objects.get(container=bowl)
         self.assertEqual((fill.amount, fill.meals.count()), (60, 1))
 
     def test_viewer_cannot_import(self):

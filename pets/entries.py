@@ -62,20 +62,26 @@ def _fill(f):
 
 
 def _meal(m):
-    parts = []
+    """One line for a Log meal entry (PUP-207), e.g. "Meal: Food & Water – Ate all, drank ¼"; only what was entered."""
+    household = m.pet.household
+    food, water = m.food or m.fill_id, m.water or m.water_fill_id
+    what = _("Food & Water") if food and water else _("Food") if food else _("Water")
     portions = dict(Meal.PORTIONS)
-    for had, verb, portion, amount, kind in ((m.food, _("Ate"), m.portion, m.amount, "mass"),
-                                              (m.water, _("Drank"), m.water_portion, m.water_amount, "volume")):
-        if not had:
-            continue
-        text = verb
+    bits = []
+    for verb, portion, amount, fill, kind in ((_("ate"), m.portion, m.amount, m.fill, "mass"),
+                                              (_("drank"), m.water_portion, m.water_amount, m.water_fill, "volume")):
         if portion:
-            text += " " + (_("all of the bowl") if portion == 1 else _("%(part)s bowl") % {"part": portions[portion]})
-        if amount:
-            shown = units.show(amount, kind, m.pet.household)
-            text += f" ({shown})" if portion else f" {shown}"
-        parts.append(text)
-    return ", ".join(parts) + (f" · {m.notes[:40]}" if m.notes else "")
+            bits.append(f"{verb} {_('all') if portion == 1 else portions[portion]}")
+        elif amount:
+            bits.append(f"{verb} {units.show(amount, kind, household)}")  # older meals: an exact amount
+        elif fill and fill.amount is not None:
+            bits.append(_("added %(amount)s") % {"amount": units.show(fill.amount, kind, household)})
+        elif fill and fill.bowls is not None:
+            bits.append(_("added %(n)s bowl(s)") % {"n": f"{fill.bowls:g}"})
+    text = _("Meal: %(what)s") % {"what": what}
+    if bits:
+        text += " – " + ", ".join(bits)[:1].upper() + ", ".join(bits)[1:]
+    return text + (f" · {m.notes[:40]}" if m.notes else "")
 
 
 def _puke(p):
@@ -103,8 +109,13 @@ KINDS = {
     "potty": ("time", _potty, lambda h: PottyBreak.everything.filter(pet__household=h).select_related("pet", "spot")),
     "walk": ("start", _walk, lambda h: Walk.objects.filter(household=h).select_related("walker", "household").prefetch_related("pets")),
     "sleep": ("start", _sleep, lambda h: Sleep.objects.filter(pet__household=h).select_related("pet")),
-    "fill": ("time", _fill, lambda h: Fill.objects.filter(container__household=h).select_related("container__household").prefetch_related("container__pets")),
-    "meal": ("time", _meal, lambda h: Meal.objects.filter(pet__household=h).select_related("pet__household")),
+    # Fills logged with a meal are part of that meal's row (PUP-207); litter has its own (cats).
+    "fill": ("time", _fill, lambda h: Fill.objects.filter(container__household=h, meals=None, water_meals=None).exclude(
+        contents=Fill.LITTER).select_related("container__household").prefetch_related("container__pets")),
+    "litter": ("time", _fill, lambda h: Fill.objects.filter(container__household=h, contents=Fill.LITTER).select_related(
+        "container__household").prefetch_related("container__pets")),
+    "meal": ("time", _meal, lambda h: Meal.objects.filter(pet__household=h).select_related(
+        "pet__household", "fill", "water_fill")),
     "puke": ("time", _puke, lambda h: Puke.objects.filter(pet__household=h).select_related("pet", "spot")),
     "measurement": ("date", _measurement, lambda h: Measurement.objects.filter(pet__household=h).select_related("pet__household")),
     "note": ("time", _note, lambda h: Note.objects.filter(household=h).select_related("pet")),
@@ -112,14 +123,14 @@ KINDS = {
 }
 LIST_TITLES = {
     "potty": _("Potty breaks"), "walk": _("Walks"), "sleep": _("Sleep"), "fill": _("Bowl fills"),
-    "meal": _("Meals"), "puke": _("Puke"), "measurement": _("Measurements"), "note": _("Notes"), "training": _("Training"),
+    "litter": _("Litter"), "meal": _("Meals"), "puke": _("Puke"), "measurement": _("Measurements"), "note": _("Notes"), "training": _("Training"),
 }
 
 
 def pet_names(kind, entry):
     if kind == "walk":
         return ", ".join(p.name for p in entry.pets.all())
-    if kind == "fill":
+    if kind in ("fill", "litter"):
         return ", ".join(p.name for p in entry.container.pets.all())
     if kind == "training":
         return entry.command.pet.name
@@ -163,7 +174,7 @@ def _colour(kind, entry):
 def for_pet(kind, queryset, pet):
     if kind == "walk":
         return queryset.filter(pets=pet)
-    if kind == "fill":
+    if kind in ("fill", "litter"):
         return queryset.filter(container__pets=pet)
     if kind == "training":
         return queryset.filter(command__pet=pet)

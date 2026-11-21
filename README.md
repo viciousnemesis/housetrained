@@ -35,17 +35,14 @@ it tracks pets only.
 - **First-run checklist** on each pet's page: schedule, quiet hours, bowls, reminders.
 - **Export everything** as CSV (Setup > Export), **import** past records, and a [REST API](docs/housetrained/api.md).
 
-## Fill Bowl or Log Meal?
+## Log Meal
 
-They're two different things, and that matters for the schedule:
+One entry for feeding: what you **added** to the food and water bowls, and how much was **eaten** or **drunk**
+(¼, ½, ¾, all). What's added counts toward the bag, so you know how much is left; the food starts on the bag you
+used last time. Eaten or drank is what Next Walk uses (out a set time after a meal, if that's on for the pet; turn
+it off in the pet's settings). Just topping up a bowl a pet grazes from? Fill in Added only.
 
-- **Fill Bowl**: food, water or litter went into a bowl, feeder or litter box. It counts toward the bag, so you
-  know how much is left. It says nothing about who ate it, or when.
-- **Log Meal**: a pet ate or drank. Meals are what Next Walk uses: out a set time after eating or drinking.
-
-Feed set portions that get eaten straight away (most dogs)? Tick **Eaten right away** when filling the bowl and
-both are logged at once; the form remembers your usual amount for each bowl. Pets that graze from a bowl or
-feeder (many cats): just top up with Fill Bowl, and log a meal when you notice them eating.
+Litter is separate: **Add litter** (cats).
 
 ## Getting started
 

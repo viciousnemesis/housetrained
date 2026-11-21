@@ -90,7 +90,8 @@ class PetsForm(forms.ModelForm):
                 if name in self.fields and all(control in self.fields for control, _v in self._conditions(rule))}
 
     # Unit pickers that sit inside their amount box instead of on a row of their own.
-    UNIT_OF = {"unit": "amount", "water_unit": "water_amount", "distance_unit": "distance", "weight_unit": "value",
+    UNIT_OF = {"unit": "amount", "food_unit": "food_added", "water_unit": "water_added", "distance_unit": "distance",
+               "weight_unit": "value",
                "length_unit": "value", "bowl_unit": "amount_per_bowl"}
 
     @property
@@ -628,6 +629,49 @@ class FillForm(PetsForm):
         return data.get("bowls") is not None and data.get("amount") is None
 
 
+class LitterForm(PetsForm):
+    """Litter put into a litter box (PUP-207): its own entry, not a bowl fill."""
+
+    LITTER_BOXES = (Container.LITTER_BOX, Container.AUTO_LITTER_BOX)
+    unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.MASS))
+
+    fieldsets = [
+        {"fields": ["container", "time"], "layout": "required"},
+        {"fields": ["amount", "unit", "supply_item", "notes"]},
+    ]
+
+    class Meta:
+        model = Fill
+        fields = ["container", "time", "amount", "supply_item", "notes"]
+        widgets = {"time": DateTimeInput(), "container": PillRadioSelect(), "notes": forms.Textarea(attrs={"rows": 3})}
+        labels = {"container": _("Litter box"), "supply_item": _("From bag")}
+        help_texts = {"amount": ""}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        boxes = self.fields["container"].queryset.filter(kind__in=self.LITTER_BOXES)
+        self.fields["container"].queryset = boxes
+        self.fields["supply_item"].queryset = self.fields["supply_item"].queryset.filter(product__category=Product.LITTER)
+        unit = self.default_unit("mass")
+        self.fields["unit"].initial = unit
+        if self.instance.pk and self.instance.amount is not None:
+            self.initial["amount"] = round(units.from_stored(self.instance.amount, unit, units.MASS), 2)
+        elif boxes.count() == 1:
+            self.initial.setdefault("container", boxes.first())
+
+    def save(self, commit=True):
+        fill = super().save(commit=False)
+        fill.contents = Fill.LITTER
+        if fill.amount is not None:
+            fill.amount = units.to_stored(self.cleaned_data["amount"], self.cleaned_data["unit"], units.MASS)
+        if not fill.pk:
+            fill.logged_by = self.user
+            fill.supply_item = fill.supply_item or fill.container.default_supply
+        if commit:
+            fill.save()
+        return fill
+
+
 def container_label(container):
     if container.kind in (Container.LITTER_BOX, Container.AUTO_LITTER_BOX):
         return container.name
@@ -637,11 +681,16 @@ def container_label(container):
     return f"{container.name} (bowl not calibrated)"
 
 
+def pet_bowl(pet, water=False):
+    """The pet's food (or water) bowl: its first active one."""
+    kinds = [Container.WATER_BOWL, Container.FOUNTAIN] if water else [Container.FOOD_BOWL, Container.FEEDER]
+    return pet.containers.filter(kind__in=kinds, active=True).order_by("pk").first()
+
+
 def full_bowl(pet, water=False, at=None):
     """What was in this pet's full food (or water) bowl: the bowl's latest fill in the day before `at`, else how
     much it holds when full. Returns (amount or None, bowl or None)."""
-    kinds = [Container.WATER_BOWL, Container.FOUNTAIN] if water else [Container.FOOD_BOWL, Container.FEEDER]
-    bowl = pet.containers.filter(kind__in=kinds, active=True).order_by("pk").first()
+    bowl = pet_bowl(pet, water)
     if bowl is None:
         return None, None
     at = at or timezone.now()
@@ -669,83 +718,135 @@ def bowl_warnings(pets):
 
 
 class MealForm(PerPetForm):
-    unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.MASS), required=False)
-    water_unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.VOLUME), required=False)
-    show_when = {
-        "portion": ("food", [True]), "amount": ("food", [True]), "unit": ("food", [True]),
-        "product": ("food", [True]),
-        "water_portion": ("water", [True]), "water_amount": ("water", [True]), "water_unit": ("water", [True]),
-    }
+    """Log meal (PUP-207): what went into the food and water bowls, and how much was eaten or drunk, as one entry.
+    Adding makes the bowl fills (bag estimates count those); eating or drinking is what Next Walk goes by."""
+
+    food_added = forms.FloatField(label=_("Added to bowl"), required=False, min_value=0)
+    food_unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.MASS) + [(BOWLS, _("bowls"))],
+                                  required=False)
+    supply_item = forms.ModelChoiceField(queryset=SupplyItem.objects.none(), label=_("Food"), required=False)
+    water_added = forms.FloatField(label=_("Added to bowl"), required=False, min_value=0)
+    water_unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.VOLUME) + [(BOWLS, _("bowls"))],
+                                   required=False)
+    show_when = {"supply_item": ("food_added", PetsForm.ANY)}  # which food, once some went in
 
     fieldsets = [
         {"fields": ["pets", "pet", "time"], "layout": "required"},
-        {"fields": ["food", "water"], "layout": "choices", "layout_attrs": {"label": _("Had")}},
-        {"fields": ["portion", "amount", "unit", "product", "water_portion", "water_amount", "water_unit", "notes"]},
+        {"fields": ["food_added", "food_unit", "supply_item", "portion"], "layout": "section",
+         "layout_attrs": {"label": _("Food")}},
+        {"fields": ["water_added", "water_unit", "water_portion"], "layout": "section",
+         "layout_attrs": {"label": _("Water")}},
+        {"fields": ["notes"]},
     ]
 
     class Meta:
         model = Meal
-        fields = ["pet", "time", "food", "water", "portion", "amount", "product", "water_portion", "water_amount",
-                  "notes"]
+        fields = ["pet", "time", "portion", "water_portion", "notes"]
         widgets = {"pet": PetRadioSelect, "time": DateTimeInput(), "notes": forms.Textarea(attrs={"rows": 3}),
                    "portion": PillRadioSelect(), "water_portion": PillRadioSelect()}
-        labels = {"portion": _("Food: how much of the bowl"), "water_portion": _("Water: how much of the bowl"),
-                  "amount": _("Or exact amount eaten"), "water_amount": _("Or exact amount drunk"),
-                  "product": _("Food")}
-        help_texts = {
-            "portion": _("Of what was in the bowl (its last fill, or a full bowl)."),
-            "amount": _("Optional. Wins over the portion."),
-            "water_amount": _("Optional. Wins over the portion."),
-        }
+        labels = {"portion": _("Eaten"), "water_portion": _("Drank")}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        mass, volume = self.default_unit("mass"), self.default_unit("volume")
-        self.fields["unit"].initial, self.fields["water_unit"].initial = mass, volume
-        self.fields["product"].queryset = self.fields["product"].queryset.exclude(category=Product.LITTER)
-        if self.instance.pk:
-            if self.instance.amount is not None:
-                self.initial["amount"] = round(units.from_stored(self.instance.amount, mass, units.MASS), 2)
-            if self.instance.water_amount is not None:
-                self.initial["water_amount"] = round(units.from_stored(self.instance.water_amount, volume, units.VOLUME), 1)
-        else:
-            self.initial["food"] = True
+        self.fields["supply_item"].queryset = self.fields["supply_item"].queryset.exclude(
+            product__category=Product.LITTER).select_related("product")
+        self.fields["supply_item"].label_from_instance = lambda bag: str(bag.product)
         for name in ("portion", "water_portion"):
+            self.fields[name].help_text = ""
             self.fields[name].widget.choices = [c for c in self.fields[name].choices if c[0] != ""]
-        pets = [self.instance.pet] if self.instance.pk else (
+        self.fields["food_unit"].initial = self.default_unit("mass")
+        self.fields["water_unit"].initial = self.default_unit("volume")
+        meal = self.instance
+        pets = [meal.pet] if meal.pk else (
             [p for p in [self.initial.get("pet")] if p] or list(self.initial.get("pets") or []))
         self.warnings = bowl_warnings(pets)
+        if meal.pk:
+            for fill, amount, unit in ((meal.fill, "food_added", "food_unit"), (meal.water_fill, "water_added", "water_unit")):
+                if fill:
+                    self.initial[amount], self.initial[unit] = self.shown_amount(fill)
+            self.initial["supply_item"] = meal.fill.supply_item if meal.fill else None
+        elif pets:
+            # The food and unit used last time for this pet's bowl; the amount only as a hint (nothing added unless typed).
+            for water, amount, unit in ((False, "food_added", "food_unit"), (True, "water_added", "water_unit")):
+                bowl = pet_bowl(pets[0], water)
+                last = bowl and bowl.fills.order_by("-time").first()
+                if not water and bowl:
+                    bag = last.supply_item if last and last.supply_item and not last.supply_item.finished else None
+                    self.initial["supply_item"] = bag or bowl.default_supply
+                if last and (last.amount is not None or last.bowls is not None):
+                    shown, self.fields[unit].initial = self.shown_amount(last)
+                    self.fields[amount].widget.attrs["placeholder"] = _("Last time: %(n)s") % {"n": f"{shown:g}"}
+
+    def shown_amount(self, fill):
+        """A fill as it was entered: in bowls, or in the household's unit."""
+        if fill.bowls is not None:
+            return fill.bowls, BOWLS
+        kind, table = ("volume", units.VOLUME) if fill.contents == Fill.WATER else ("mass", units.MASS)
+        unit = self.default_unit(kind)
+        return round(units.from_stored(fill.amount, unit, table), 2), unit
 
     def clean(self):
         data = super().clean()
-        if not data.get("food") and not data.get("water"):
-            raise forms.ValidationError(_("Pick food, water or both."))
-        if data.get("amount") is not None:
-            data["amount"] = units.to_stored(data["amount"], data.get("unit") or "g", units.MASS)
-        if data.get("water_amount") is not None:
-            data["water_amount"] = units.to_stored(data["water_amount"], data.get("water_unit") or "ml", units.VOLUME)
-        if not data.get("food"):
-            data["amount"], data["product"], data["portion"] = None, None, None
-        if not data.get("water"):
-            data["water_amount"], data["water_portion"] = None, None
+        if not any(data.get(f) for f in ("food_added", "portion", "water_added", "water_portion")):
+            raise forms.ValidationError(_("Fill in what was added to a bowl, or eaten or drunk."))
+        pets = [self.instance.pet] if self.instance.pk else list(data.get("pets") or [])
+        for added, water, what in (("food_added", False, _("food")), ("water_added", True, _("water"))):
+            missing = [p.name for p in pets if pet_bowl(p, water) is None] if data.get(added) else []
+            if missing:
+                self.add_error(added, _("%(names)s has no %(what)s bowl set up.") % {
+                    "names": ", ".join(missing), "what": what})
         return data
 
     def before_save(self, meal):
-        """A portion becomes an amount from this pet's bowl, unless an exact amount was given."""
-        meal.amount, meal.water_amount = self.cleaned_data.get("amount"), self.cleaned_data.get("water_amount")
+        """Make or update this meal's bowl fills (pets sharing a bowl share one), then work out what was eaten and
+        drunk from the bowl's portion."""
+        shared = self.__dict__.setdefault("_fills", {})
+        for water, added, unit, attr in ((False, "food_added", "food_unit", "fill"),
+                                         (True, "water_added", "water_unit", "water_fill")):
+            amount = self.cleaned_data.get(added)
+            if not amount:
+                setattr(meal, attr, None)
+                continue
+            bowl = pet_bowl(meal.pet, water)
+            fill = getattr(meal, attr)
+            if fill is None or fill.container_id != bowl.pk:
+                fill = shared.get((bowl.pk, water))
+                if fill:
+                    setattr(meal, attr, fill)
+                    continue
+                fill = Fill(container=bowl, contents=Fill.WATER if water else Fill.FOOD, logged_by=self.user)
+            fill.time = meal.time
+            chosen = self.cleaned_data.get(unit) or self.default_unit("volume" if water else "mass")
+            if chosen == BOWLS:
+                fill.bowls = amount
+                fill.amount = amount * bowl.amount_per_bowl if bowl.amount_per_bowl else None
+            else:
+                fill.bowls = None
+                fill.amount = units.to_stored(amount, chosen, units.VOLUME if water else units.MASS)
+            if not water:
+                fill.supply_item = self.cleaned_data.get("supply_item")
+            fill.save()
+            shared[(bowl.pk, water)] = fill
+            setattr(meal, attr, fill)
         for portion, field, water in (("portion", "amount", False), ("water_portion", "water_amount", True)):
-            share = self.cleaned_data.get(portion)
-            if share and getattr(meal, field) is None:
+            share = getattr(meal, portion)
+            if share:
                 full, _bowl = full_bowl(meal.pet, water, meal.time)
-                if full:
-                    setattr(meal, field, round(full * share, 1))
+                setattr(meal, field, round(full * share, 1) if full else None)
+            elif not meal.pk:
+                setattr(meal, field, None)
+        meal.food = bool(meal.portion or meal.amount)
+        meal.water = bool(meal.water_portion or meal.water_amount)
 
     def save(self, commit=True):
         meal = super().save(commit=False)
         if meal.pet_id:
+            before = {meal.fill_id, meal.water_fill_id}
             self.before_save(meal)
-        if commit:
-            meal.save()
+            if commit:
+                meal.save()
+                gone = before - {meal.fill_id, meal.water_fill_id, None}
+                Fill.objects.filter(pk__in=gone, meals=None, water_meals=None).delete()
         return meal
 
 
@@ -899,7 +1000,6 @@ class PetForm(HouseholdOwnedForm):
         self.show_when = {"birth_date_estimated": ("birth_date", self.ANY)}
         self.fields["picture"].help_text = _("Drag and resize the box to frame your pet.")
         self.fields["picture"].widget.attrs["accept"] = "image/*"
-        self.fields["after_meal"].required = False
         if not self.instance.pk:
             del self.fields["walks_together"]  # a new pet walks as its type does (PUP-204); changed afterwards
         if self.instance.pk:
@@ -908,10 +1008,6 @@ class PetForm(HouseholdOwnedForm):
                 import json
 
                 self.initial["picture_crop"] = json.dumps(self.instance.picture_crop)
-
-    def clean_after_meal(self):
-        value = self.cleaned_data.get("after_meal")
-        return 15 if value is None else value
 
     def clean_picture(self):
         """A new photo must be what the page makes of it: a JPEG, stored under a .jpg name whatever it was called."""

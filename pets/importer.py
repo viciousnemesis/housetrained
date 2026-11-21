@@ -27,6 +27,9 @@ class Kind:
     model: type = None
 
 
+# Eaten and drank in a meals file (PUP-207): how much of the bowl.
+PORTIONS = {"1/4": "0.25", "¼": "0.25", "1/2": "0.5", "½": "0.5", "3/4": "0.75", "¾": "0.75", "all": "1.0"}
+
 KINDS = {
     "potty": Kind(_("Potty breaks"), forms.PottyBreakForm, ["pet", "time", "pee", "poop", "location", "notes"],
                   ["Ruby", "2026-10-07 07:10", "yes", "no", "outside", ""], PottyBreak),
@@ -36,8 +39,8 @@ KINDS = {
     "sleep": Kind(_("Sleep"), forms.SleepForm, ["pet", "start", "end", "kind", "notes"],
                   ["Ruby", "2026-10-07 13:00", "2026-10-07 14:30", "nap", ""], Sleep),
     "meal": Kind(_("Meals"), forms.MealForm,
-                 ["pet", "time", "food", "amount", "unit", "water", "water_amount", "water_unit", "notes"],
-                 ["Ruby", "2026-10-07 07:30", "yes", "60", "g", "no", "", "", ""], Meal),
+                 ["pet", "time", "food_added", "food_unit", "eaten", "water_added", "water_unit", "drank", "notes"],
+                 ["Ruby", "2026-10-07 07:30", "60", "g", "all", "", "", "", ""], Meal),
     "fill": Kind(_("Bowl fills"), forms.FillForm, ["bowl", "time", "amount", "unit", "eaten_right_away", "notes"],
                  ["Food bowl", "2026-10-07 07:30", "0.5", "bowls", "yes", ""], Fill),
     "measurement": Kind(_("Measurements"), forms.MeasurementForm, ["pet", "date", "kind", "value", "unit", "notes"],
@@ -159,11 +162,10 @@ class Importer:
         elif k == "sleep":
             data.update(start=v.get("start"), end=v.get("end"), kind=v.get("kind", "").lower() or "nap")
         elif k == "meal":
-            data.update(time=v.get("time"), amount=v.get("amount"), unit=v.get("unit") or "g",
-                        water_amount=v.get("water_amount"), water_unit=v.get("water_unit") or "ml")
-            for flag in ("food", "water"):
-                if _yes(v.get(flag)):
-                    data[flag] = "on"
+            data.update(time=v.get("time"), food_added=v.get("food_added"), food_unit=v.get("food_unit") or "g",
+                        water_added=v.get("water_added"), water_unit=v.get("water_unit") or "ml",
+                        portion=PORTIONS.get(v.get("eaten", "").strip().lower(), ""),
+                        water_portion=PORTIONS.get(v.get("drank", "").strip().lower(), ""))
         elif k == "measurement":
             unit, kind = v.get("unit", ""), v.get("kind", "").lower()
             data.update(date=v.get("date"), kind=kind, value=v.get("value"))

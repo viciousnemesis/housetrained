@@ -7,6 +7,8 @@ import datetime
 
 from django.conf import settings
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
@@ -119,7 +121,9 @@ class Pet(models.Model):
         _("poop every"), null=True, blank=True, choices=EVERY,
         help_text=_("Expect a poop this long after the last one. Blank: twice pee every."))
     after_meal = models.PositiveSmallIntegerField(
-        _("out after a meal"), default=15, help_text=_("Minutes after eating or drinking to go out."))
+        _("out after a meal"), default=15, null=True, blank=True,
+        help_text=_("Minutes after eating or drinking to go out. Blank: off, meals don't move the head-out time."))
+    meal_dismissals = models.PositiveSmallIntegerField(default=0, editable=False)  # "Disregard meal" in a row (PUP-207)
     # Walk company (PUP-204): a new pet starts as its type does (dogs together, others alone).
     walks_together = models.BooleanField(
         _("walks with other pets"), default=False,
@@ -523,8 +527,8 @@ class Sleep(Logged):
 
 
 class Meal(Logged):
-    """A pet ate and/or drank. Next Walk goes out a set time after it. Separate from filling a bowl (a Fill),
-    which is what left the bag."""
+    """One Log meal entry (PUP-207): what went into the bowls (its fills) and how much was eaten or drunk. Next Walk
+    goes out a set time after eating or drinking. Older meals may have neither fill, or an exact amount."""
 
     pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name="meals")
     time = models.DateTimeField(_("time"), default=timezone.now)
@@ -536,10 +540,10 @@ class Meal(Logged):
     water_portion = models.FloatField(_("how much of the bowl"), null=True, blank=True, choices=PORTIONS)
     amount = models.FloatField(_("amount eaten (g)"), null=True, blank=True)
     water_amount = models.FloatField(_("amount drunk (ml)"), null=True, blank=True)
-    fill = models.ForeignKey(
-        "Fill", on_delete=models.CASCADE, null=True, blank=True, related_name="meals",
-        help_text=_("Set when the meal was logged together with filling the bowl; goes away with that fill."),
-    )
+    fill = models.ForeignKey("Fill", on_delete=models.SET_NULL, null=True, blank=True, related_name="meals",
+                             help_text=_("The food added to the bowl with this meal."))
+    water_fill = models.ForeignKey("Fill", on_delete=models.SET_NULL, null=True, blank=True, related_name="water_meals",
+                                   help_text=_("The water added to the bowl with this meal."))
 
     class Meta:
         ordering = ["-time"]
@@ -547,6 +551,15 @@ class Meal(Logged):
 
     def __str__(self):
         return f"{self.pet} ate at {self.time:%Y-%m-%d %H:%M}"
+
+
+@receiver(post_delete, sender=Meal)
+def _meal_takes_its_fills(sender, instance, **kwargs):
+    """A meal and the bowl fills logged with it are one entry (PUP-207): they go together, unless another pet's meal
+    shares the fill."""
+    for pk in (instance.fill_id, instance.water_fill_id):
+        if pk and not Meal.objects.filter(models.Q(fill_id=pk) | models.Q(water_fill_id=pk)).exists():
+            Fill.objects.filter(pk=pk).delete()
 
 
 class Measurement(Logged):

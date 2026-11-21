@@ -90,7 +90,8 @@ def next_walk(pet, now=None):
     quiet = QuietHours(household)
     to_outside = datetime.timedelta(minutes=household.minutes_to_outside)
     # "Out after a meal" is when to head out, so the need is that plus the time to get outside.
-    after_meal = datetime.timedelta(minutes=pet.after_meal) + to_outside
+    # Off (blank, PUP-207): meals don't move the head-out time.
+    after_meal = datetime.timedelta(minutes=pet.after_meal) + to_outside if pet.after_meal is not None else None
     cleared = pet.triggers_cleared_at if pet.triggers_cleared_at and pet.triggers_cleared_at <= now else None
     since = now - datetime.timedelta(days=3)
     # Accidents found later have no reliable time, so they don't count.
@@ -147,7 +148,7 @@ def next_walk(pet, now=None):
             "time": fmt_time(last), "every": fmt_span(every)})
         source = None
         start = max(last, cleared) if cleared else last
-        for t, _food, logged in meals:
+        for t, _food, logged in meals if after_meal is not None else []:
             if t > start and max(t + after_meal, ready(t, logged)) < due:
                 due, source = max(t + after_meal, ready(t, logged)), "meal"
                 reason = _("ate or drank at %(time)s; out %(after)s later") % {

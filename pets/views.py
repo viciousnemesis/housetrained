@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
@@ -38,6 +39,7 @@ ENTRIES = {
     "walk": Entry(Walk, forms.WalkForm, _("Walk"), "household"),
     "sleep": Entry(Sleep, forms.SleepForm, _("Sleep"), "pet__household"),
     "fill": Entry(Fill, forms.FillForm, _("Bowl fill"), "container__household"),
+    "litter": Entry(Fill, forms.LitterForm, _("Litter"), "container__household"),
     "meal": Entry(Meal, forms.MealForm, _("Meal"), "pet__household"),
     "puke": Entry(Puke, forms.PukeForm, _("Puke"), "pet__household"),
     "measurement": Entry(Measurement, forms.MeasurementForm, _("Measurement"), "pet__household"),
@@ -90,7 +92,7 @@ def entry_household(entry):
 
 
 # Kinds whose "saved" banner offers Undo (PUP-151): the things logged as they happen.
-UNDOABLE = {"potty", "walk", "sleep", "fill", "meal", "puke", "measurement", "note", "training"}
+UNDOABLE = {"potty", "walk", "sleep", "fill", "litter", "meal", "puke", "measurement", "note", "training"}
 
 
 def entry_pets(entry):
@@ -389,10 +391,36 @@ class Disregard(HouseholdMixin, View):
 
     def post(self, request, slug):
         self.require("add", PottyBreak)
+        from .schedule import next_walk
+
         pet = get_object_or_404(self.household.pets, slug=slug)
+        if next_walk(pet)["source"] == "meal":
+            # Dismissals in a row (PUP-207): a meal since the last one that was followed by a pee starts the count again.
+            meals = Meal.objects.filter(pet=pet).filter(Q(food=True) | Q(water=True))
+            if pet.triggers_cleared_at:
+                meals = meals.filter(time__gt=pet.triggers_cleared_at)
+            first = meals.order_by("time").first()
+            followed = first and pet.potty_breaks.filter(pee=True, time__gt=first.time).exists()
+            pet.meal_dismissals = 1 if followed else pet.meal_dismissals + 1
         pet.triggers_cleared_at = timezone.now()
-        pet.save(update_fields=["triggers_cleared_at"])
+        pet.save(update_fields=["triggers_cleared_at", "meal_dismissals"])
         messages.info(request, _("Disregarded. %(name)s is back on the usual gap.") % {"name": pet.name})
+        return HttpResponseRedirect(self.back_url([pet]))
+
+
+class MealTiming(HouseholdMixin, View):
+    """After 20 meal dismissals in a row (PUP-207): turn "out after a meal" off, or keep it and count again."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, slug):
+        self.require("change", Pet)
+        pet = get_object_or_404(self.household.pets, slug=slug)
+        pet.meal_dismissals = 0
+        if request.POST.get("action") == "off":
+            pet.after_meal = None
+            messages.info(request, _("Out after a meal is off for %(name)s.") % {"name": pet.name})
+        pet.save(update_fields=["meal_dismissals", "after_meal"])
         return HttpResponseRedirect(self.back_url([pet]))
 
 

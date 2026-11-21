@@ -33,7 +33,7 @@
                             <div class="dropdown-menu">
                                 <a class="dropdown-item" href="{% url 'pets:list' 'potty' %}"><i class="icon-diaperchange" aria-hidden="true"></i> {% trans "Potty breaks" %}</a>
                                 <a class="dropdown-item" href="{% url 'pets:list' 'walk' %}"><i class="icon-tummytime" aria-hidden="true"></i> {% trans "Walks" %}</a>
-                                <a class="dropdown-item" href="{% url 'pets:list' 'fill' %}"><i class="icon-feeding" aria-hidden="true"></i> {% trans "Bowl fills" %}</a>
+                                {% if pets_has_cats %}<a class="dropdown-item" href="{% url 'pets:list' 'litter' %}"><i class="icon-feeding" aria-hidden="true"></i> {% trans "Litter" %}</a>{% endif %}
                                 <a class="dropdown-item" href="{% url 'pets:list' 'meal' %}"><i class="icon-feeding" aria-hidden="true"></i> {% trans "Meals" %}</a>
                                 <a class="dropdown-item" href="{% url 'pets:list' 'puke' %}"><i class="icon-note" aria-hidden="true"></i> {% trans "Puke" %}</a>
                                 <a class="dropdown-item" href="{% url 'pets:list' 'sleep' %}"><i class="icon-sleep" aria-hidden="true"></i> {% trans "Sleep" %}</a>
@@ -48,7 +48,7 @@
                             <div class="dropdown-menu">
                                 <a class="dropdown-item" href="{% url 'pets:add' 'potty' %}">{% trans "Potty break" %}</a>
                                 <a class="dropdown-item" href="{% url 'pets:add' 'walk' %}">{% trans "Walk" %}</a>
-                                <a class="dropdown-item" href="{% url 'pets:add' 'fill' %}">{% trans "Bowl fill" %}</a>
+                                {% if pets_has_cats %}<a class="dropdown-item" href="{% url 'pets:add' 'litter' %}">{% trans "Litter" %}</a>{% endif %}
                                 <a class="dropdown-item" href="{% url 'pets:add' 'meal' %}">{% trans "Meal" %}</a>
                                 <a class="dropdown-item" href="{% url 'pets:add' 'puke' %}">{% trans "Puke" %}</a>
                                 <a class="dropdown-item" href="{% url 'pets:add' 'sleep' %}">{% trans "Sleep" %}</a>
