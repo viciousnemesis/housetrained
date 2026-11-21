@@ -139,11 +139,12 @@ class Pet(models.Model):
     TRAINING_SORTS = [("manual", _("My order")), ("alpha", _("A to Z")), ("progress", _("Progress"))]
     training_sort = models.CharField(_("training order"), max_length=10, choices=TRAINING_SORTS, default="alpha",
                                      editable=False)
+    position = models.PositiveIntegerField(default=0, editable=False)  # the pets' order, set in Setup (PUP-211)
 
     site_settings = PlatformSettings()  # site-wide switches, on the Site Settings page
 
     class Meta:
-        ordering = ["name"]
+        ordering = ["position", "name"]
         constraints = [models.UniqueConstraint(fields=["household", "slug"], name="unique_pet_slug")]
 
     def __str__(self):
@@ -195,6 +196,9 @@ class Pet(models.Model):
             from .schedule import age_rule
 
             self.pee_every = age_rule(self.birth_date)  # prefilled once; the coach suggests changes from there
+        if not self.pk and self.household_id:
+            last = Pet.objects.filter(household_id=self.household_id).aggregate(m=models.Max("position"))["m"]
+            self.position = 0 if last is None else last + 1  # new pets go last
         if not self.slug:
             base = slugify(self.name) or "pet"
             slug, n = base, 2

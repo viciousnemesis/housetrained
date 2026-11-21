@@ -26,9 +26,20 @@
                 </div>
                 <div class="list-group list-group-flush">
                     {% for p in pets %}
-                        <a class="list-group-item list-group-item-action" href="{% url 'pets:edit' 'pet' p.pk %}">
-                            {{ p.name }} · {{ p.get_type_display }}{% if not p.active %} · <em>{% trans "inactive" %}</em>{% endif %}
-                        </a>
+                        {# The pets' order everywhere (PUP-211), like training's "my order". #}
+                        <div class="list-group-item list-group-item-action d-flex align-items-center gap-2">
+                            <a class="me-auto text-reset text-decoration-none" href="{% url 'pets:edit' 'pet' p.pk %}">
+                                {{ p.name }} · {{ p.get_type_display }}{% if not p.active %} · <em>{% trans "inactive" %}</em>{% endif %}
+                            </a>
+                            {% if pets_can_edit and pets|length > 1 %}
+                                <form method="post" class="m-0 d-flex gap-1">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="move" value="{{ p.pk }}">
+                                    <button class="btn btn-sm btn-outline-light py-0" type="submit" name="direction" value="up" aria-label="{% trans 'Move up' %}" {% if forloop.first %}disabled{% endif %}>&uarr;</button>
+                                    <button class="btn btn-sm btn-outline-light py-0" type="submit" name="direction" value="down" aria-label="{% trans 'Move down' %}" {% if forloop.last %}disabled{% endif %}>&darr;</button>
+                                </form>
+                            {% endif %}
+                        </div>
                     {% empty %}
                         <div class="list-group-item">{% trans "No pets yet." %}</div>
                     {% endfor %}

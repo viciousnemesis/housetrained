@@ -28,3 +28,16 @@ class PetFormTests(PetTestCase):
         page = self.client.get(f"/log/pet/{self.ruby.pk}/").content.decode()
         self.assertNotIn("secret-name", page.split('id="crop-box"')[0])
         self.assertIn("Remove photo", page)
+
+
+class PetOrderTests(PetTestCase):
+    def test_arrows_in_setup_set_the_order_everywhere(self):
+        self.assertEqual([p.name for p in Pet.objects.all()], ["Ruby", "Rex", "Tom"])  # new pets go last
+        self.client.post("/pets/setup/", {"move": self.tom.pk, "direction": "up"})
+        self.assertEqual([p.name for p in Pet.objects.all()], ["Ruby", "Tom", "Rex"])
+        form = self.client.get("/log/meal/add/").context["form"]
+        self.assertEqual([p.name for p in form.fields["pets"].queryset], ["Ruby", "Tom", "Rex"])
+
+    def test_viewers_cant_reorder(self):
+        self.login(self.viewer)
+        self.assertEqual(self.client.post("/pets/setup/", {"move": self.tom.pk, "direction": "up"}).status_code, 403)

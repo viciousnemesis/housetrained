@@ -501,6 +501,20 @@ class QuickPotty(HouseholdMixin, View):
 class Setup(HouseholdMixin, TemplateView):
     template_name = "pets/setup.html"
 
+    def post(self, request):
+        """Move a pet up or down (PUP-211): the order everywhere pets are listed, for the whole household."""
+        self.require("change", Pet)
+        pets = list(self.household.pets.all())
+        move = next((p for p in pets if str(p.pk) == request.POST.get("move")), None)
+        if move:
+            i = pets.index(move)
+            j = i - 1 if request.POST.get("direction") == "up" else i + 1
+            if 0 <= j < len(pets):
+                pets[i], pets[j] = pets[j], pets[i]
+            for position, pet in enumerate(pets):
+                Pet.objects.filter(pk=pet.pk).update(position=position)
+        return HttpResponseRedirect(reverse("pets:setup"))
+
     def get_context_data(self, **kwargs):
         from .supplies import display_unit, status
 
