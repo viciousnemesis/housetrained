@@ -1,4 +1,8 @@
 """The pet's settings form (PUP-205): hours and minutes, and no stored file path."""
+import json
+import os
+
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.test import override_settings
 
@@ -59,9 +63,9 @@ class ResumeTests(PetTestCase):
 
     def test_every_page_is_part_of_the_installed_app(self):
         # Without "scope", Android scopes the app to the start page's folder and shows a browser bar everywhere else.
-        import json
-        from django.contrib.staticfiles import finders
-        manifest = json.load(open(finders.find("housetrained/root/site.webmanifest"), encoding="utf-8"))
+        path = os.path.join(settings.BASE_DIR, "housetrained/static_src/root/site.webmanifest")
+        with open(path, encoding="utf-8") as f:
+            manifest = json.load(f)
         self.assertEqual((manifest["scope"], manifest["start_url"]), ("/", "/resume/"))
 
     def test_the_start_page_goes_on_from_there(self):
