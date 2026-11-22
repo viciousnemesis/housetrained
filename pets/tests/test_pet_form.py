@@ -57,6 +57,13 @@ class ResumeTests(PetTestCase):
         self.assertEqual(self.last("/log/meal/add/?pet=ruby"), "/pets/ruby/")
         self.assertEqual(self.last(f"/log/pet/{self.ruby.pk}/?next=/pets/setup/"), "/pets/setup/")
 
+    def test_every_page_is_part_of_the_installed_app(self):
+        # Without "scope", Android scopes the app to the start page's folder and shows a browser bar everywhere else.
+        import json
+        from django.contrib.staticfiles import finders
+        manifest = json.load(open(finders.find("housetrained/root/site.webmanifest"), encoding="utf-8"))
+        self.assertEqual((manifest["scope"], manifest["start_url"]), ("/", "/resume/"))
+
     def test_the_start_page_goes_on_from_there(self):
         page = self.client.get("/resume/")
         self.assertContains(page, 'localStorage.getItem("housetrained:last")')
