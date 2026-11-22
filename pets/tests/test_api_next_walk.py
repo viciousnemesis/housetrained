@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
+from pets.clock import show_time
 from pets.models import Membership, PottyBreak, Walk
 
 from .test_security import make_household
@@ -36,6 +37,22 @@ class NextWalkApiTests(TestCase):
         data = self.api.get(self.url).json()
         self.assertTrue(data["state"].startswith("On a walk since"), data)
         self.assertIsNotNone(data["on_walk_since"])
+
+    def test_times_in_the_callers_time_zone_with_a_token(self):
+        user = self.mine["user"]
+        user.settings.timezone = "America/Los_Angeles"
+        user.settings.save()
+        api = APIClient()
+        api.credentials(HTTP_AUTHORIZATION=f"Token {Token.objects.create(user=user).key}")
+        PottyBreak.objects.create(pet=self.pet, time=timezone.now() - datetime.timedelta(minutes=30), pee=True)
+        timezone.activate("Asia/Tokyo")  # left on the thread by an earlier request
+        try:
+            data = api.get(self.url).json()
+        finally:
+            timezone.deactivate()
+        with timezone.override("America/Los_Angeles"):
+            expected = show_time(datetime.datetime.fromisoformat(data["head_out"].replace("Z", "+00:00")))
+        self.assertEqual(data["state"], f"Head out ~{expected}")
 
     def test_nothing_logged(self):
         data = self.api.get(self.url).json()

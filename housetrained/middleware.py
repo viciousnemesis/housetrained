@@ -11,24 +11,31 @@ from django.utils.translation import gettext_lazy as _
 from .models import access_expired
 
 
+def activate_user_timezone(user):
+    """The user's own time zone, or the server's: never one left on this thread by an earlier request."""
+    zone = user.settings.timezone if hasattr(user, "settings") else ""
+    try:
+        timezone.activate(zone) if zone else timezone.deactivate()
+    except ValueError:
+        timezone.deactivate()
+
+
 class UserTimezoneMiddleware:
     """
     Sets the timezone based on a user specific setting. This middleware must run after
     `django.contrib.auth.middleware.AuthenticationMiddleware` because it uses the
-    request.user object.
+    request.user object. API token sign-ins happen later, in the view, which sets it again.
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        user = request.user
-        if hasattr(user, "settings") and user.settings.timezone:
-            try:
-                timezone.activate(user.settings.timezone)
-            except ValueError:
-                pass
-        return self.get_response(request)
+        activate_user_timezone(request.user)
+        try:
+            return self.get_response(request)
+        finally:
+            timezone.deactivate()
 
 
 class RollingSessionMiddleware:

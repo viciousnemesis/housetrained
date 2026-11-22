@@ -174,7 +174,10 @@ class FormsTestCase(TestCase):
         params["timezone"] = "America/Los_Angeles"
         page = self.c.post("/user/settings/", data=params, follow=True)
         self.assertEqual(page.status_code, 200)
-        self.assertEqual(timezone.get_current_timezone_name(), params["timezone"])
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.settings.timezone, params["timezone"])
+        # Used for that user's requests only: nothing left on the thread for the next one.
+        self.assertEqual(timezone.get_current_timezone_name(), "UTC")
 
     def test_user_settings_dashboard_refresh_rate(self):
         self.c.login(**self.credentials)

@@ -13,6 +13,8 @@ from rest_framework import permissions, routers, serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from housetrained.middleware import activate_user_timezone
+
 from .forms import link_walk
 from .households import can_edit, current_household, is_owner
 from .models import (
@@ -76,6 +78,12 @@ class EntryViewSet(viewsets.ModelViewSet):
     owner_only = False
     filterset_fields = ()
     ordering = "-pk"
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        # A token signs in here, after the time zone middleware: times in the caller's own zone (Home Assistant's
+        # next-walk sensor showed UTC).
+        activate_user_timezone(request.user)
 
     def get_queryset(self):
         return self.queryset.filter(**{self.household_path: self.household})
