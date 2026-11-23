@@ -66,6 +66,33 @@
     </div>
     {% if kind == "pet" %}{% include "pets/_cropper.html" %}{% endif %}
     <script>
+        // Tap a picked pill again to clear it, for choices that are optional (e.g. a meal's portion). Whether it was
+        // already picked is noted before the click, since a radio is always checked by the time the click arrives.
+        (function () {
+            var form = document.getElementById("entry-form");
+            var radioOf = function (target) {
+                if (target.type === "radio") return target;
+                var label = target.closest && target.closest("label[for]");
+                var input = label && document.getElementById(label.htmlFor);
+                return input && input.type === "radio" ? input : null;
+            };
+            var note = function (event) {
+                var r = radioOf(event.target);
+                if (r) r.dataset.wasChecked = r.checked ? "1" : "";
+            };
+            form.addEventListener("pointerdown", note, true);
+            form.addEventListener("keydown", function (event) { if (event.key === " ") note(event); }, true);
+            form.addEventListener("click", function (event) {
+                var r = event.target.type === "radio" ? event.target : null;
+                if (!r) return;
+                var was = r.dataset.wasChecked === "1";
+                r.dataset.wasChecked = "";
+                if (was && !r.required) {
+                    r.checked = false;
+                    r.dispatchEvent(new Event("change", {bubbles: true}));
+                }
+            });
+        })();
         // "+ New" pills (PUP-180): type a choice that isn't in the list yet; it goes in the form's hidden <name>_new
         // field and is added when the entry is saved. One pick only (Where): typing replaces the picked pill.
         document.querySelectorAll(".pill-new").forEach(function (box) {
