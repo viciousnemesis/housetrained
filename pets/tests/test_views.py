@@ -659,6 +659,17 @@ class MeasurementTests(PetTestCase):
         self.assertIn(f"/log/measurement/{w1.pk}/?next=/pets/ruby/", page)
         self.assertIn(f"/log/measurement/{w2.pk}/?next=/pets/ruby/", page)
 
+    def test_chart_writes_each_value_without_overlap(self):
+        today = timezone.localdate()
+        for days, kg in ((60, 4), (30, 5), (1, 5.5), (0, 6)):
+            self.add("weight", kg, today - datetime.timedelta(days=days))
+        points = insights.measurements_card(self.ruby)["series"][0]["points"]
+        # The two from the last two days sit too close: the newest keeps its number, the other its tooltip.
+        self.assertEqual([p["show_value"] for p in points], [True, True, False, True])
+        page = self.client.get("/pets/ruby/").content.decode()
+        for p in points:
+            self.assertEqual(f'font-size="9" fill="currentColor" opacity=".8">{p["value"]}</text>' in page, p["show_value"])
+
     def test_recent_activity_filter(self):
         self.add("weight", 5, timezone.localdate())
         page = self.client.get("/pets/ruby/").content.decode()

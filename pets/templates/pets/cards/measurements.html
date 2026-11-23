@@ -27,6 +27,7 @@
                         <title>{{ p.label }}</title>
                         <circle cx="{{ p.x }}" cy="{{ p.y }}" r="9" fill="transparent" />
                         <circle cx="{{ p.x }}" cy="{{ p.y }}" r="3.5" fill="#daa520" />
+                        {% if p.show_value %}<text x="{{ p.x }}" y="{{ p.value_y }}" text-anchor="middle" font-size="9" fill="currentColor" opacity=".8">{{ p.value }}</text>{% endif %}
                     </a>
                 {% endfor %}
             </svg>

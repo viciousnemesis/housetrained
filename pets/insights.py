@@ -402,6 +402,7 @@ def hold_table(pet, now=None):
 
 # --- Measurements chart (PUP-135) ---------------------------------------------------------------------------
 M_W, M_H, M_LEFT, M_TOP, M_BOTTOM = 300, 150, 44, 10, 20  # SVG units: width, height, left labels, margins
+M_VALUE_GAP = 24  # SVG units between written values: about four digits wide at font size 9
 
 
 def measurements_card(pet):
@@ -430,7 +431,16 @@ def measurements_card(pet):
             x = M_LEFT + ((m.date - first).days / span * plot_w if span else plot_w / 2)  # all on one day: centred
             y = M_TOP + (hi - v) / (hi - lo) * plot_h
             points.append({"x": round(x, 1), "y": round(y, 1), "pk": m.pk,
-                           "label": f"{formats.date_format(m.date, 'M j')}: {units.fmt(v, unit)}"})
+                           "label": f"{formats.date_format(m.date, 'M j')}: {units.fmt(v, unit)}",
+                           "value": units.fmt(v, unit).rsplit(" ", 1)[0]})
+        # Each point's value written above it (below it at the very top); newest first, and one too close to a
+        # value already written is left to its tooltip so the numbers never overlap.
+        shown_x = None
+        for p in reversed(points):
+            p["show_value"] = shown_x is None or shown_x - p["x"] >= M_VALUE_GAP
+            if p["show_value"]:
+                shown_x = p["x"]
+            p["value_y"] = round(p["y"] - 7 if p["y"] - 7 >= M_TOP else p["y"] + 13, 1)
         series.append({
             "key": key, "label": label, "unit": unit, "points": points,
             "line": " ".join(f"{p['x']},{p['y']}" for p in points),
