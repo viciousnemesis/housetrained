@@ -147,7 +147,7 @@ def close_walk_reminders_later(pets):
 
 def supply_reminders(household, now):
     from . import push
-    from .supplies import household_supplies
+    from .supplies import household_supplies, left_text
 
     people = _people(household, "low_supply")
     if not people:
@@ -156,13 +156,15 @@ def supply_reminders(household, now):
     for status in household_supplies(household):
         if not status["low"]:
             continue
-        item = status["item"]
-        if not _claim(f"supply:{item.pk}:{timezone.localdate(now):%Y%m%d}"):
+        product = status["product"]
+        if not _claim(f"supply:{product.pk}:{timezone.localdate(now):%Y%m%d}"):
             continue
-        body = _("About %(days)s days left (%(left)s).") % {"days": status["days_left"], "left": status["left"]}
-        title = _("Buy more %(product)s") % {"product": item.product.name}
+        body = left_text(status)
+        if status["days_left"] is not None:
+            body += " " + _("About %(days)s days left.") % {"days": status["days_left"]}
+        title = _("Buy more %(product)s") % {"product": product.name}
         for user in people:
-            sent += push.send(user, title, body, url="/pets/", tag=f"supply-{item.pk}")
+            sent += push.send(user, title, body, url="/pets/", tag=f"supply-{product.pk}")
     return sent
 
 

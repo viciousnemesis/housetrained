@@ -83,3 +83,19 @@ class PictureInput(ClearableFileInput):
     """The photo field without the stored file's path: the photo itself shows in the framing box (PUP-205)."""
 
     template_name = "pets/widgets/picture.html"
+
+
+class FoodPicker(Select):
+    """Log meal's food (PUP-213): a list with what's left of each on the right, a search box once there are more
+    than five, and "+ Add to pantry" last. A plain select underneath, so it works without its script."""
+
+    template_name = "pets/widgets/food_picker.html"
+
+    def __init__(self, attrs=None, choices=(), details=None):
+        super().__init__(attrs, choices)
+        self.details = details or {}
+
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        option["attrs"]["data-detail"] = self.details.get(str(value), "")
+        return option

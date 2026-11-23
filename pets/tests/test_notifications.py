@@ -325,7 +325,7 @@ class NotificationTests(TestCase):
     def test_buy_more_once_a_day(self, webpush):
         self.subscribe()
         NotificationPreference.objects.create(user=self.user, walk_due=False)
-        kibble = Product.objects.create(household=self.home, name="Kibble", category=Product.DRY_FOOD, reorder_days=7)
+        kibble = Product.objects.create(household=self.home, name="Kibble", category=Product.DRY_FOOD, low_by=Product.AMOUNT, low_at=1000)
         bag = SupplyItem.objects.create(product=kibble, size=1000, opened=timezone.localdate() - datetime.timedelta(days=5))
         bowl = Container.objects.create(household=self.home, name="Bowl", kind=Container.FOOD_BOWL, default_supply=bag)
         for day in range(5):

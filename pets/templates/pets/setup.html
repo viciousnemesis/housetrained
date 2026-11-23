@@ -130,7 +130,7 @@
                                     {{ s.item.product }} · {{ s.left }} {% trans "left of" %} {{ s.size }}
                                     <span class="text-body-secondary small">
                                         {% if s.item.finished %}· {% trans "finished" %} {{ s.item.finished|date:"M j" }}
-                                        {% elif s.days_left is not None %}· ~{{ s.days_left }} {% trans "days left" %}{% endif %}
+                                        {% elif s.item.opened %}· {{ s.pct_left }}%{% else %}· {% trans "in the pantry" %}{% endif %}
                                         {% if s.pets %}· {{ s.pets }}{% endif %}
                                     </span>
                                 </a>

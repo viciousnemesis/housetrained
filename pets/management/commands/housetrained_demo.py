@@ -56,7 +56,7 @@ class Command(BaseCommand):
         cat = Pet.objects.create(household=home, name="Miso", type=Pet.CAT,
                                  birth_date=today - datetime.timedelta(days=3 * 365))
         kibble = Product.objects.create(household=home, name="Puppy kibble", brand="Demo", category=Product.DRY_FOOD,
-                                        package_size=6800, reorder_days=7)
+                                        package_size=6800)
         cat_food = Product.objects.create(household=home, name="Cat biscuits", category=Product.DRY_FOOD,
                                           package_size=2000)
         litter = Product.objects.create(household=home, name="Clumping litter", category=Product.LITTER,

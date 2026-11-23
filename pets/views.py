@@ -522,7 +522,7 @@ class Setup(HouseholdMixin, TemplateView):
         return HttpResponseRedirect(reverse("pets:setup"))
 
     def get_context_data(self, **kwargs):
-        from .supplies import display_unit, status
+        from .supplies import display_unit, item_status as status
 
         unit = display_unit(self.household)
         bags = SupplyItem.objects.filter(product__household=self.household).select_related("product__household").prefetch_related("pets")

@@ -272,9 +272,12 @@ class Product(models.Model):
                  (LITTER, _("Litter")), (OTHER, _("Other"))],
     )
     package_size = models.FloatField(_("usual package size (g)"), null=True, blank=True)
-    reorder_days = models.PositiveIntegerField(
-        _("remind when this many days are left"), default=7
-    )
+    # Running low (PUP-213): by how many packages are left (open and in the pantry), or by the amount left in them.
+    PACKAGES, AMOUNT = "packages", "amount"
+    low_by = models.CharField(_("warn by"), max_length=10, default=PACKAGES,
+                              choices=[(PACKAGES, _("Package count")), (AMOUNT, _("Amount left"))])
+    low_at = models.FloatField(_("warn when this many are left"), default=1,
+                               help_text=_("Packages, or grams when warning by amount left."))
 
     class Meta:
         ordering = ["name"]
@@ -284,7 +287,7 @@ class Product(models.Model):
 
 
 class SupplyItem(models.Model):
-    """A food source or litter source (PUP-210): one bag, box or can of a product."""
+    """A food source or litter source (PUP-210): one bag, box or can of a product. Not opened yet: in the pantry."""
 
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="items")
     size = models.FloatField(_("size (g)"))
@@ -708,7 +711,7 @@ class NotificationPreference(models.Model):
     late_limit_hours = models.PositiveSmallIntegerField(
         _("stop after (hours)"), default=2, help_text=_("A walk this many hours late isn't announced any more."))
     low_supply = models.BooleanField(_("Buy more"), default=True,
-                                     help_text=_("When a food or litter source is down to its reorder days (once a day)."))
+                                     help_text=_("When a food or litter is running low (once a day)."))
     water_cutoff = models.BooleanField(_("Water bowl"), default=False,
                                        help_text=_("Pick it up before bedtime, put it back in the morning."))
     weekly_progress = models.BooleanField(_("Weekly progress"), default=False,

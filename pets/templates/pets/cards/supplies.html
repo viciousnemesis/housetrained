@@ -5,19 +5,23 @@
         <ul class="list-group list-group-flush small">
             {% for s in supplies %}
                 <li class="list-group-item">
+                    {# One row per food or litter (PUP-213): the open bag or can, and what's still in the pantry. #}
                     <div class="d-flex justify-content-between">
-                        <a class="text-reset" href="{% url 'pets:edit' 'supply' s.item.pk %}?next={{ request.path|urlencode }}">{{ s.item.product }}</a>
-                        <span>{{ s.left }} {% trans "left of" %} {{ s.size }}</span>
+                        <a class="text-reset" href="{% url 'pets:edit' 'product' s.product.pk %}?next={{ request.path|urlencode }}">{{ s.product }}</a>
+                        <span>{% if s.left %}{{ s.left }} {% trans "left of" %} {{ s.size }} · {{ s.pct_left }}%{% elif s.packages %}{% trans "unopened" %}{% else %}{% trans "none left" %}{% endif %}</span>
                     </div>
                     <div class="progress my-1" style="height: .5rem">
                         <div class="progress-bar" style="width: {{ s.pct_left }}%{% if s.low %}; background: #ff6b6b{% endif %}"></div>
                     </div>
                     <div class="text-body-secondary">
-                        {% if s.days_left is not None %}
-                            {% if s.low %}<strong class="text-danger-emphasis">{% trans "Buy more soon:" %}</strong>{% endif %}
+                        {% if s.low %}<strong class="text-danger-emphasis">{% trans "Buy more soon:" %}</strong>{% endif %}
+                        {% if s.pantry %}{% blocktrans count n=s.pantry %}{{ n }} more in the pantry{% plural %}{{ n }} more in the pantry{% endblocktrans %}{% if s.days_left is not None %} · {% endif %}{% endif %}
+                        {% if not s.packages %}
+                            {% trans "None left." %}
+                        {% elif s.days_left is not None %}
                             ~{{ s.days_left }} {% trans "days left" %} ({% trans "runs out around" %} {{ s.runs_out|date:"M j" }}), {{ s.per_day }}/{% trans "day" %}
-                        {% else %}
-                            {% trans "Nothing added from this yet, so no estimate." %}
+                        {% elif not s.pantry %}
+                            {% trans "Nothing used from this yet, so no estimate." %}
                         {% endif %}
                         {% if s.unknown_fills %}<br>{% blocktrans count n=s.unknown_fills %}{{ n }} fill in uncalibrated bowls isn't counted.{% plural %}{{ n }} fills in uncalibrated bowls aren't counted.{% endblocktrans %}{% endif %}
                     </div>

@@ -26,7 +26,7 @@ class LogMealTests(PetTestCase):
         return self.client.post("/log/meal/add/", {"pets": [self.ruby.pk], "time": self.now, **data})
 
     def test_added_and_eaten_is_one_entry(self):
-        self.log(food_added="1", food_unit="bowls", supply_item=self.bag.pk, portion="1.0")
+        self.log(food_added="1", food_unit="bowls", food=self.bag.product_id, portion="1.0")
         meal = Meal.objects.get()
         self.assertEqual((meal.fill.amount, meal.fill.supply_item, meal.amount, meal.food), (80, self.bag, 80, True))
         self.assertEqual(_meal(meal), "Meal: Food – Ate all")
@@ -34,13 +34,13 @@ class LogMealTests(PetTestCase):
         self.assertEqual(kinds, ["meal"])  # the bowl fill is part of the meal's row
 
     def test_the_food_starts_on_the_bag_used_last_time(self):
-        self.log(food_added="60", food_unit="g", supply_item=self.bag.pk)
+        self.log(food_added="60", food_unit="g", food=self.bag.product_id)
         form = self.client.get("/log/meal/add/?pet=ruby").context["form"]
-        self.assertEqual(form.initial["supply_item"], self.bag)
+        self.assertEqual(form.initial["food"], str(self.bag.product_id))
         self.assertNotIn("food_added", form.initial)  # nothing is added unless typed
 
     def test_added_only_doesnt_move_the_walk(self):
-        self.log(food_added="60", food_unit="g")
+        self.log(food_added="60", food_unit="g", food=self.bag.product_id)
         meal = Meal.objects.get()
         self.assertEqual((meal.food, meal.water), (False, False))
         self.assertEqual(_meal(meal), "Meal: Food – Added 60 g")
@@ -54,7 +54,7 @@ class LogMealTests(PetTestCase):
         self.assertContains(response, "Rex has no food bowl set up.")
 
     def test_editing_takes_the_fill_away_when_cleared(self):
-        self.log(food_added="60", food_unit="g", portion="0.5")
+        self.log(food_added="60", food_unit="g", portion="0.5", food=self.bag.product_id)
         meal = Meal.objects.get()
         self.client.post(f"/log/meal/{meal.pk}/", {"pet": self.ruby.pk, "time": self.now, "portion": "0.5"})
         self.assertFalse(Fill.objects.exists())
@@ -137,3 +137,78 @@ class SourceTests(PetTestCase):
         form = self.client.get("/log/supply/add/")
         self.assertEqual(list(form.context["form"].fields["product"].queryset), [food])
         self.assertContains(form, "Add food source")
+
+
+class PantryTests(PetTestCase):
+    """The pantry (PUP-213): bags and cans bought ahead, which food a meal takes from, and when to warn."""
+
+    def setUp(self):
+        super().setUp()
+        self.bowl = Container.objects.create(household=self.household, name="Food bowl", kind=Container.FOOD_BOWL,
+                                             amount_per_bowl=80)
+        self.bowl.pets.set([self.ruby])
+        self.cans = Product.objects.create(household=self.household, name="Wet Food", category=Product.WET_FOOD,
+                                           package_size=300)
+
+    def meal(self, grams, **data):
+        return self.client.post("/log/meal/add/", {"pets": [self.ruby.pk], "time": self.now, "food_added": grams,
+                                                   "food_unit": "g", **data})
+
+    def test_bought_ahead_goes_into_the_pantry(self):
+        self.client.post("/log/supply/add/", {"product": self.cans.pk, "count": 3, "size": "", "size_unit": "g",
+                                              "pets": [self.ruby.pk]})
+        items = list(self.cans.items.order_by("pk"))
+        self.assertEqual([(i.size, i.opened) for i in items], [(300, None)] * 3)  # opened when a meal takes from it
+
+    def test_a_meal_takes_from_the_open_can_then_the_next(self):
+        first, second = (SupplyItem.objects.create(product=self.cans, size=300) for _n in range(2))
+        self.meal("200", food=self.cans.pk)
+        first.refresh_from_db()
+        self.assertEqual((Fill.objects.get().supply_item, first.opened), (first, timezone.localdate()))
+        self.meal("100", food=self.cans.pk)  # finishes the first
+        self.meal("50", food=self.cans.pk)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(Fill.objects.order_by("-pk").first().supply_item, second)
+        self.assertEqual((first.finished, second.opened), (timezone.localdate(), timezone.localdate()))
+
+    def test_the_picker_lists_foods_in_stock_with_whats_left(self):
+        open_can = SupplyItem.objects.create(product=self.cans, size=300, opened=timezone.localdate())
+        SupplyItem.objects.create(product=self.cans, size=300)
+        Fill.objects.create(container=self.bowl, contents=Fill.FOOD, amount=100, supply_item=open_can)
+        gone = Product.objects.create(household=self.household, name="Old kibble", category=Product.DRY_FOOD)
+        SupplyItem.objects.create(product=gone, size=100, finished=timezone.localdate())
+        field = self.client.get("/log/meal/add/?pet=ruby").context["form"].fields["food"]
+        self.assertEqual([label for _v, label in field.choices],
+                         ["Pick a food", "Wet Food", "+ Add food to the pantry"])  # nothing left of the old kibble
+        self.assertIn("67% · +1 in pantry", field.widget.details[str(self.cans.pk)])
+
+    def test_a_new_food_is_added_to_the_pantry_from_the_meal(self):
+        self.meal("60", food="new", new_food_name="Kibble", new_food_category=Product.DRY_FOOD, new_food_size="2",
+                  new_food_size_unit="kg", new_food_count="2")
+        kibble = Product.objects.get(name="Kibble")
+        self.assertEqual((kibble.package_size, kibble.items.count()), (2000, 2))
+        self.assertEqual(Fill.objects.get().supply_item, kibble.items.get(opened=timezone.localdate()))
+
+    def test_restocking_by_name_doesnt_add_the_food_twice(self):
+        self.meal("60", food="new", new_food_name="wet food", new_food_category=Product.WET_FOOD, new_food_count="4")
+        self.assertEqual((Product.objects.count(), self.cans.items.count()), (1, 4))  # its usual size
+
+    def test_the_food_is_asked_for_once_theres_a_pantry(self):
+        SupplyItem.objects.create(product=self.cans, size=300)
+        self.assertContains(self.meal("60"), "Pick the food, or add it to the pantry.")
+
+    def test_running_low_by_packages_or_amount(self):
+        from pets.supplies import product_status
+
+        for _n in range(3):
+            SupplyItem.objects.create(product=self.cans, size=300)
+        self.cans.low_at = 2
+        self.assertFalse(product_status(self.cans)["low"])  # 3 cans left
+        self.meal("300", food=self.cans.pk)
+        self.meal("10", food=self.cans.pk)  # the first is finished: 2 left, one of them open
+        self.assertTrue(product_status(self.cans)["low"])
+        self.cans.low_by, self.cans.low_at = Product.AMOUNT, 500
+        self.assertFalse(product_status(self.cans)["low"])  # 590 g left
+        self.meal("100", food=self.cans.pk)
+        self.assertTrue(product_status(self.cans)["low"])
