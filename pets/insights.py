@@ -431,8 +431,8 @@ def measurements_card(pet):
             x = M_LEFT + ((m.date - first).days / span * plot_w if span else plot_w / 2)  # all on one day: centred
             y = M_TOP + (hi - v) / (hi - lo) * plot_h
             points.append({"x": round(x, 1), "y": round(y, 1), "pk": m.pk,
-                           "label": f"{formats.date_format(m.date, 'M j')}: {units.fmt(v, unit)}",
-                           "value": units.fmt(v, unit).rsplit(" ", 1)[0]})
+                           "label": f"{formats.date_format(m.date, 'M j')}: {v:.1f} {unit}",
+                           "value": f"{v:.1f}"})  # one decimal everywhere, like the axis: 9.0, not 9
         # Each point's value written above it (below it at the very top); newest first, and one too close to a
         # value already written is left to its tooltip so the numbers never overlap.
         shown_x = None

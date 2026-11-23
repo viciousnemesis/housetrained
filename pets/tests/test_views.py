@@ -666,6 +666,7 @@ class MeasurementTests(PetTestCase):
         points = insights.measurements_card(self.ruby)["series"][0]["points"]
         # The two from the last two days sit too close: the newest keeps its number, the other its tooltip.
         self.assertEqual([p["show_value"] for p in points], [True, True, False, True])
+        self.assertTrue(all(re.fullmatch(r"\d+\.\d", p["value"]) for p in points), points)  # 9.0, not 9
         page = self.client.get("/pets/ruby/").content.decode()
         for p in points:
             self.assertEqual(f'font-size="9" fill="currentColor" opacity=".8">{p["value"]}</text>' in page, p["show_value"])
