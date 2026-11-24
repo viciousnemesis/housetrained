@@ -1,9 +1,13 @@
 {% load i18n %}
 {% block messages %}
     {% if messages %}
+        {# Messages float over the page (PUP-215), so closing one doesn't shift the page. Success ones go by #}
+        {# themselves after 10 seconds, like Undo; warnings and errors stay until closed. #}
+        <div class="position-fixed start-50 translate-middle-x px-2 d-flex flex-column gap-2"
+             style="top: 4.5rem; z-index: 1080; width: min(36rem, 100%)">
         {% for message in messages %}
-            <div class="alert alert-{{ message.level_tag }} alert-dismissible fade show"
-                 role="alert">
+            <div class="alert alert-{{ message.level_tag }} alert-dismissible fade show shadow mb-0"
+                 role="alert" data-level="{{ message.level_tag }}">
                 {{ message }}
                 {% if message.extra_tags|slice:":5" == "undo-" %}
                     {# Quick logs (PUP-151): Undo for 10 seconds. #}
@@ -19,9 +23,13 @@
                         aria-label="Close"></button>
             </div>
         {% endfor %}
+        </div>
         <script>
             setTimeout(function () {
                 document.querySelectorAll(".undo-form").forEach(function (form) { form.remove(); });
+                document.querySelectorAll('.alert[data-level="success"]').forEach(function (alert) {
+                    bootstrap.Alert.getOrCreateInstance(alert).close();
+                });
             }, 10000);
         </script>
     {% endif %}
