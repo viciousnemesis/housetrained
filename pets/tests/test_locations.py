@@ -49,7 +49,7 @@ class PottyLocationTests(PetTestCase):
         self.add(self.balcony.code)
         self.client.post(f"/log/location/{self.balcony.pk}/", {"name": "Balcony", "accident": "on"})
         self.assertTrue(PottyBreak.objects.get().accident)
-        self.assertContains(self.client.get("/pets/setup/"), "Balcony")
+        self.assertContains(self.client.get("/pets/settings/"), "Balcony")
 
     def test_new_from_the_form(self):
         made = self.client.post("/log/potty/location/", {"name": "Car", "accident": "true"}).json()

@@ -1,11 +1,13 @@
 {% extends "housetrained/page.html" %}
 {% load i18n %}
-{# One wording everywhere (PUP-205): "Add …" and "Edit …", or the page's own heading; setup things sit under Setup. #}
+{# One wording everywhere (PUP-205): "Add …" and "Edit …", or the page's own heading; settings things sit under Settings, food under Pantry. #}
 {% block title %}{% if heading %}{{ heading }}{% elif object %}{% trans "Edit" %} {{ title|lower }}{% else %}{% trans "Add" %} {{ title|lower }}{% endif %}{% endblock %}
 {% block resume %}{% if next %}{{ next|escapejs }}{% else %}{{ cancel_url|escapejs }}{% endif %}{% endblock %}
 {% block breadcrumbs %}
     {% if setup %}
-        <li class="breadcrumb-item"><a href="{% url 'pets:setup' %}">{% trans "Setup" %}</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'pets:settings' %}">{% trans "Settings" %}</a></li>
+    {% elif pantry %}
+        <li class="breadcrumb-item"><a href="{% url 'pets:pantry' %}">{% trans "Pantry" %}</a></li>
     {% else %}
         <li class="breadcrumb-item"><a href="{% url 'pets:household' %}">{% trans "Pets" %}</a></li>
     {% endif %}
@@ -27,7 +29,7 @@
     {% endfor %}
     {% if kind == "fill" and form.has_uncalibrated %}
         <p class="text-body-secondary small">
-            {% trans "Bowls marked not calibrated can't turn bowls into grams yet, so how much is left stays rough. Calibrate in Setup: tare the bowl, fill it as usual, weigh it." %}
+            {% trans "Bowls marked not calibrated can't turn bowls into grams yet, so how much is left stays rough. Calibrate in Settings: tare the bowl, fill it as usual, weigh it." %}
         </p>
     {% endif %}
     <div class="container-fluid pb-5">
@@ -64,271 +66,8 @@
             </form>
         {% endif %}
     </div>
+    {% if kind == "product" and object %}{% include "pets/_food_items.html" %}{% endif %}
     {% if kind == "pet" %}{% include "pets/_cropper.html" %}{% endif %}
-    <script>
-        // Tap a picked pill again to clear it, for choices that are optional (e.g. a meal's portion). Whether it was
-        // already picked is noted before the click, since a radio is always checked by the time the click arrives.
-        (function () {
-            var form = document.getElementById("entry-form");
-            var radioOf = function (target) {
-                if (target.type === "radio") return target;
-                var label = target.closest && target.closest("label[for]");
-                var input = label && document.getElementById(label.htmlFor);
-                return input && input.type === "radio" ? input : null;
-            };
-            var note = function (event) {
-                var r = radioOf(event.target);
-                if (r) r.dataset.wasChecked = r.checked ? "1" : "";
-            };
-            form.addEventListener("pointerdown", note, true);
-            form.addEventListener("keydown", function (event) { if (event.key === " ") note(event); }, true);
-            form.addEventListener("click", function (event) {
-                var r = event.target.type === "radio" ? event.target : null;
-                if (!r) return;
-                var was = r.dataset.wasChecked === "1";
-                r.dataset.wasChecked = "";
-                if (was && !r.required) {
-                    r.checked = false;
-                    r.dispatchEvent(new Event("change", {bubbles: true}));
-                }
-            });
-        })();
-        // "+ New" pills (PUP-180): type a choice that isn't in the list yet; it goes in the form's hidden <name>_new
-        // field and is added when the entry is saved. One pick only (Where): typing replaces the picked pill.
-        document.querySelectorAll(".pill-new").forEach(function (box) {
-            var button = box.querySelector("button"), text = box.querySelector("input");
-            var hidden = document.querySelector('input[name="' + box.dataset.addTo + '"]');
-            var radios = box.dataset.multiple ? [] : box.closest(".pill-container").querySelectorAll("input[type=radio]");
-            if (!hidden) return;
-            var show = function () {
-                button.classList.add("d-none");
-                text.classList.remove("d-none");
-                text.style.display = "inline-block";
-            };
-            if (hidden.value) { text.value = hidden.value; show(); }  // the form came back with an error
-            button.addEventListener("click", function () { show(); text.focus(); });
-            text.addEventListener("keydown", function (event) { if (event.key === "Enter") event.preventDefault(); });
-            text.addEventListener("input", function () {
-                hidden.value = text.value.trim();
-                if (hidden.value) radios.forEach(function (r) { r.checked = false; });
-            });
-            radios.forEach(function (r) {
-                r.addEventListener("change", function () { if (r.checked) { text.value = ""; hidden.value = ""; } });
-            });
-        });
-        // "+ New" location (PUP-181): name it, then say whether going there is an accident or the right place. It's
-        // made straight away and picked, so the accident rows (Where, What was going on) show for it like Inside.
-        document.querySelectorAll('.pill-new[data-add-to="location_new"]').forEach(function (box) {
-            var button = box.querySelector("button"), text = box.querySelector("input");
-            var form = document.getElementById("entry-form");
-            var choices = document.createElement("span");
-            choices.className = "d-none";
-            [["true", "{% trans 'Accident' %}"], ["false", "{% trans 'Right place' %}"]].forEach(function (c) {
-                var b = document.createElement("button");
-                b.type = "button";
-                b.className = "btn btn-sm btn-outline-light ms-1";
-                b.dataset.accident = c[0];
-                b.textContent = c[1];
-                choices.appendChild(b);
-            });
-            box.appendChild(choices);
-            button.addEventListener("click", function () {
-                button.classList.add("d-none");
-                text.classList.remove("d-none");
-                text.style.display = "inline-block";
-                choices.classList.remove("d-none");
-                text.focus();
-            });
-            text.addEventListener("keydown", function (event) { if (event.key === "Enter") event.preventDefault(); });
-            choices.addEventListener("click", function (event) {
-                var pick = event.target.closest("button");
-                if (!pick || !text.value.trim()) { text.focus(); return; }
-                var body = new FormData();
-                body.append("name", text.value.trim());
-                body.append("accident", pick.dataset.accident);
-                body.append("csrfmiddlewaretoken", form.querySelector("[name=csrfmiddlewaretoken]").value);
-                fetch("{% url 'pets:new-location' %}", {method: "POST", body: body, credentials: "same-origin"})
-                    .then(function (r) { return r.json(); }).then(function (place) {
-                        if (!place.ok) return;
-                        var radio = form.querySelector('input[name=location][value="' + place.code + '"]');
-                        if (!radio) {
-                            radio = document.createElement("input");
-                            radio.type = "radio";
-                            radio.name = "location";
-                            radio.value = place.code;
-                            radio.id = "id_location_" + place.code;
-                            radio.className = "btn-check d-none";
-                            var label = document.createElement("label");
-                            label.htmlFor = radio.id;
-                            label.className = "btn btn-outline-light btn-no-hover";
-                            label.textContent = place.name;
-                            box.before(radio, label);
-                        }
-                        if (place.accident && window.showWhen) {
-                            Object.keys(window.showWhen.rules).forEach(function (name) {
-                                window.showWhen.rules[name].forEach(function (rule) {
-                                    if (rule[0] === "location" && rule[1].indexOf("inside") >= 0 &&
-                                        rule[1].indexOf(place.code) < 0) rule[1].push(place.code);
-                                });
-                            });
-                        }
-                        radio.checked = true;
-                        radio.dispatchEvent(new Event("change", {bubbles: true}));
-                        text.value = "";
-                        text.classList.add("d-none");
-                        choices.classList.add("d-none");
-                        button.classList.remove("d-none");
-                    });
-            });
-        });
-    </script>
-    {% if form.location_map %}{{ form.location_map|json_script:"potty-locations" }}{% endif %}
-    {% if form.container_info %}{{ form.container_info|json_script:"fill-containers" }}{% endif %}
-    {% if form.show_when_json %}{{ form.show_when_json|json_script:"show-when" }}{% endif %}
-    {% if form.unit_pairs_json %}{{ form.unit_pairs_json|json_script:"unit-pairs" }}{% endif %}
-    {% if form.unit_defaults_json %}{{ form.unit_defaults_json|json_script:"unit-defaults" }}{% endif %}
-    <script>
-        // Household units: kinds never picked follow the system choice until they're saved (PUP-140).
-        (function () {
-            var info = document.getElementById("unit-defaults");
-            if (!info) return;
-            info = JSON.parse(info.textContent);
-            var follow = function () {
-                var system = document.querySelector("input[name=units]:checked");
-                if (!system) return;
-                info.unsaved.forEach(function (name) {
-                    var kind = name.replace("unit_", "");
-                    var pick = document.querySelector("input[name=" + name + "][value='" + info.defaults[system.value][kind] + "']");
-                    if (pick) pick.checked = true;
-                });
-            };
-            document.querySelectorAll("input[name=units]").forEach(function (r) { r.addEventListener("change", follow); });
-            info.unsaved.forEach(function (name) {
-                document.querySelectorAll("input[name=" + name + "]").forEach(function (r) {
-                    r.addEventListener("change", function () { info.unsaved = info.unsaved.filter(function (n) { return n !== name; }); });
-                });
-            });
-        })();
-    </script>
-    <script>
-        (function () {
-            // Units sit inside their amount box: [ 60 | oz ].
-            var pairs = document.getElementById("unit-pairs");
-            if (pairs) {
-                pairs = JSON.parse(pairs.textContent);
-                Object.keys(pairs).forEach(function (amountName) {
-                    var amount = document.getElementById("id_" + amountName);
-                    if (!amount) return;
-                    var group = document.createElement("div");
-                    group.className = "input-group";
-                    amount.parentNode.insertBefore(group, amount);
-                    group.appendChild(amount);
-                    pairs[amountName].forEach(function (unitName) {
-                        var unit = document.getElementById("id_" + unitName);
-                        if (!unit) return;
-                        var row = unit.closest(".row.mb-3");
-                        unit.classList.add("flex-grow-0", "w-auto");
-                        unit.dataset.paired = "1";
-                        group.appendChild(unit);
-                        if (row) row.remove();
-                    });
-                });
-            }
-            // Fields that only apply after a choice: hidden ones are disabled (kept, but not sent).
-            var rules = document.getElementById("show-when");
-            if (rules) {
-                rules = JSON.parse(rules.textContent);
-                var valueOf = function (name) {
-                    var els = document.querySelectorAll("[name='" + name + "']");
-                    if (!els.length) return null;
-                    var first = els[0];
-                    if (first.type === "checkbox" && els.length === 1) return String(first.checked);
-                    if (first.type === "radio" || first.type === "checkbox") {
-                        var picked = Array.from(els).filter(function (e) { return e.checked; }).map(function (e) { return e.value; });
-                        return first.type === "radio" ? (picked[0] || "") : picked;
-                    }
-                    return first.value;
-                };
-                var apply = function () {
-                    Object.keys(rules).forEach(function (name) {
-                        var field = document.getElementById("id_" + name);
-                        if (!field) return;
-                        var show = rules[name].every(function (rule) {
-                            var value = valueOf(rule[0]), allowed = rule[1];
-                            return allowed === "*" ? !!value && value !== "false" && value.length !== 0
-                                : Array.isArray(value) ? value.some(function (v) { return allowed.indexOf(v) >= 0; })
-                                : allowed.indexOf(value) >= 0;
-                        });
-                        var row = field.dataset.paired ? field : (field.closest(".row.mb-3") || field);
-                        row.classList.toggle("d-none", !show);
-                        row.querySelectorAll("input, select, textarea").forEach(function (i) { i.disabled = !show; });
-                    });
-                };
-                var form = document.getElementById("entry-form");
-                form.addEventListener("change", apply);
-                form.addEventListener("input", apply);
-                apply();
-                window.showWhen = {rules: rules, apply: apply};  // a location added on the page joins the rules
-            }
-            // Fill: litter boxes have no meal; a new fill repeats the last one for that bowl.
-            var info = document.getElementById("fill-containers");
-            if (info) {
-                info = JSON.parse(info.textContent);
-                var eaten = document.getElementById("id_eaten_now");
-                var amount = document.getElementById("id_amount"), unit = document.getElementById("id_unit");
-                var auto = amount && !amount.value, autoBag = false;
-                var bagSelect = document.getElementById("id_supply_item");
-                if (bagSelect) bagSelect.addEventListener("change", function () { autoBag = false; });
-                if (amount) amount.addEventListener("input", function () { auto = false; });
-                var pick = function () {
-                    var picked = document.querySelector("input[name=container]:checked");
-                    var c = picked && info[picked.value];
-                    if (!c) return;
-                    var bag = document.getElementById("id_supply_item");
-                    if (bag && c.add && (autoBag || !bag.value)) {
-                        bag.value = c.bag ? String(c.bag) : "";  // the bowl's usual bag
-                        autoBag = true;
-                    }
-                    if (c.add && c.last && auto) {
-                        amount.value = c.last.amount;
-                        unit.value = c.last.unit;
-                        if (eaten && !c.litter) eaten.checked = c.last.eaten;
-                    }
-                };
-                document.querySelectorAll("input[name=container]").forEach(function (i) {
-                    i.addEventListener("change", pick);
-                });
-                pick();
-            }
-            // Potty: only show the locations the picked pets use.
-            var map = document.getElementById("potty-locations");
-            if (map) {
-                map = JSON.parse(map.textContent);
-                var update = function () {
-                    var picked = Array.from(document.querySelectorAll("input[name=pets]:checked, input[name=pet]:checked"))
-                        .map(function (i) { return i.value; });
-                    if (!picked.length) picked = Object.keys(map);
-                    var allowed = new Set();
-                    picked.forEach(function (pk) { (map[pk] || []).forEach(function (l) { allowed.add(l); }); });
-                    var inputs = Array.from(document.querySelectorAll("input[name=location]"));
-                    inputs.forEach(function (input) {
-                        var label = document.querySelector("label[for='" + input.id + "']");
-                        if (label) label.classList.toggle("d-none", !allowed.has(input.value));
-                    });
-                    var checked = inputs.find(function (i) { return i.checked; });
-                    if (checked && !allowed.has(checked.value)) {
-                        var usual = (map[picked[0]] || [])[0];  // the first pet's usual spot, e.g. litter box for a cat
-                        var first = inputs.find(function (i) { return i.value === usual; }) ||
-                            inputs.find(function (i) { return allowed.has(i.value); });
-                        checked.checked = false;
-                        if (first) first.checked = true;
-                    }
-                };
-                document.querySelectorAll("input[name=pets], input[name=pet]").forEach(function (i) {
-                    i.addEventListener("change", update);
-                });
-                update();
-            }
-        })();
-    </script>
+    {% include "pets/_form_scripts.html" %}
+    {% if form.food_info_json %}{% include "pets/_cans.html" %}{% endif %}
 {% endblock %}

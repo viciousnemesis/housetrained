@@ -321,7 +321,7 @@ class ScheduleTests(TestCase):
 
     def test_quiet_hours_on_the_household_form(self):
         self.client.force_login(self.user)
-        self.client.post("/pets/setup/household/", {"name": "Home", "units": "metric", "time_zone": "",
+        self.client.post("/pets/settings/", {"name": "Home", "units": "metric", "time_zone": "",
                                                     "minutes_to_outside": "10", "bedtime": "22:30",
                                                     "wake_time": "06:00", "water_cutoff_hours": "2"})
         self.home.refresh_from_db()
@@ -363,16 +363,16 @@ class ScheduleTests(TestCase):
         # Saving the pet's form checks the schedule; saving the household sets the quiet hours.
         self.client.post(f"/log/pet/{self.ruby.pk}/", {"name": self.ruby.name, "type": "dog", "pee_every": "150",
                                                       "poop_every": "300", "after_meal": "15", "active": "on"})
-        response = self.client.post(f"/pets/setup/household/?next=/pets/{self.ruby.slug}/", {
+        response = self.client.post(f"/pets/settings/?next=/pets/{self.ruby.slug}/", {
             "name": "Home", "units": "metric", "time_zone": "", "minutes_to_outside": "10", "bedtime": "23:45",
             "wake_time": "06:00", "water_cutoff_hours": "2"})
         self.assertEqual(response.url, f"/pets/{self.ruby.slug}/")  # back to the pet
         self.ruby.refresh_from_db()
         self.assertEqual([s["key"] for s in setup_steps(self.ruby, self.user)], ["bowls", "notifications"])
-        self.client.post("/pets/setup/skip/", {"step": "bowls"})
+        self.client.post("/pets/settings/skip/", {"step": "bowls"})
         self.ruby.household.refresh_from_db()
         self.assertEqual([s["key"] for s in setup_steps(self.ruby, self.user)], ["notifications"])
-        self.client.post("/pets/setup/skip/", {"step": "all"})
+        self.client.post("/pets/settings/skip/", {"step": "all"})
         self.assertNotContains(self.client.get(f"/pets/{self.ruby.slug}/"), "Finish setting up")
 
     def test_checking_the_schedule_doesnt_quiet_the_coach(self):

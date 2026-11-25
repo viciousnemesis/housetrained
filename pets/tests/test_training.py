@@ -100,7 +100,7 @@ class TrainingTests(PetTestCase):
     def test_training_stays_out_of_all_activity_but_has_its_own_list(self):
         TrainingLog.objects.create(command=self.sit, score=3)
         from pets.entries import activity
-        self.assertEqual(activity(self.ruby)[0], [])
+        self.assertEqual(activity(self.ruby.household, self.ruby)[0], [])
         self.assertContains(self.client.get("/log/training/"), "Sit: 3 Slow")
 
 

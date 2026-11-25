@@ -29,7 +29,7 @@ class ExportTests(TestCase):
         walk.pets.set([self.ruby])
 
     def files(self):
-        response = self.client.get("/pets/setup/export/")
+        response = self.client.get("/pets/settings/export/")
         self.assertEqual(response["Content-Type"], "application/zip")
         self.assertIn("housetrained-export-", response["Content-Disposition"])
         archive = zipfile.ZipFile(io.BytesIO(response.content))
@@ -51,7 +51,7 @@ class ExportTests(TestCase):
         self.assertEqual((files["training.csv"][0]["command"], files["training.csv"][0]["score"]), ("Sit", "4"))
 
     def test_it_imports_back(self):
-        response = self.client.get("/pets/setup/export/")
+        response = self.client.get("/pets/settings/export/")
         archive = zipfile.ZipFile(io.BytesIO(response.content))
         text = archive.read("potty.csv").decode("utf-8-sig")
         PottyBreak.everything.all().delete()
@@ -71,4 +71,4 @@ class ExportTests(TestCase):
 
     def test_needs_sign_in(self):
         self.client.logout()
-        self.assertEqual(self.client.get("/pets/setup/export/").status_code, 302)
+        self.assertEqual(self.client.get("/pets/settings/export/").status_code, 302)

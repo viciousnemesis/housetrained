@@ -9,13 +9,13 @@ from pets.tests.test_views import PetTestCase
 @override_settings(TIME_ZONE="UTC")
 class ImportTests(PetTestCase):
     def upload(self, kind, text, confirm=False):
-        response = self.client.post("/pets/setup/import/", {"kind": kind, "file": SimpleUploadedFile("x.csv", text.encode())})
+        response = self.client.post("/pets/settings/import/", {"kind": kind, "file": SimpleUploadedFile("x.csv", text.encode())})
         if confirm:
-            response = self.client.post("/pets/setup/import/", {"kind": kind, "csv_text": text, "confirm": "1"})
+            response = self.client.post("/pets/settings/import/", {"kind": kind, "csv_text": text, "confirm": "1"})
         return response
 
     def test_template_download(self):
-        response = self.client.get("/pets/setup/import/?template=potty")
+        response = self.client.get("/pets/settings/import/?template=potty")
         self.assertEqual(response["Content-Type"], "text/csv")
         self.assertTrue(response.content.decode().startswith("pet,time,pee,poop,location,notes"))
 
@@ -74,5 +74,5 @@ class ImportTests(PetTestCase):
 
     def test_viewer_cannot_import(self):
         self.login(self.viewer)
-        self.assertEqual(self.client.get("/pets/setup/import/").status_code, 403)
+        self.assertEqual(self.client.get("/pets/settings/import/").status_code, 403)
         self.assertEqual(self.upload("potty", "pet,time,pee,poop,location\nRuby,2026-10-01 07:10,yes,no,outside\n").status_code, 403)

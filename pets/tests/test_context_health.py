@@ -32,7 +32,7 @@ class AccidentContextTests(PetTestCase):
     def test_spots_are_managed_in_setup(self):
         self.client.post("/log/spot/add/", {"name": "Back door"})
         self.assertTrue(AccidentSpot.objects.filter(household=self.household, name="Back door").exists())
-        self.assertContains(self.client.get("/pets/setup/"), "Back door")
+        self.assertContains(self.client.get("/pets/settings/"), "Back door")
 
     def test_quick_accident_goes_on_to_details(self):
         response = self.client.post("/log/potty/quick/", {"pet": ["ruby"], "what": "pee", "location": "inside"})
@@ -74,7 +74,7 @@ class AccidentContextTests(PetTestCase):
         c = AccidentContext.objects.get()
         self.client.post(f"/log/context/{c.pk}/", {"name": "Door knock"})
         self.assertEqual(PottyBreak.objects.get().context, ["Door knock"])
-        self.assertContains(self.client.get("/pets/setup/"), "Door knock")
+        self.assertContains(self.client.get("/pets/settings/"), "Door knock")
 
 
 @override_settings(TIME_ZONE="UTC")
@@ -131,7 +131,7 @@ class HealthTests(PetTestCase):
 
     def test_details_show_in_logs(self):
         self.add(poop="on", unusual="on", poop_consistency="soft")
-        self.assertContains(self.client.get("/log/potty/"), "too soft")
+        self.assertContains(self.client.get("/log/potty/", follow=True), "too soft")
 
 
 class HealthCheckSettingsTests(PetTestCase):
@@ -143,25 +143,25 @@ class HealthCheckSettingsTests(PetTestCase):
                                       time=timezone.now() - datetime.timedelta(hours=i + 1))
 
     def test_every_check_is_listed(self):
-        page = self.client.get("/pets/setup/health/").content.decode()
+        page = self.client.get("/pets/settings/health/").content.decode()
         for label in ("Black or bloody poop", "Grey, white or yellow poop", "Soft poop", "Dark pee",
                       "Peeing more than usual"):
             self.assertIn(label, page)
         self.assertIn('name="usual_days" value="7"', page)
-        self.assertIn("/pets/setup/health/", self.client.get("/pets/setup/").content.decode())
+        self.assertIn("/pets/settings/health/", self.client.get("/pets/settings/").content.decode())
 
     def test_switching_a_check_off_hides_it(self):
         self.soft_poops(2)
         self.assertTrue(insights.health_alerts(self.ruby))
         on = {"bloody_poop": "on", "pale_poop": "on", "dark_pee": "on", "more_pees": "on"}  # soft_poop left off
-        self.client.post("/pets/setup/health/", {**on, "soft_count": "2", "dark_count": "2", "pee_factor": "1.5",
+        self.client.post("/pets/settings/health/", {**on, "soft_count": "2", "dark_count": "2", "pee_factor": "1.5",
                                                  "pee_extra": "3", "usual_days": "7"})
         self.ruby.household.refresh_from_db()
         self.assertEqual(insights.health_alerts(self.ruby), [])
 
     def test_numbers_change_when_it_goes_off_and_are_kept_in_range(self):
         self.soft_poops(2)
-        self.client.post("/pets/setup/health/", {"soft_poop": "on", "soft_count": "3", "dark_count": "99",
+        self.client.post("/pets/settings/health/", {"soft_poop": "on", "soft_count": "3", "dark_count": "99",
                                                  "pee_factor": "abc", "pee_extra": "3", "usual_days": "1"})
         self.household.refresh_from_db()
         saved = self.household.health_checks
@@ -175,11 +175,11 @@ class HealthCheckSettingsTests(PetTestCase):
     def test_shows_when_it_last_went_off(self):
         PottyBreak.objects.create(pet=self.ruby, poop=True, poop_colour="red",
                                   time=timezone.now() - datetime.timedelta(days=3))
-        page = self.client.get("/pets/setup/health/").content.decode()
+        page = self.client.get("/pets/settings/health/").content.decode()
         self.assertIn("last went off", page)
         self.assertIn("hasn't gone off in the past 90 days", page)
 
     def test_only_owners_change_them(self):
         self.login(self.member)
-        self.assertEqual(self.client.post("/pets/setup/health/", {"soft_count": "5"}).status_code, 403)
-        self.assertContains(self.client.get("/pets/setup/health/"), "An owner can change these.")
+        self.assertEqual(self.client.post("/pets/settings/health/", {"soft_count": "5"}).status_code, 403)
+        self.assertContains(self.client.get("/pets/settings/health/"), "An owner can change these.")

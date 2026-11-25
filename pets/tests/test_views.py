@@ -125,8 +125,12 @@ class AllPetsLoggingTests(PetTestCase):
         self.assertFalse(PottyBreak.objects.exists())
 
     def test_meal_for_every_pet(self):
-        self.client.post("/log/meal/add/", {"pets": [p.pk for p in self.pets], "time": self.now, "portion": "1.0"})
+        water = Container.objects.create(household=self.household, name="Water", kind=Container.WATER_BOWL)
+        water.pets.set(self.pets)
+        self.client.post("/log/meal/add/", {"pets": [p.pk for p in self.pets], "time": self.now, "water_added": "300",
+                                            "water_unit": "ml", "water_portion": "1.0"})
         self.assertEqual(Meal.objects.count(), 3)
+        self.assertEqual(Fill.objects.count(), 1)  # one bowl, one fill
 
     def test_shared_bowl_eaten_right_away_logs_meals_without_amounts(self):
         bowl = Container.objects.create(household=self.household, name="Bowl", kind=Container.FOOD_BOWL,
@@ -153,14 +157,15 @@ class AllPetsLoggingTests(PetTestCase):
                                          amount_per_bowl=500)
         food.pets.set([self.ruby])
         water.pets.set([self.ruby])
-        Fill.objects.create(container=food, time=timezone.now() - datetime.timedelta(minutes=10), contents=Fill.FOOD,
-                            amount=60)
-        self.client.post("/log/meal/add/", {"pets": [self.ruby.pk], "time": self.now,
-                                            "portion": "0.25", "water_portion": "0.5"})
-        meal = Meal.objects.get()
-        self.assertEqual((meal.portion, meal.amount, meal.water_amount, meal.food, meal.water), (0.25, 15, 250, True, True))
+        kibble = Product.objects.create(household=self.household, name="Kibble", category=Product.DRY_FOOD)
+        SupplyItem.objects.create(product=kibble, size=1000, opened=timezone.localdate())
+        self.client.post("/log/meal/add/", {"pets": [self.ruby.pk], "time": self.now, "food": kibble.pk,
+                                            "food_added": "60", "food_unit": "g", "portion": "0.25",
+                                            "water_added": "500", "water_unit": "ml", "water_portion": "0.5"})
+        food, water = Meal.objects.get(kind=Meal.FOOD), Meal.objects.get(kind=Meal.WATER)
+        self.assertEqual((food.amount, food.food, water.water_amount, water.water), (15, True, 250, True))
         from pets.entries import _meal
-        self.assertEqual(_meal(meal), "Meal: Food & Water – Ate ¼, drank ½")
+        self.assertEqual((_meal(food), _meal(water)), ("Kibble: 60 g, ate ¼", "Water: 500 ml, drank ½"))
 
     def test_meal_form_warns_when_a_bowl_size_is_missing(self):
         food = Container.objects.create(household=self.household, name="Ruby's bowl", kind=Container.FOOD_BOWL)
@@ -190,16 +195,17 @@ class AllPetsLoggingTests(PetTestCase):
     def test_viewer_can_look_but_not_log(self):
         self.login(self.viewer)
         self.assertEqual(self.client.get("/pets/ruby/").status_code, 200)
-        self.assertEqual(self.client.get("/log/potty/").status_code, 200)
+        self.assertEqual(self.client.get("/log/potty/", follow=True).status_code, 200)
         self.assertEqual(self.client.get("/log/potty/add/").status_code, 403)
         self.assertNotContains(self.client.get("/pets/"), "/log/potty/add/")
 
     def test_only_owners_manage_members_and_settings(self):
         self.login(self.member)
-        self.assertEqual(self.client.get("/pets/setup/members/").status_code, 403)
-        self.assertEqual(self.client.get("/pets/setup/household/").status_code, 403)
+        self.assertEqual(self.client.get("/pets/settings/members/").status_code, 403)
+        self.assertNotContains(self.client.get("/pets/settings/"), 'name="units"')  # the household's own: owners
+        self.assertEqual(self.client.post("/pets/settings/", {"name": "Mine"}).status_code, 403)
         self.login(self.owner)
-        self.assertEqual(self.client.get("/pets/setup/members/").status_code, 200)
+        self.assertEqual(self.client.get("/pets/settings/members/").status_code, 200)
 
     def test_other_households_are_invisible(self):
         stranger = get_user_model().objects.create_user("stranger", password="x")
@@ -209,13 +215,13 @@ class AllPetsLoggingTests(PetTestCase):
         self.assertEqual(self.client.get(f"/log/potty/{potty.pk}/").status_code, 404)
 
     def test_owner_sets_time_to_get_outside(self):
-        self.client.post("/pets/setup/household/", {"name": "Home", "units": "metric", "time_zone": "",
+        self.client.post("/pets/settings/", {"name": "Home", "units": "metric", "time_zone": "",
                                                     "minutes_to_outside": "20", "water_cutoff_hours": "2"})
         self.household.refresh_from_db()
         self.assertEqual(self.household.minutes_to_outside, 20)
 
     def test_household_needs_an_owner(self):
-        self.client.post("/pets/setup/members/", {"user": self.owner.pk, "role": "member"})
+        self.client.post("/pets/settings/members/", {"user": self.owner.pk, "role": "member"})
         self.assertEqual(Membership.objects.get(user=self.owner).role, Membership.OWNER)
 
 
@@ -264,16 +270,17 @@ class CardTests(PetTestCase):
     def test_accident_chart_shows_accidents_and_meals(self):
         now = timezone.now()
         Meal.objects.create(pet=self.ruby, time=now, amount=60)
-        Meal.objects.create(pet=self.ruby, time=now, food=False, water=True)  # water isn't a meal dot
+        Meal.objects.create(pet=self.ruby, time=now, kind=Meal.WATER, food=False, water=True)  # water is there too
         PottyBreak.objects.create(pet=self.ruby, time=now, pee=True, location=PottyBreak.INSIDE)
         PottyBreak.objects.create(pet=self.ruby, time=now, pee=True, location=PottyBreak.OUTSIDE)
         card = insights.accidents_chart(self.ruby)
-        self.assertEqual((len(card["dots"]), len(card["meals"])), (1, 1))
+        self.assertEqual((len(card["dots"]), len(card["meals"])), (1, 2))
+        self.assertEqual(sorted(m["color"] for m in card["meals"]), ["#4a90e2", "#e67300"])  # water blue, food orange
 
     def test_pet_page_cards_render(self):
         PottyBreak.objects.create(pet=self.ruby, time=timezone.now(), pee=True)
         page = self.client.get("/pets/ruby/")
-        for title in ("Status", "Today", "Potty Breaks", "All activity", "Not veterinary advice", "Most recent"):
+        for title in ("Status", "Today", "Potty Breaks", "Activities", "Not veterinary advice", "Most recent"):
             self.assertContains(page, title)
         for gone in ("Statistics", "Last Potty Break", "Last Meal", "+ Measurement", "Meal Times"):
             self.assertNotContains(page, gone)
@@ -312,7 +319,7 @@ class CardTests(PetTestCase):
         self.assertIn("pee", walk_row["tags"])
         self.assertEqual(sum(1 for r in rows if r["kind"] == "potty"), 1)  # the walk's pee is only inside it
         accident = next(r for r in rows if r["kind"] == "potty")
-        self.assertEqual((accident["colour"], accident["tags"]), ("245,211,63", ["pee", "accident"]))
+        self.assertEqual((accident["colour"], accident["tags"]), ("240,110,110", ["pee", "accident"]))
         page = self.client.get("/pets/ruby/")
         self.assertContains(page, 'data-filter="accident"')
         self.assertContains(page, "data-child")
@@ -370,8 +377,10 @@ class DeleteTests(PetTestCase):
     def test_deleting_a_meal_removes_its_bowl_fill(self):
         bowl = Container.objects.create(household=self.household, name="Bowl", kind=Container.FOOD_BOWL)
         bowl.pets.set([self.ruby])
+        kibble = Product.objects.create(household=self.household, name="Kibble", category=Product.DRY_FOOD)
+        SupplyItem.objects.create(product=kibble, size=1000, opened=timezone.localdate())
         self.client.post("/log/meal/add/", {"pets": [self.ruby.pk], "time": self.now, "food_added": "60",
-                                            "food_unit": "g", "portion": "1.0"})
+                                            "food_unit": "g", "portion": "1.0", "food": kibble.pk})
         self.client.post(f"/log/meal/{Meal.objects.get().pk}/delete/")
         self.assertFalse(Fill.objects.exists())
 
@@ -536,7 +545,7 @@ class QuickPottyTests(PetTestCase):
         self.assertEqual((tiles["Pees"], tiles["Poops"], tiles["Accidents"]), ("0", "0", "0"))
         page = self.client.get("/pets/ruby/")
         self.assertContains(page, "Nothing, outside")  # but it shows in Recent activity
-        self.assertContains(self.client.get("/log/potty/"), "Nothing, outside")
+        self.assertContains(self.client.get("/log/potty/", follow=True), "Nothing, outside")
         self.assertEqual(self.client.get(f"/log/potty/{entry.pk}/").status_code, 200)  # and can be edited
         response = self.client.post(f"/log/potty/{entry.pk}/", {
             "pet": self.ruby.pk, "time": "2026-10-08 10:00", "location": "outside", "notes": "edited"})
@@ -693,7 +702,7 @@ class UnitsAndZoneTests(PetTestCase):
     """PUP-140/141: one system or a unit per kind; time zones by UTC offset."""
 
     def save(self, **data):
-        return self.client.post("/pets/setup/household/", {"name": "Home", "minutes_to_outside": "10",
+        return self.client.post("/pets/settings/", {"name": "Home", "minutes_to_outside": "10",
                                                            "water_cutoff_hours": "2", **data})
 
     def test_one_system(self):
@@ -729,7 +738,7 @@ class UnitsAndZoneTests(PetTestCase):
         self.household.refresh_from_db()
         self.assertTrue(self.household.same_units)
         self.assertEqual(self.household.unit_weight, "lb")  # remembered for next time
-        page = self.client.get("/pets/setup/household/").content.decode()
+        page = self.client.get("/pets/settings/").content.decode()
         self.assertIn('id="unit-defaults"', page)
 
     def test_time_zones_west_to_east_with_a_guess(self):
@@ -741,12 +750,12 @@ class UnitsAndZoneTests(PetTestCase):
         self.assertNotIn("US/Pacific", names)
         self.household.time_zone = ""
         self.household.save()
-        page = self.client.get("/pets/setup/household/").content.decode()
+        page = self.client.get("/pets/settings/").content.decode()
         self.assertIn("start from this device", page)  # empty: the device's zone is filled in
         self.save(same_units="on", units="metric", time_zone="Europe/London")
         self.household.refresh_from_db()
         self.assertEqual(self.household.time_zone, "Europe/London")
-        self.assertNotIn("start from this device", self.client.get("/pets/setup/household/").content.decode())
+        self.assertNotIn("start from this device", self.client.get("/pets/settings/").content.decode())
 
     def test_fallback_zone(self):
         from housetrained import time_zones
@@ -761,7 +770,7 @@ class PhoneOrderTests(PetTestCase):
         Measurement.objects.create(pet=self.ruby, kind="weight", value=5, date=timezone.localdate())
         page = self.client.get("/pets/ruby/").content.decode()
         blocks = {n: page[page.index(f'style="order: {n}"'):] for n in "123489"}
-        for n, title in (("1", "Status"), ("2", "All activity"), ("3", "Training"), ("4", "Today"),
+        for n, title in (("1", "Status"), ("2", "Activities"), ("3", "Training"), ("4", "Today"),
                          ("8", "Measurements"), ("9", "Notes")):
             self.assertIn(title, blocks[n][:blocks[n].index("card-body") if "card-body" in blocks[n] else 400])
 
@@ -776,14 +785,14 @@ class AllActivityTests(PetTestCase):
         Measurement.objects.create(pet=self.ruby, kind="weight", value=5, date=timezone.localdate() - datetime.timedelta(days=60))
         for i in range(90):
             PottyBreak.objects.create(pet=self.ruby, time=now - datetime.timedelta(hours=i), pee=True, location="outside")
-        first, more = activity(self.ruby)
+        first, more = activity(self.ruby.household, self.ruby)
         self.assertEqual((len(first), more), (40, True))
-        second, more = activity(self.ruby, page=1)
-        third, more = activity(self.ruby, page=2)
+        second, more = activity(self.ruby.household, self.ruby, page=1)
+        third, more = activity(self.ruby.household, self.ruby, page=2)
         self.assertEqual((len(second), len(third), more), (40, 11, False))  # 90 pees + the measurement
         self.assertFalse({r["edit_url"] for r in first} & {r["edit_url"] for r in second})
         self.assertEqual(third[-1]["kind"], "measurement")
-        rows, more = activity(self.ruby, "measurement")
+        rows, more = activity(self.ruby.household, self.ruby, "measurement")
         self.assertEqual((len(rows), more), (1, False))
 
     def test_potty_filters_show_walks_with_just_the_matching_potties(self):
@@ -794,9 +803,9 @@ class AllActivityTests(PetTestCase):
         walk.pets.set([self.ruby])
         PottyBreak.objects.create(pet=self.ruby, time=now - datetime.timedelta(minutes=25), pee=True, walk=walk)
         PottyBreak.objects.create(pet=self.ruby, time=now - datetime.timedelta(minutes=20), poop=True, walk=walk)
-        rows, _more = activity(self.ruby, "poop")
+        rows, _more = activity(self.ruby.household, self.ruby, "poop")
         self.assertEqual([(r["kind"], [c["summary"] for c in r["children"]]) for r in rows], [("walk", ["Poop, outside"])])
-        rows, _more = activity(self.ruby, "accident")
+        rows, _more = activity(self.ruby.household, self.ruby, "accident")
         self.assertEqual(rows, [])
 
     def test_page_endpoint(self):
@@ -804,8 +813,8 @@ class AllActivityTests(PetTestCase):
         page = self.client.get("/pets/ruby/activity/?filter=pee&page=0")
         self.assertContains(page, "Pee, outside")
         self.assertContains(page, "?next=/pets/ruby/")
-        self.assertContains(self.client.get("/pets/ruby/activity/?filter=meal"), "Nothing here yet.")
-        self.assertContains(self.client.get("/pets/ruby/"), "All activity")
+        self.assertContains(self.client.get("/pets/ruby/activity/?filter=food"), "Nothing here yet.")
+        self.assertContains(self.client.get("/pets/ruby/"), "Activities")
         self.client.logout()
         self.assertNotEqual(self.client.get("/pets/ruby/activity/").status_code, 200)
 

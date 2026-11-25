@@ -62,26 +62,36 @@ def _fill(f):
 
 
 def _meal(m):
-    """One line for a Log meal entry (PUP-207), e.g. "Meal: Food & Water – Ate all, drank ¼"; only what was entered."""
+    """One food or the water from Log meal (PUP-216), e.g. "Fromm Wet Food: 67 g, ate ¾" or "Water: 80 ml"; only
+    what was entered."""
     household = m.pet.household
-    food, water = m.food or m.fill_id, m.water or m.water_fill_id
-    what = _("Food & Water") if food and water else _("Food") if food else _("Water")
-    portions = dict(Meal.PORTIONS)
+    water = m.kind == Meal.WATER
+    fill = m.water_fill if water else m.fill
+    product = _product(m)
+    what = _("Water") if water else str(product) if product else _("Food")
+    kind = "volume" if water else "mass"
     bits = []
-    for verb, portion, amount, fill, kind in ((_("ate"), m.portion, m.amount, m.fill, "mass"),
-                                              (_("drank"), m.water_portion, m.water_amount, m.water_fill, "volume")):
-        if portion:
-            bits.append(f"{verb} {_('all') if portion == 1 else portions[portion]}")
-        elif amount:
-            bits.append(f"{verb} {units.show(amount, kind, household)}")  # older meals: an exact amount
-        elif fill and fill.amount is not None:
-            bits.append(_("added %(amount)s") % {"amount": units.show(fill.amount, kind, household)})
-        elif fill and fill.bowls is not None:
-            bits.append(_("added %(n)s bowl(s)") % {"n": f"{fill.bowls:g}"})
-    text = _("Meal: %(what)s") % {"what": what}
-    if bits:
-        text += " – " + ", ".join(bits)[:1].upper() + ", ".join(bits)[1:]
+    if fill and fill.amount is not None:
+        bits.append(units.show(fill.amount, kind, household))
+    elif fill and fill.bowls is not None:
+        bits.append(_("%(n)s bowl(s)") % {"n": f"{fill.bowls:g}"})
+    portion, amount = (m.water_portion, m.water_amount) if water else (m.portion, m.amount)
+    verb = _("drank") if water else _("ate")
+    if portion:
+        bits.append(f"{verb} {_('all') if portion == 1 else dict(Meal.PORTIONS)[portion]}")
+    elif amount and not fill:
+        bits.append(f"{verb} {units.show(amount, kind, household)}")  # older entries: an exact amount
+    text = what + (": " + ", ".join(bits) if bits else "")
     return text + (f" · {m.notes[:40]}" if m.notes else "")
+
+
+def _product(m):
+    """The food a food entry came from: its bag or can's, else the one it was logged with."""
+    if m.kind == Meal.WATER:
+        return None
+    if m.fill_id and m.fill.supply_item_id:
+        return m.fill.supply_item.product
+    return m.product
 
 
 def _puke(p):
@@ -115,7 +125,7 @@ KINDS = {
     "litter": ("time", _fill, lambda h: Fill.objects.filter(container__household=h, contents=Fill.LITTER).select_related(
         "container__household").prefetch_related("container__pets")),
     "meal": ("time", _meal, lambda h: Meal.objects.filter(pet__household=h).select_related(
-        "pet__household", "fill", "water_fill")),
+        "pet__household", "fill__supply_item__product", "water_fill", "product")),
     "puke": ("time", _puke, lambda h: Puke.objects.filter(pet__household=h).select_related("pet", "spot")),
     "measurement": ("date", _measurement, lambda h: Measurement.objects.filter(pet__household=h).select_related("pet__household")),
     "note": ("time", _note, lambda h: Note.objects.filter(household=h).select_related("pet")),
@@ -146,19 +156,32 @@ def row(kind, entry):
             "end": entry.end if kind == "walk" else None}  # walks show start-end (PUP-189)
 
 
-# Recent activity colours, as on the charts: outdoor potties green, accidents yellow (pee) and red (poop), meals
-# blue, sleep purple, walks green. Shown as a faint tint with a coloured edge.
-COLOURS = {"pee": "143,209,138", "poop": "46,125,50", "accident_pee": "245,211,63", "accident_poop": "167,36,49",
-           "walk": "76,175,80", "meal": "74,144,226", "sleep": "142,108,200", "puke": "196,120,60", "nothing": "150,150,150",
-           "measurement": "23,162,184"}
+# Activity colours (PUP-100, PUP-216), the same on the charts, looked up by kind each time a row is shown: outdoor
+# potties and walks green; accidents and puke reds (pee light, poop dark); food orange (dry deeper, wet lighter);
+# water blue; sleep purple; measurements teal. Shown as a faint tint with a coloured edge.
+COLOURS = {"pee": "143,209,138", "poop": "46,125,50", "accident_pee": "240,110,110", "accident_poop": "167,36,49",
+           "walk": "76,175,80", "dry_food": "230,115,0", "wet_food": "255,170,90", "water": "74,144,226",
+           "sleep": "142,108,200", "puke": "205,70,60", "nothing": "150,150,150", "measurement": "23,162,184"}
+HEX = {name: "#%02x%02x%02x" % tuple(int(c) for c in rgb.split(",")) for name, rgb in COLOURS.items()}
+
+
+def meal_colour(meal):
+    from .models import Product
+
+    if meal.kind == Meal.WATER:
+        return "water"
+    product = _product(meal)
+    return "wet_food" if product and product.category == Product.WET_FOOD else "dry_food"
 
 
 def _tags(kind, entry):
-    """What the Recent activity filters match: pee, poop, accident, nothing, walk, meal, sleep, fill, other."""
+    """What the activity filters match: pee, poop, accident, nothing, walk, food, water, litter, sleep, fill, note…"""
     if kind == "potty":
         tags = [t for t, flag in (("pee", entry.pee), ("poop", entry.poop)) if flag] or ["nothing"]
         return tags + (["accident"] if entry.accident else [])
-    return [kind] if kind in ("walk", "meal", "sleep", "fill", "measurement", "puke") else ["other"]
+    if kind == "meal":
+        return [entry.kind]
+    return [kind] if kind in ("walk", "sleep", "fill", "measurement", "puke", "litter", "note") else ["other"]
 
 
 def _colour(kind, entry):
@@ -168,6 +191,8 @@ def _colour(kind, entry):
         if entry.accident:
             return COLOURS["accident_poop" if entry.poop else "accident_pee"]
         return COLOURS["poop" if entry.poop else "pee"]
+    if kind == "meal":
+        return COLOURS[meal_colour(entry)]
     return COLOURS.get(kind)
 
 
@@ -182,15 +207,30 @@ def for_pet(kind, queryset, pet):
 
 
 ACTIVITY_PAGE = 40
-# What each All activity filter looks through: potties count on their own and on the walks they were part of.
+# The activity filters (PUP-217), named the same on the pet page and Activities. Each looks through these kinds;
+# potties count on their own and on the walks they were part of.
+ACTIVITY_FILTERS = [("all", _("All")), ("walk", _("Walks")), ("pee", _("Pees")), ("poop", _("Poops")),
+                    ("accident", _("Accidents")), ("food", _("Food")), ("water", _("Water")), ("litter", _("Litter")),
+                    ("puke", _("Puke")), ("sleep", _("Sleep")), ("measurement", _("Measurements")), ("note", _("Notes"))]
 POTTY_FILTERS = {"pee": {"pee": True}, "poop": {"poop": True}, "accident": {"accident": True}}
-FILTER_KINDS = {"walk": ["walk"], "meal": ["meal"], "sleep": ["sleep"], "measurement": ["measurement"], "puke": ["puke"],
+MEAL_FILTERS = {"food": Meal.FOOD, "water": Meal.WATER}
+FILTER_KINDS = {"walk": ["walk"], "food": ["meal"], "water": ["meal"], "litter": ["litter"], "sleep": ["sleep"],
+                "measurement": ["measurement"], "puke": ["puke"], "note": ["note"],
                 **{name: ["walk", "potty"] for name in POTTY_FILTERS}}
 
 
-def activity(pet, filter="all", page=0, size=ACTIVITY_PAGE):
-    """One page of the pet's whole history, newest first (PUP-143), and whether there's more. Potty breaks on a walk
-    are listed inside it (children); a potty filter shows the walks that had one, with just the matching potties."""
+def activity_filters(household, pet=None):
+    """The filters that can match something here: Litter only where there are cats."""
+    from .models import Pet
+
+    cats = pet.type == Pet.CAT if pet else household.pets.filter(type=Pet.CAT).exists()
+    return [f for f in ACTIVITY_FILTERS if f[0] != "litter" or cats]
+
+
+def activity(household, pet=None, filter="all", page=0, size=ACTIVITY_PAGE):
+    """One page of activity, newest first (PUP-143): one pet's, or the whole household's (PUP-217), and whether
+    there's more. Potty breaks on a walk are listed inside it (children); a potty filter shows the walks that had
+    one, with just the matching potties."""
     from .schedule import remember_due
 
     potty_match = POTTY_FILTERS.get(filter, {})
@@ -198,11 +238,16 @@ def activity(pet, filter="all", page=0, size=ACTIVITY_PAGE):
     rows = []
     for kind in FILTER_KINDS.get(filter, [k for k in KINDS if k != "training"]):  # training has its own card
         field, _summary, qs = KINDS[kind]
-        entries = for_pet(kind, qs(pet.household), pet)
+        entries = qs(household)
+        if pet:
+            entries = for_pet(kind, entries, pet)
         if kind == "potty":
             entries = entries.filter(walk=None, **potty_match)
         elif kind == "walk" and potty_match:
-            entries = entries.filter(potty_breaks__pet=pet, **{f"potty_breaks__{k}": v for k, v in potty_match.items()})
+            match = {f"potty_breaks__{k}": v for k, v in potty_match.items()}
+            entries = entries.filter(**({"potty_breaks__pet": pet} if pet else {}), **match)
+        elif kind == "meal" and filter in MEAL_FILTERS:
+            entries = entries.filter(kind=MEAL_FILTERS[filter])
         for e in entries.distinct().order_by(f"-{field}", "-pk")[:want + 1]:
             if kind == "potty" and e.accident and e.due_at is None and not e.found_later:
                 remember_due(e)  # logged before this was kept: work it out once
@@ -213,7 +258,9 @@ def activity(pet, filter="all", page=0, size=ACTIVITY_PAGE):
     for kind, e, r in rows[page * size:want]:
         r.update(tags=_tags(kind, e), colour=_colour(kind, e), children=[])
         if kind == "walk":
-            potties = PottyBreak.everything.filter(walk=e, pet=pet, **potty_match).select_related("pet", "spot")
+            potties = PottyBreak.everything.filter(walk=e, **potty_match).select_related("pet", "spot")
+            if pet:
+                potties = potties.filter(pet=pet)
             r["children"] = [{**row("potty", p), "tags": _tags("potty", p), "colour": _colour("potty", p)}
                              for p in potties.order_by("-time")]  # newest first, like the feed
             r["tags"] = sorted(set(r["tags"]).union(*(c["tags"] for c in r["children"])))
@@ -222,4 +269,4 @@ def activity(pet, filter="all", page=0, size=ACTIVITY_PAGE):
 
 
 def recent_activity(pet, limit=ACTIVITY_PAGE):
-    return activity(pet, size=limit)[0]
+    return activity(pet.household, pet, size=limit)[0]

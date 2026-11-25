@@ -1,0 +1,36 @@
+{% load i18n %}
+{# One food or litter (PUP-210): its open bag or can, what's unopened, and a warning when it's running low. In the Pantry (controls) the unopened count is set right here: - and +, or type it. #}
+<li class="list-group-item" id="food-{{ s.product.pk }}">
+    <div class="d-flex justify-content-between gap-2">
+        <a class="text-reset" href="{% url 'pets:edit' 'product' s.product.pk %}?next={{ request.path|urlencode }}">{{ s.product }}</a>
+        <span class="text-end">
+            {% if s.empty %}{% trans "should be empty" %}
+            {% elif s.left %}{{ s.left }} {% trans "left of" %} {{ s.size }} · {{ s.pct_left }}%
+            {% elif s.packages %}{% trans "unopened" %}
+            {% else %}{% trans "none left" %}{% endif %}
+        </span>
+    </div>
+    <div class="progress my-1" style="height: .5rem">
+        <div class="progress-bar" style="width: {{ s.pct_left }}%{% if s.low %}; background: #f06e6e{% endif %}"></div>
+    </div>
+    <div class="text-body-secondary">
+        {% if s.low %}<strong class="text-danger-emphasis">{% trans "Running low:" %}</strong>{% endif %}
+        {% if not s.packages %}
+            {% trans "None left." %}
+        {% else %}
+            {% if not controls %}{% blocktrans count n=s.pantry %}{{ n }} unopened{% plural %}{{ n }} unopened{% endblocktrans %}{% endif %}
+            {% if s.days_left is not None %}{% if not controls %} · {% endif %}~{{ s.days_left }} {% trans "days left" %} ({% trans "runs out around" %} {{ s.runs_out|date:"M j" }}), {{ s.per_day }}/{% trans "day" %}{% endif %}
+        {% endif %}
+    </div>
+    {% if controls and pets_can_edit %}
+        <form class="d-flex align-items-center gap-2 mt-2" method="post" action="{% url 'pets:pantry-count' s.product.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <span class="me-auto">{% trans "Unopened" %}</span>
+            <button class="btn btn-outline-light btn-sm" type="submit" name="set" value="{{ s.pantry|add:'-1' }}" {% if not s.pantry %}disabled{% endif %} aria-label="{% trans 'One less' %}">−</button>
+            <input class="form-control form-control-sm text-center" style="width: 4.5rem" type="number" min="0" max="500" name="count" value="{{ s.pantry }}"
+                   aria-label="{% blocktrans with name=s.product %}Unopened {{ name }}{% endblocktrans %}" onchange="this.form.submit()">
+            <button class="btn btn-outline-light btn-sm" type="submit" name="set" value="{{ s.pantry|add:'1' }}" aria-label="{% trans 'One more' %}">+</button>
+        </form>
+    {% endif %}
+</li>

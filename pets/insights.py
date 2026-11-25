@@ -9,6 +9,7 @@ from django.utils.translation import gettext as _, gettext_lazy, ngettext
 
 from . import units
 from .clock import show_time, uses_24h
+from .entries import HEX, meal_colour
 from .models import Meal, PottyBreak, Puke, Walk
 
 WINDOW_DAYS = 14  # history behind the charts
@@ -103,16 +104,6 @@ def is_accident(b):
     return b.accident
 
 
-def feeding_times(pet, since, water=False, until=None):
-    """When the pet ate (or, with water=True, ate or drank): its meals only. Filling a bowl says nothing about when,
-    or whether, it was eaten."""
-    meals = Meal.objects.filter(pet=pet, time__gte=since)
-    if until is not None:
-        meals = meals.filter(time__lt=until)
-    meals = meals.filter(Q(food=True) | Q(water=True)) if water else meals.filter(food=True)
-    return sorted(meals.values_list("time", flat=True))
-
-
 def avg_gap(breaks):
     gaps = [b.time - a.time for a, b in zip(breaks, breaks[1:])]
     return sum(gaps, datetime.timedelta()) / len(gaps) if gaps else None
@@ -157,7 +148,7 @@ def potty_bars_card(pet):
     dog = pet.type == pet.DOG
     legend = [("pee_ok", "#8fd18a", _("Pee outside") if dog else _("Pee")),
               ("poop_ok", "#2e7d32", _("Poop outside") if dog else _("Poop")),
-              ("pee_in", "#f5d33f", _("Pee accident")), ("poop_in", "#a72431", _("Poop accident"))]
+              ("pee_in", HEX["accident_pee"], _("Pee accident")), ("poop_in", HEX["accident_poop"], _("Poop accident"))]
     return {"days": days, "legend": legend, "empty": not breaks, "show_walks": bool(walks),
             "scrolls": count > VISIBLE_DAYS}
 
@@ -199,12 +190,13 @@ def accidents_chart(pet):
         if b.time >= recent:
             hours[timezone.localtime(b.time).hour] += 1
         kind = _("Pee + poop") if b.pee and b.poop else (_("Poop") if b.poop else _("Pee"))
-        dots.append({"x": pos[0], "y": pos[1], "color": "#a72431" if b.poop else "#f5d33f",
+        dots.append({"x": pos[0], "y": pos[1], "color": HEX["accident_poop" if b.poop else "accident_pee"],
                      "label": _("%(kind)s inside %(time)s") % {"kind": kind, "time": fmt_time(b.time)}})
-    for t in feeding_times(pet, since):
-        pos = _place(c, t)
+    # Every food and water entry (PUP-216), in its activity colour: drinking matters as much as eating here.
+    for m in Meal.objects.filter(pet=pet, time__gte=since).select_related("fill__supply_item__product", "product"):
+        pos = _place(c, m.time)
         if pos:
-            meals.append({"x": pos[0] - 3, "y": pos[1] - 3})
+            meals.append({"x": pos[0] - 3, "y": pos[1] - 3, "color": HEX[meal_colour(m)]})
     for s in pet.sleeps.filter(Q(end__gte=since) | Q(end=None)):
         start, end = timezone.localtime(s.start), timezone.localtime(s.end or timezone.now())
         day = start.date()
@@ -278,7 +270,7 @@ def today_card(pet, now=None):
     meals = Meal.objects.filter(pet=pet, food=True, time__gte=today, time__lte=now)
     eaten = meals.aggregate(s=Sum("amount"))["s"]
     pees, poops = sum(b.pee for b in breaks), sum(b.poop for b in breaks)
-    accidents, count = sum(1 for b in breaks if is_accident(b)), meals.count()
+    accidents, count = sum(1 for b in breaks if is_accident(b)), meals.values("time").distinct().count()  # two foods at once: one meal
     return {"tiles": [
         (ngettext("Walk", "Walks", len(walks)), str(len(walks)), fmt_duration(walk_time) if walks else ""),
         (ngettext("Pee", "Pees", pees), str(pees), ""),

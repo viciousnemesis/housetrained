@@ -1,4 +1,5 @@
-from django.urls import path
+from django.urls import path, reverse_lazy
+from django.views.generic import RedirectView
 
 from . import views
 
@@ -6,14 +7,20 @@ app_name = "pets"
 
 urlpatterns = [
     path("pets/", views.HouseholdDashboard.as_view(), name="household"),
-    path("pets/setup/", views.Setup.as_view(), name="setup"),
-    path("pets/setup/household/", views.HouseholdEdit.as_view(), name="household-edit"),
-    path("pets/setup/members/", views.Members.as_view(), name="members"),
-    path("pets/setup/import/", views.Import.as_view(), name="import"),
-    path("pets/setup/export/", views.Export.as_view(), name="export"),
-    path("pets/setup/skip/", views.SetupSkip.as_view(), name="setup-skip"),
+    # Settings (PUP-217), once called Setup: the old addresses still lead there.
+    path("pets/settings/", views.Settings.as_view(), name="settings"),
+    path("pets/setup/", RedirectView.as_view(url=reverse_lazy("pets:settings"))),
+    path("pets/setup/household/", RedirectView.as_view(url=reverse_lazy("pets:settings"))),
+    path("pets/settings/members/", views.Members.as_view(), name="members"),
+    path("pets/settings/import/", views.Import.as_view(), name="import"),
+    path("pets/settings/export/", views.Export.as_view(), name="export"),
+    path("pets/settings/skip/", views.SetupSkip.as_view(), name="setup-skip"),
     path("pets/notifications/", views.Notifications.as_view(), name="notifications"),
-    path("pets/setup/health/", views.HealthChecks.as_view(), name="health"),
+    path("pets/settings/health/", views.HealthChecks.as_view(), name="health"),
+    path("pets/pantry/", views.Pantry.as_view(), name="pantry"),
+    path("pets/pantry/<int:pk>/count/", views.PantryCount.as_view(), name="pantry-count"),
+    path("pets/activities/", views.Activities.as_view(), name="activities"),
+    path("pets/activities/page/", views.ActivityPage.as_view(), name="activity-all"),
     path("sw.js", views.service_worker, name="service-worker"),
     path("resume/", views.Resume.as_view(), name="resume"),
     path("pets/<slug:slug>/", views.PetDashboard.as_view(), name="pet"),

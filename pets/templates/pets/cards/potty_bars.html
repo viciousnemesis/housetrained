@@ -24,7 +24,7 @@
             <div class="progress flex-grow-1 bg-transparent" style="height: 1.4rem">
                 {% if d.pee_ok %}<div class="progress-bar" style="width: {{ d.pee_ok_pct|safe }}%; background: #8fd18a; color: #000">{{ d.pee_ok }}</div>{% endif %}
                 {% if d.poop_ok %}<div class="progress-bar" style="width: {{ d.poop_ok_pct|safe }}%; background: #2e7d32; color: #fff">{{ d.poop_ok }}</div>{% endif %}
-                {% if d.pee_in %}<div class="progress-bar" style="width: {{ d.pee_in_pct|safe }}%; background: #f5d33f; color: #000">{{ d.pee_in }}</div>{% endif %}
+                {% if d.pee_in %}<div class="progress-bar" style="width: {{ d.pee_in_pct|safe }}%; background: #f06e6e; color: #000">{{ d.pee_in }}</div>{% endif %}
                 {% if d.poop_in %}<div class="progress-bar" style="width: {{ d.poop_in_pct|safe }}%; background: #a72431; color: #fff">{{ d.poop_in }}</div>{% endif %}
             </div>
             {% if show_walks %}

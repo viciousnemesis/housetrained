@@ -1,0 +1,36 @@
+{% extends "housetrained/page.html" %}
+{% load i18n %}
+{% block title %}{% trans "Pantry" %}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Pantry" %}</li>
+{% endblock %}
+{% block content %}
+    {# The pantry (PUP-210): each food and litter once, with its bags or cans inside it. #}
+    <h1>{% trans "Pantry" %}</h1>
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card card-dashboard">
+                <div class="card-header d-flex justify-content-between">
+                    {% trans "Food" %} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'product' %}">+ {% trans "Add" %}</a>{% endif %}
+                </div>
+                <ul class="list-group list-group-flush small">
+                    {% for s in foods %}{% include "pets/_pantry_row.html" with controls=True %}
+                    {% empty %}<li class="list-group-item">{% trans "No food yet. Add the food your pets eat to see how much is left." %}</li>{% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% if litter or has_cats %}
+            <div class="col-lg-6">
+                <div class="card card-dashboard">
+                    <div class="card-header d-flex justify-content-between">
+                        {% trans "Litter" %} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'product' %}?for=litter">+ {% trans "Add" %}</a>{% endif %}
+                    </div>
+                    <ul class="list-group list-group-flush small">
+                        {% for s in litter %}{% include "pets/_pantry_row.html" with controls=True %}
+                        {% empty %}<li class="list-group-item">{% trans "No litter yet." %}</li>{% endfor %}
+                    </ul>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

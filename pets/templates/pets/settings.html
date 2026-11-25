@@ -1,24 +1,36 @@
 {% extends "housetrained/page.html" %}
 {% load i18n pets_tags %}
-{% block title %}{% trans "Setup" %}{% endblock %}
+{% block title %}{% trans "Settings" %}{% endblock %}
 {% block breadcrumbs %}
-    <li class="breadcrumb-item active" aria-current="page">{% trans "Setup" %}</li>
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Settings" %}</li>
 {% endblock %}
 {% block content %}
-    <h1>{% trans "Setup" %}: {{ household.name }}</h1>
-    {# Every setting in one place (PUP-205): the household's own first, then what it has. #}
+    <h1>{% trans "Settings" %}: {{ household.name }}</h1>
+    {# Every setting in one place (PUP-205, PUP-217): the household's own right here first, then what it has. #}
     <div class="row">
         <div class="col-lg-6">
             <div class="card card-dashboard">
                 <div class="card-header">{% trans "Household" %}</div>
                 <div class="list-group list-group-flush">
-                    {% if is_owner %}<a class="list-group-item list-group-item-action" href="{% url 'pets:household-edit' %}">{% trans "Household settings" %} <span class="text-body-secondary small">· {{ household.get_units_display }}</span></a>{% endif %}
+                    <a class="list-group-item list-group-item-action" href="{% url 'pets:pantry' %}">{% trans "Pantry" %}</a>
                     <a class="list-group-item list-group-item-action" href="{% url 'pets:members' %}">{% trans "Members" %}</a>
                     <a class="list-group-item list-group-item-action" href="{% url 'pets:notifications' %}">{% trans "Notifications" %}</a>
                     <a class="list-group-item list-group-item-action" href="{% url 'pets:health' %}">{% trans "Health checks" %}</a>
                     {% if pets_can_edit %}<a class="list-group-item list-group-item-action" href="{% url 'pets:import' %}">{% trans "Import" %}</a>{% endif %}
                     <a class="list-group-item list-group-item-action" href="{% url 'pets:export' %}">{% trans "Export" %}</a>
                 </div>
+                {% if form %}
+                    <form id="entry-form" class="card-body" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ next }}">
+                        {% for fieldset in form.hydrated_fielsets %}
+                            {% with "forms/layouts/"|add:fieldset.layout|add:".html" as template %}{% include template %}{% endwith %}
+                        {% endfor %}
+                        <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
+                    </form>
+                {% else %}
+                    <div class="card-body small text-body-secondary">{{ household.name }} · {{ household.get_units_display }}</div>
+                {% endif %}
             </div>
             <div class="card card-dashboard">
                 <div class="card-header d-flex justify-content-between">
@@ -104,43 +116,7 @@
                     {% endfor %}
                 </div>
             </div>
-            <div class="card card-dashboard">
-                <div class="card-header d-flex justify-content-between">
-                    {% trans "Products" %} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'product' %}">+ {% trans "Add" %}</a>{% endif %}
-                </div>
-                <div class="list-group list-group-flush">
-                    {% for p in products %}
-                        <a class="list-group-item list-group-item-action" href="{% url 'pets:edit' 'product' p.pk %}">
-                            {{ p }}{% if p.name != p.get_category_display %} · {{ p.get_category_display }}{% endif %}
-                        </a>
-                    {% empty %}
-                        <div class="list-group-item">{% trans "None yet." %}</div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% for heading, litter, sources in source_cards %}
-                {% if sources or not litter or has_cats %}
-                    <div class="card card-dashboard">
-                        <div class="card-header d-flex justify-content-between">
-                            {{ heading }} {% if pets_can_edit %}<a class="btn btn-sm btn-success" href="{% url 'pets:add' 'supply' %}{% if litter %}?for=litter{% endif %}">+ {% trans "Add" %}</a>{% endif %}
-                        </div>
-                        <div class="list-group list-group-flush">
-                            {% for s in sources %}
-                                <a class="list-group-item list-group-item-action" href="{% url 'pets:edit' 'supply' s.item.pk %}">
-                                    {{ s.item.product }} · {{ s.left }} {% trans "left of" %} {{ s.size }}
-                                    <span class="text-body-secondary small">
-                                        {% if s.item.finished %}· {% trans "finished" %} {{ s.item.finished|date:"M j" }}
-                                        {% elif s.item.opened %}· {{ s.pct_left }}%{% else %}· {% trans "in the pantry" %}{% endif %}
-                                        {% if s.pets %}· {{ s.pets }}{% endif %}
-                                    </span>
-                                </a>
-                            {% empty %}
-                                <div class="list-group-item">{% trans "None yet. Add one (a bag, box or can) to track how much is left." %}</div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                {% endif %}
-            {% endfor %}
         </div>
     </div>
+    {% if form %}{% include "pets/_form_scripts.html" %}{% endif %}
 {% endblock %}

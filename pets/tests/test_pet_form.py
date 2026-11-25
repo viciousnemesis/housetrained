@@ -37,14 +37,14 @@ class PetFormTests(PetTestCase):
 class PetOrderTests(PetTestCase):
     def test_arrows_in_setup_set_the_order_everywhere(self):
         self.assertEqual([p.name for p in Pet.objects.all()], ["Ruby", "Rex", "Tom"])  # new pets go last
-        self.client.post("/pets/setup/", {"move": self.tom.pk, "direction": "up"})
+        self.client.post("/pets/settings/", {"move": self.tom.pk, "direction": "up"})
         self.assertEqual([p.name for p in Pet.objects.all()], ["Ruby", "Tom", "Rex"])
         form = self.client.get("/log/meal/add/").context["form"]
         self.assertEqual([p.name for p in form.fields["pets"].queryset], ["Ruby", "Tom", "Rex"])
 
     def test_viewers_cant_reorder(self):
         self.login(self.viewer)
-        self.assertEqual(self.client.post("/pets/setup/", {"move": self.tom.pk, "direction": "up"}).status_code, 403)
+        self.assertEqual(self.client.post("/pets/settings/", {"move": self.tom.pk, "direction": "up"}).status_code, 403)
 
 
 class ResumeTests(PetTestCase):
@@ -59,7 +59,7 @@ class ResumeTests(PetTestCase):
 
     def test_a_form_is_remembered_as_the_page_it_came_from(self):
         self.assertEqual(self.last("/log/meal/add/?pet=ruby"), "/pets/ruby/")
-        self.assertEqual(self.last(f"/log/pet/{self.ruby.pk}/?next=/pets/setup/"), "/pets/setup/")
+        self.assertEqual(self.last(f"/log/pet/{self.ruby.pk}/?next=/pets/settings/"), "/pets/settings/")
 
     def test_every_page_is_part_of_the_installed_app(self):
         # Without "scope", Android scopes the app to the start page's folder and shows a browser bar everywhere else.

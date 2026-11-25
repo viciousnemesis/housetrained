@@ -93,7 +93,7 @@ class PetsForm(forms.ModelForm):
     UNIT_OF = {"unit": "amount", "food_unit": "food_added", "water_unit": "water_added", "distance_unit": "distance",
                "weight_unit": "value",
                "length_unit": "value", "bowl_unit": "amount_per_bowl", "new_food_size_unit": "new_food_size",
-               "low_unit": "low_at"}
+               "low_unit": "low_at", "food_unit_2": "food_added_2", "new_food_size_unit_2": "new_food_size_2"}
 
     @property
     def unit_pairs_json(self):
@@ -613,7 +613,8 @@ class FillForm(PetsForm):
             # With one pet, what went in the bowl is what it ate; shared bowls don't say who ate how much.
             amount = fill.amount if len(pets) == 1 else None
             Meal.objects.create(
-                pet=pet, time=fill.time, fill=fill, logged_by=self.user, food=not water, water=water,
+                pet=pet, time=fill.time, logged_by=self.user, food=not water, water=water,
+                kind=Meal.WATER if water else Meal.FOOD, fill=None if water else fill, water_fill=fill if water else None,
                 amount=None if water else amount, water_amount=amount if water else None,
                 product=None if water else product,
             )
@@ -628,49 +629,6 @@ class FillForm(PetsForm):
     def uncalibrated_bowls(self):
         data = getattr(self, "cleaned_data", {})
         return data.get("bowls") is not None and data.get("amount") is None
-
-
-class LitterForm(PetsForm):
-    """Litter put into a litter box (PUP-207): its own entry, not a bowl fill."""
-
-    LITTER_BOXES = (Container.LITTER_BOX, Container.AUTO_LITTER_BOX)
-    unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.MASS))
-
-    fieldsets = [
-        {"fields": ["container", "time"], "layout": "required"},
-        {"fields": ["amount", "unit", "supply_item", "notes"]},
-    ]
-
-    class Meta:
-        model = Fill
-        fields = ["container", "time", "amount", "supply_item", "notes"]
-        widgets = {"time": DateTimeInput(), "container": PillRadioSelect(), "notes": forms.Textarea(attrs={"rows": 3})}
-        labels = {"container": _("Litter box"), "supply_item": _("From")}
-        help_texts = {"amount": ""}
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        boxes = self.fields["container"].queryset.filter(kind__in=self.LITTER_BOXES)
-        self.fields["container"].queryset = boxes
-        self.fields["supply_item"].queryset = self.fields["supply_item"].queryset.filter(product__category=Product.LITTER)
-        unit = self.default_unit("mass")
-        self.fields["unit"].initial = unit
-        if self.instance.pk and self.instance.amount is not None:
-            self.initial["amount"] = round(units.from_stored(self.instance.amount, unit, units.MASS), 2)
-        elif boxes.count() == 1:
-            self.initial.setdefault("container", boxes.first())
-
-    def save(self, commit=True):
-        fill = super().save(commit=False)
-        fill.contents = Fill.LITTER
-        if fill.amount is not None:
-            fill.amount = units.to_stored(self.cleaned_data["amount"], self.cleaned_data["unit"], units.MASS)
-        if not fill.pk:
-            fill.logged_by = self.user
-            fill.supply_item = fill.supply_item or fill.container.default_supply
-        if commit:
-            fill.save()
-        return fill
 
 
 def container_label(container):
@@ -718,35 +676,75 @@ def bowl_warnings(pets):
     return out
 
 
-class MealForm(PerPetForm):
-    """Log meal (PUP-207): what went into the food and water bowls, and how much was eaten or drunk, as one entry.
-    Adding makes the bowl fills (bag estimates count those); eating or drinking is what Next Walk goes by."""
+FINISHED, OPENED = "finished", "opened"
 
-    food_added = forms.FloatField(label=_("Added to bowl"), required=False, min_value=0)
-    food_unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.MASS) + [(BOWLS, _("bowls"))],
-                                  required=False)
-    # Which food (PUP-213): one in stock, or "new" to add one to the pantry right here.
-    food = forms.ChoiceField(label=_("Food"), required=False)
-    new_food_name = forms.CharField(label=_("Name"), max_length=255, required=False)
-    new_food_category = forms.ChoiceField(label=_("Kind"), required=False, widget=PillRadioSelect(), choices=[
-        (Product.DRY_FOOD, _("Dry food")), (Product.WET_FOOD, _("Wet food")), (Product.TREATS, _("Treats"))])
-    new_food_size = forms.FloatField(label=_("Size of each"), required=False, min_value=0)
-    new_food_size_unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.MASS), required=False)
-    new_food_count = forms.IntegerField(label=_("How many"), required=False, min_value=1, max_value=200, initial=1)
+
+class CanFields:
+    """Finished this can / Opened a new can (PUP-210) for one food or litter on a form: the two buttons (always
+    there, tap again to clear; the page script picks them when it's fairly sure), "How many did you buy?" for when
+    the pantry is empty, and what the page script needs to know about each food."""
+
+    def add_can_fields(self, s=""):
+        self.fields["can" + s] = forms.MultipleChoiceField(
+            label="", required=False, widget=PillCheckboxSelect(),
+            choices=[(FINISHED, _("Finished this can")), (OPENED, _("Opened a new can"))])
+        self.fields["guessed" + s] = forms.CharField(required=False, widget=forms.HiddenInput)
+        self.fields["bought" + s] = forms.IntegerField(label=_("How many did you buy?"), required=False, min_value=1,
+                                                       max_value=200)
+
+    def check_cans(self, data, product, s="", fill=None):
+        """A food from the pantry needs an open can, or Opened a new can; opening one needs one in the pantry."""
+        from .supplies import noun, open_item, pantry
+
+        cans = data.get("can" + s) or []
+        mine = fill is not None and fill.supply_item_id and fill.supply_item.product_id == product.pk
+        if OPENED not in cans and not mine and open_item(product) is None:
+            self.add_error("can" + s, _("No %(what)s is open: tick Opened a new %(what)s.") % {"what": noun(product)})
+        elif OPENED in cans and not (fill is not None and fill.opened_new) and not data.get("bought" + s) \
+                and not pantry(product).exists():
+            self.add_error("bought" + s, _("None left in the pantry: how many did you buy?"))
+
+    def use_cans(self, fill, product, s=""):
+        """Point the fill at its bag or can, restocking first with what was bought."""
+        from .supplies import open_item, release, restock, take
+
+        data = self.cleaned_data
+        if data.get("bought" + s) and ("bought" + s) not in self.__dict__.setdefault("_restocked", set()):
+            restock(product, data["bought" + s])
+            self._restocked.add("bought" + s)
+        if fill.pk:
+            release(fill)
+        cans = data.get("can" + s) or []
+        current = open_item(product)
+        if data.get("guessed" + s) and FINISHED not in cans and current:  # "it isn't empty yet": stop guessing
+            current.no_guess = True
+            current.save(update_fields=["no_guess"])
+        take(fill, product, finished=FINISHED in cans, opened=OPENED in cans)
+
+    def initial_cans(self, fill, s=""):
+        if fill and fill.pk:
+            self.initial["can" + s] = [c for c, on in ((FINISHED, fill.finished_item_id), (OPENED, fill.opened_new)) if on]
+
+    def can_info(self, products, slots, bowl=None):
+        """For the page script: each food's open can and pantry, and each slot's field names."""
+        from .supplies import picker_info
+
+        return {"foods": {str(p.pk): picker_info(p) for p in products}, "mass": units.MASS,
+                "bowl": bowl.amount_per_bowl if bowl else None, "editing": bool(self.instance.pk),
+                "slots": [{"food": food, "amount": amount, "unit": unit, "can": "can" + s, "guessed": "guessed" + s,
+                           "bought": "bought" + s} for food, amount, unit, s in slots]}
+
+
+class MealForm(CanFields, PerPetForm):
+    """Log meal (PUP-207, PUP-216): what went into the food and water bowls and how much was eaten or drunk. One
+    form and one Save; each food and the water become their own entry, which edits on its own. Adding makes the bowl
+    fills (the pantry counts those); eating or drinking is what Next Walk goes by."""
+
+    SLOTS = ["", "_2"]  # a second food (+ Another food), for two foods in one meal
     water_added = forms.FloatField(label=_("Added to bowl"), required=False, min_value=0)
     water_unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.VOLUME) + [(BOWLS, _("bowls"))],
                                    required=False)
-    NEW_FOOD = ["new_food_name", "new_food_category", "new_food_size", "new_food_size_unit", "new_food_count"]
-    show_when = {name: ("food", ["new"]) for name in NEW_FOOD}
-
-    fieldsets = [
-        {"fields": ["pets", "pet", "time"], "layout": "required"},
-        {"fields": ["food", *NEW_FOOD, "food_added", "food_unit", "portion"], "layout": "section",
-         "layout_attrs": {"label": _("Food")}},
-        {"fields": ["water_added", "water_unit", "water_portion"], "layout": "section",
-         "layout_attrs": {"label": _("Water")}},
-        {"fields": ["notes"]},
-    ]
+    another = forms.CharField(required=False, widget=forms.HiddenInput)
 
     class Meta:
         model = Meal
@@ -755,25 +753,53 @@ class MealForm(PerPetForm):
                    "portion": PillRadioSelect(), "water_portion": PillRadioSelect()}
         labels = {"portion": _("Eaten"), "water_portion": _("Drank")}
 
-    def __init__(self, *args, **kwargs):
+    @staticmethod
+    def slot_names(s):
+        return ["food" + s, *(n + s for n in NEW_FOOD), "food_added" + s, "food_unit" + s, "can" + s, "bought" + s,
+                "portion" + s]
+
+    def __init__(self, *args, importing=False, **kwargs):
+        # Imported meals are history (PUP-216): no food has to be picked, and the pantry isn't touched.
+        self.importing = importing
         super().__init__(*args, **kwargs)
-        for name in ("portion", "water_portion"):
-            self.fields[name].help_text = ""
-            self.fields[name].widget.choices = [c for c in self.fields[name].choices if c[0] != ""]
-        self.fields["food_unit"].initial = self.default_unit("mass")
-        self.fields["water_unit"].initial = self.default_unit("volume")
-        self.fields["new_food_size_unit"].initial = units.unit_for(self.household, "bag")
         meal = self.instance
-        self._food_choices(meal.fill.supply_item.product if meal.pk and meal.fill and meal.fill.supply_item else None)
+        self.editing = meal.kind if meal.pk else None
+        self.slots = [] if self.editing == Meal.WATER else [""] if self.editing else self.SLOTS
+        if self.editing == Meal.FOOD:
+            for name in ("water_added", "water_unit", "water_portion"):
+                self.fields.pop(name)
+        if self.editing == Meal.WATER:
+            self.fields.pop("portion")
+        if self.editing:
+            self.fields.pop("another")
+        for s in self.slots:
+            self.add_food_fields(s)
+        for name in ("portion", "water_portion"):
+            if name in self.fields:
+                self.fields[name].help_text = ""
+                self.fields[name].widget.choices = [c for c in self.fields[name].choices if c[0] != ""]
+        if "water_unit" in self.fields:
+            self.fields["water_unit"].initial = self.default_unit("volume")
+        food_section = [name for s in self.slots for name in self.slot_names(s)]
+        self.fieldsets = [{"fields": ["pet" if meal.pk else "pets", "time"], "layout": "required"}]
+        if food_section:
+            self.fieldsets.append({"fields": food_section, "layout": "section", "layout_attrs": {"label": _("Food")}})
+        if self.editing != Meal.FOOD:
+            self.fieldsets.append({"fields": ["water_added", "water_unit", "water_portion"], "layout": "section",
+                                   "layout_attrs": {"label": _("Water")}})
+        self.fieldsets.append({"fields": ["notes"]})
         pets = [meal.pet] if meal.pk else (
             [p for p in [self.initial.get("pet")] if p] or list(self.initial.get("pets") or []))
         self.warnings = bowl_warnings(pets)
         if meal.pk:
-            for fill, amount, unit in ((meal.fill, "food_added", "food_unit"), (meal.water_fill, "water_added", "water_unit")):
-                if fill:
-                    self.initial[amount], self.initial[unit] = self.shown_amount(fill)
-            item = meal.fill.supply_item if meal.fill else None
-            self.initial["food"] = str(item.product_id) if item else ""
+            fill = meal.fill if self.editing == Meal.FOOD else meal.water_fill
+            names = ("food_added", "food_unit") if self.editing == Meal.FOOD else ("water_added", "water_unit")
+            if fill:
+                self.initial[names[0]], self.initial[names[1]] = self.shown_amount(fill)
+            if self.editing == Meal.FOOD:
+                item = fill.supply_item if fill else None
+                self.initial["food"] = str(item.product_id) if item else ""
+                self.initial_cans(fill)
         elif pets:
             # The food and unit used last time for this pet's bowl; the amount only as a hint (nothing added unless typed).
             for water, amount, unit in ((False, "food_added", "food_unit"), (True, "water_added", "water_unit")):
@@ -781,35 +807,73 @@ class MealForm(PerPetForm):
                 last = bowl and bowl.fills.order_by("-time").first()
                 if not water and bowl:  # the food given last time, while there's some left
                     bag = (last.supply_item if last and last.supply_item else None) or bowl.default_supply
-                    if bag and str(bag.product_id) in self.food_ids:
+                    if bag and str(bag.product_id) in self.food_products:
                         self.initial["food"] = str(bag.product_id)
                 if last and (last.amount is not None or last.bowls is not None):
                     shown, self.fields[unit].initial = self.shown_amount(last)
                     self.fields[amount].widget.attrs["placeholder"] = _("Last time: %(n)s") % {"n": f"{shown:g}"}
+        bowl = pet_bowl(pets[0]) if pets else None
+        self.food_info_json = self.can_info(
+            self.food_products.values(), [("food" + s, "food_added" + s, "food_unit" + s, s) for s in self.slots],
+            bowl) if self.slots else None
 
-    def _food_choices(self, keep=None):
-        """The foods in stock, each with what's left of its open bag or can, then "+ Add food to the pantry". `keep`:
-        the meal's own food, there even once it has run out."""
+    def add_food_fields(self, s):
+        """One food's fields: which food (one in stock, or "new" to add it to the pantry right here), how much went
+        in, the can buttons, and how much was eaten."""
+        f = self.fields
+        f["food" + s] = forms.ChoiceField(label=_("Second food") if s else _("Food"), required=False)
+        f["new_food_name" + s] = forms.CharField(label=_("Name"), max_length=255, required=False)
+        f["new_food_category" + s] = forms.ChoiceField(
+            label=_("Kind"), required=False, widget=PillRadioSelect(),
+            choices=[(Product.DRY_FOOD, _("Dry food")), (Product.WET_FOOD, _("Wet food"))])
+        f["new_food_size" + s] = forms.FloatField(label=_("Size of each"), required=False, min_value=0)
+        f["new_food_size_unit" + s] = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.MASS),
+                                                        required=False, initial=units.unit_for(self.household, "bag"))
+        f["new_food_count" + s] = forms.IntegerField(label=_("How many"), required=False, min_value=1, max_value=200,
+                                                     initial=1)
+        f["food_added" + s] = forms.FloatField(label=_("Added to bowl"), required=False, min_value=0)
+        f["food_unit" + s] = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.MASS) + [(BOWLS, _("bowls"))],
+                                               required=False, initial=self.default_unit("mass"))
+        self.add_can_fields(s)
+        if s:
+            f["portion" + s] = forms.TypedChoiceField(label=_("Eaten"), required=False, coerce=float, empty_value=None,
+                                                      choices=Meal.PORTIONS, widget=PillRadioSelect())
+        self.food_choices(s)
+        shown = [("another", ["1"])] if s else []
+        for name in self.slot_names(s):
+            rule = shown + ([("food" + s, ["new"])] if name[:-len(s) or None] in NEW_FOOD else [])
+            if rule:
+                self.show_when[name] = rule
+
+    def food_choices(self, s):
+        """The foods in stock, each with what's left of its open bag or can, then "+ Add food to the pantry". When
+        editing, the entry's own food is there even once it has run out."""
         from .supplies import in_stock, product_status
 
-        foods = self.household.products.exclude(category__in=[Product.LITTER, Product.OTHER])
-        stocked = in_stock(foods)
-        if keep and keep not in stocked:
-            stocked.append(keep)
-        unit = units.unit_for(self.household, "bag")
-        details = {}
-        for product in stocked:
-            s = product_status(product, unit)
-            parts = [f"{s['left']} left · {s['pct_left']}%"] if s["left"] else [str(_("unopened"))]
-            if s["pantry"]:
-                parts.append(str(_("+%(n)s in pantry") % {"n": s["pantry"]}))
-            details[str(product.pk)] = " · ".join(parts)
-        self.food_ids = set(details)
-        self.food_products = {str(p.pk): p for p in stocked}
-        field = self.fields["food"]
-        field.choices = [("", _("Pick a food"))] + [(str(p.pk), str(p)) for p in stocked] + [
+        if "food_products" not in self.__dict__:
+            foods = self.household.products.filter(category__in=Product.FOODS)
+            stocked = in_stock(foods)
+            fill = self.instance.fill if self.instance.pk else None
+            keep = fill.supply_item.product if fill and fill.supply_item else None
+            if keep and keep not in stocked:
+                stocked.append(keep)
+            self.food_details = {}
+            for product in stocked:
+                st = product_status(product)
+                if st["empty"]:
+                    parts = [str(_("should be empty"))]
+                elif st["left"]:
+                    parts = [f"{st['left']} {_('left')} · {st['pct_left']}%"]
+                else:
+                    parts = [str(_("unopened"))]
+                if st["pantry"]:
+                    parts.append(str(_("+%(n)s in pantry") % {"n": st["pantry"]}))
+                self.food_details[str(product.pk)] = " · ".join(parts)
+            self.food_products = {str(p.pk): p for p in stocked}
+        field = self.fields["food" + s]
+        field.choices = [("", _("Pick a food"))] + [(pk, str(p)) for pk, p in self.food_products.items()] + [
             ("new", "+ " + str(_("Add food to the pantry")))]
-        field.widget = FoodPicker(choices=field.choices, details=details)
+        field.widget = FoodPicker(choices=field.choices, details=self.food_details)
 
     def shown_amount(self, fill):
         """A fill as it was entered: in bowls, or in the household's unit."""
@@ -821,108 +885,245 @@ class MealForm(PerPetForm):
 
     def clean(self):
         data = super().clean()
-        if not any(data.get(f) for f in ("food_added", "portion", "water_added", "water_portion")):
-            raise forms.ValidationError(_("Fill in what was added to a bowl, or eaten or drunk."))
-        food = data.get("food")
-        if food == "new":
-            for name in ("new_food_name", "new_food_category"):
-                if not data.get(name):
-                    self.add_error(name, _("This field is required."))
-            known = self.known_food(data.get("new_food_name"))
-            if not data.get("new_food_size") and not (known and known.package_size):
-                self.add_error("new_food_size", _("Enter the size of each bag or can."))
-        elif data.get("food_added") and not food and self.food_products:  # once the household keeps a pantry
-            self.add_error("food", _("Pick the food, or add it to the pantry."))
-        pets = [self.instance.pet] if self.instance.pk else list(data.get("pets") or [])
-        for added, water, what in (("food_added", False, _("food")), ("water_added", True, _("water"))):
-            missing = [p.name for p in pets if pet_bowl(p, water) is None] if data.get(added) else []
+        meal = self.instance
+        legacy = meal.pk and not (meal.fill_id or meal.water_fill_id)  # older entries: only what was eaten
+        added = [s for s in self.slots if data.get("food_added" + s)]
+        eaten = [data.get("portion" + s) for s in self.slots] + [data.get("water_portion")]
+        if not self.editing and not added and not data.get("water_added") and not any(eaten):
+            raise forms.ValidationError(_("Fill in what went into a bowl."))
+        if not legacy:
+            for s in self.slots:
+                if data.get("portion" + s) and not data.get("food_added" + s):
+                    self.add_error("food_added" + s, _("Enter what went into the bowl."))
+            if data.get("water_portion") and not data.get("water_added"):
+                self.add_error("water_added", _("Enter what went into the bowl."))
+            if self.editing and not added and not data.get("water_added"):
+                self.add_error("food_added" if self.editing == Meal.FOOD else "water_added",
+                               _("Enter what went into the bowl."))
+        for s in added:
+            food = data.get("food" + s)
+            if food == "new":
+                for name in ("new_food_name" + s, "new_food_category" + s):
+                    if not data.get(name):
+                        self.add_error(name, _("This field is required."))
+                known = self.known_food(data.get("new_food_name" + s))
+                if not data.get("new_food_size" + s) and not (known and known.package_size):
+                    self.add_error("new_food_size" + s, _("Enter the size of each bag or can."))
+            elif not food:
+                if not self.importing:
+                    self.add_error("food" + s, _("Pick the food, or add it to the pantry."))
+            elif not self.importing:
+                self.check_cans(data, self.food_products[food], s, meal.fill if self.editing else None)
+        pets = [meal.pet] if meal.pk else list(data.get("pets") or [])
+        for names, water, what in ((["food_added" + s for s in added], False, _("food")),
+                                   (["water_added"] if data.get("water_added") else [], True, _("water"))):
+            missing = [p.name for p in pets if pet_bowl(p, water) is None] if names else []
             if missing:
-                self.add_error(added, _("%(names)s has no %(what)s bowl set up.") % {
+                self.add_error(names[0], _("%(names)s has no %(what)s bowl set up.") % {
                     "names": ", ".join(missing), "what": what})
         return data
 
     def known_food(self, name):
         """The household's food by this name (or brand and name), if it has one."""
         name = (name or "").strip().lower()
-        foods = self.household.products.exclude(category__in=[Product.LITTER, Product.OTHER])
+        foods = self.household.products.filter(category__in=Product.FOODS)
         return next((p for p in foods if name and name in (p.name.lower(), str(p).lower())), None)
 
-    def food_item(self, fill):
-        """The bag or can this fill takes from (PUP-213): the one it already had if the food is the same, else the
-        food's open one or the next from the pantry. A new food goes into the pantry first."""
-        from .supplies import draw
+    def product_for(self, s):
+        """The food picked in a slot; a new one is added to the pantry first (or restocked, if it's one we know)."""
+        from .supplies import restock
 
-        food = self.cleaned_data.get("food") or ""
-        product = self.__dict__.get("_new_food") or self.food_products.get(food)
-        if product is None and food == "new":
+        made = self.__dict__.setdefault("_made", {})
+        food = self.cleaned_data.get("food" + s) or ""
+        if food != "new":
+            return self.food_products.get(food)
+        if s not in made:
             data = self.cleaned_data
-            size = data.get("new_food_size")
-            size = units.to_stored(size, data.get("new_food_size_unit") or "g", units.MASS) if size else None
-            # A food that's run out is restocked under its own name, not added twice.
-            product = self.known_food(data["new_food_name"]) or Product.objects.create(
-                household=self.household, name=data["new_food_name"], category=data["new_food_category"],
-                package_size=size)
-            pets = list(Pet.objects.filter(household=self.household, active=True))
-            for _n in range(data.get("new_food_count") or 1):
-                SupplyItem.objects.create(product=product, size=size or product.package_size).pets.set(pets)
-            self._new_food = product  # pets sharing a bowl share one new food
-        if product is None:
-            return None
-        if fill.supply_item and fill.supply_item.product_id == product.pk:
-            return fill.supply_item
-        return draw(product, timezone.localtime(fill.time).date())
+            unit = data.get("new_food_size_unit" + s) or units.unit_for(self.household, "bag")
+            size = data.get("new_food_size" + s)
+            size = units.to_stored(size, unit, units.MASS) if size else None
+            product = self.known_food(data["new_food_name" + s])  # one that's run out: restocked, not added twice
+            if product is None:
+                product = Product.objects.create(household=self.household, name=data["new_food_name" + s],
+                                                 category=data["new_food_category" + s], package_size=size, unit=unit)
+            elif size and not product.package_size:
+                product.package_size = size
+                product.save(update_fields=["package_size"])
+            restock(product, data.get("new_food_count" + s) or 1,
+                    pets=list(Pet.objects.filter(household=self.household, active=True)))
+            made[s] = product
+        return made[s]
 
-    def before_save(self, meal):
-        """Make or update this meal's bowl fills (pets sharing a bowl share one), then work out what was eaten and
-        drunk from the bowl's portion."""
+    def bowl_fill(self, meal, water, s, fill=None):
+        """The fill for one food (or the water) in this pet's bowl: pets sharing a bowl share one."""
         shared = self.__dict__.setdefault("_fills", {})
-        for water, added, unit, attr in ((False, "food_added", "food_unit", "fill"),
-                                         (True, "water_added", "water_unit", "water_fill")):
-            amount = self.cleaned_data.get(added)
-            if not amount:
-                setattr(meal, attr, None)
-                continue
-            bowl = pet_bowl(meal.pet, water)
-            fill = getattr(meal, attr)
-            if fill is None or fill.container_id != bowl.pk:
-                fill = shared.get((bowl.pk, water))
-                if fill:
-                    setattr(meal, attr, fill)
-                    continue
-                fill = Fill(container=bowl, contents=Fill.WATER if water else Fill.FOOD, logged_by=self.user)
-            fill.time = meal.time
-            chosen = self.cleaned_data.get(unit) or self.default_unit("volume" if water else "mass")
-            if chosen == BOWLS:
-                fill.bowls = amount
-                fill.amount = amount * bowl.amount_per_bowl if bowl.amount_per_bowl else None
-            else:
-                fill.bowls = None
-                fill.amount = units.to_stored(amount, chosen, units.VOLUME if water else units.MASS)
-            if not water:
-                fill.supply_item = self.food_item(fill)
-            fill.save()
-            shared[(bowl.pk, water)] = fill
-            setattr(meal, attr, fill)
-        for portion, field, water in (("portion", "amount", False), ("water_portion", "water_amount", True)):
-            share = getattr(meal, portion)
-            if share:
-                full, _bowl = full_bowl(meal.pet, water, meal.time)
-                setattr(meal, field, round(full * share, 1) if full else None)
-            elif not meal.pk:
-                setattr(meal, field, None)
-        meal.food = bool(meal.portion or meal.amount)
-        meal.water = bool(meal.water_portion or meal.water_amount)
+        data = self.cleaned_data
+        amount = data.get("water_added" if water else "food_added" + s)
+        bowl = pet_bowl(meal.pet, water)
+        if fill is None or fill.container_id != bowl.pk:
+            if (bowl.pk, s, water) in shared:
+                return shared[(bowl.pk, s, water)]
+            fill = Fill(container=bowl, contents=Fill.WATER if water else Fill.FOOD, logged_by=self.user)
+        fill.time = meal.time
+        chosen = data.get("water_unit" if water else "food_unit" + s) or self.default_unit("volume" if water else "mass")
+        if chosen == BOWLS:
+            fill.bowls = amount
+            fill.amount = amount * bowl.amount_per_bowl if bowl.amount_per_bowl else None
+        else:
+            fill.bowls = None
+            fill.amount = units.to_stored(amount, chosen, units.VOLUME if water else units.MASS)
+        if not water:
+            product = self.product_for(s)
+            if product and not self.importing:
+                self.use_cans(fill, product, s)
+            meal.product = product
+        fill.save()
+        shared[(bowl.pk, s, water)] = fill
+        return fill
+
+    @staticmethod
+    def eaten(meal):
+        """How much was eaten or drunk, from the bowl's portion."""
+        water = meal.kind == Meal.WATER
+        share = meal.water_portion if water else meal.portion
+        field = "water_amount" if water else "amount"
+        if share:
+            full, _bowl = full_bowl(meal.pet, water, meal.time)
+            setattr(meal, field, round(full * share, 1) if full else None)
+        elif meal.fill_id or meal.water_fill_id or not meal.pk:
+            setattr(meal, field, None)
+        meal.food = not water and bool(meal.portion or meal.amount)
+        meal.water = water and bool(meal.water_portion or meal.water_amount)
+
+    def save_entries(self):
+        if self.instance.pk:
+            return [self.save()]
+        data = self.cleaned_data
+        entries = []
+        for pet in data["pets"]:
+            made = []
+            for s in self.slots:
+                if data.get("food_added" + s) and (not s or data.get("another") == "1"):
+                    meal = Meal(pet=pet, time=data["time"], kind=Meal.FOOD, logged_by=self.user,
+                                portion=data.get("portion" + s))
+                    meal.fill = self.bowl_fill(meal, False, s)
+                    made.append(meal)
+            if data.get("water_added"):
+                meal = Meal(pet=pet, time=data["time"], kind=Meal.WATER, logged_by=self.user,
+                            water_portion=data.get("water_portion"))
+                meal.water_fill = self.bowl_fill(meal, True, "")
+                made.append(meal)
+            for i, meal in enumerate(made):
+                meal.notes = data.get("notes", "") if i == 0 else ""  # the note goes with the first entry
+                self.eaten(meal)
+                meal.save()
+            entries += made
+        return entries
 
     def save(self, commit=True):
         meal = super().save(commit=False)
-        if meal.pet_id:
-            before = {meal.fill_id, meal.water_fill_id}
-            self.before_save(meal)
-            if commit:
-                meal.save()
-                gone = before - {meal.fill_id, meal.water_fill_id, None}
-                Fill.objects.filter(pk__in=gone, meals=None, water_meals=None).delete()
+        water = meal.kind == Meal.WATER
+        attr = "water_fill" if water else "fill"
+        before = getattr(meal, attr + "_id")
+        if self.cleaned_data.get("water_added" if water else "food_added"):
+            setattr(meal, attr, self.bowl_fill(meal, water, "", getattr(meal, attr)))
+        else:
+            setattr(meal, attr, None)
+        self.eaten(meal)
+        if commit:
+            meal.save()
+            if before and before != getattr(meal, attr + "_id"):
+                Fill.objects.filter(pk=before, meals=None, water_meals=None).delete()
         return meal
+
+
+NEW_FOOD = ["new_food_name", "new_food_category", "new_food_size", "new_food_size_unit", "new_food_count"]
+
+
+class LitterForm(CanFields, PetsForm):
+    """Litter put into a litter box (PUP-207): its own entry, not a bowl fill. Which litter, with the same Finished /
+    Opened buttons as food (PUP-210)."""
+
+    LITTER_BOXES = (Container.LITTER_BOX, Container.AUTO_LITTER_BOX)
+    unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.MASS))
+    litter = forms.ChoiceField(label=_("Litter"), required=False)
+
+    fieldsets = [
+        {"fields": ["container", "time"], "layout": "required"},
+        {"fields": ["amount", "unit", "litter", "can", "bought", "notes"]},
+    ]
+
+    class Meta:
+        model = Fill
+        fields = ["container", "time", "amount", "notes"]
+        widgets = {"time": DateTimeInput(), "container": PillRadioSelect(), "notes": forms.Textarea(attrs={"rows": 3})}
+        labels = {"container": _("Litter box")}
+        help_texts = {"amount": ""}
+
+    def __init__(self, *args, **kwargs):
+        from .supplies import in_stock, product_status
+
+        super().__init__(*args, **kwargs)
+        boxes = self.fields["container"].queryset.filter(kind__in=self.LITTER_BOXES)
+        self.fields["container"].queryset = boxes
+        fill = self.instance
+        unit = self.default_unit("mass")
+        self.fields["unit"].initial = unit
+        if fill.pk and fill.amount is not None:
+            self.initial["amount"] = round(units.from_stored(fill.amount, unit, units.MASS), 2)
+        elif boxes.count() == 1:
+            self.initial.setdefault("container", boxes.first())
+        stocked = in_stock(self.household.products.filter(category=Product.LITTER))
+        keep = fill.supply_item.product if fill.pk and fill.supply_item else None
+        if keep and keep not in stocked:
+            stocked.append(keep)
+        self.litters = {str(p.pk): p for p in stocked}
+        details = {}
+        for product in stocked:
+            st = product_status(product)
+            details[str(product.pk)] = (str(_("should be empty")) if st["empty"] else
+                                        f"{st['left']} {_('left')} · {st['pct_left']}%" if st["left"] else str(_("unopened")))
+        field = self.fields["litter"]
+        field.choices = [("", _("Pick the litter"))] + [(pk, str(p)) for pk, p in self.litters.items()]
+        field.widget = FoodPicker(choices=field.choices, details=details)
+        if keep:
+            self.initial["litter"] = str(keep.pk)
+        elif len(self.litters) == 1:
+            self.initial["litter"] = next(iter(self.litters))
+        self.add_can_fields()
+        self.initial_cans(fill)
+        self.food_info_json = self.can_info(stocked, [("litter", "amount", "unit", "")]) if stocked else None
+        if not stocked:  # no litter in the pantry: nothing to pick or open
+            for name in ("litter", "can", "guessed", "bought"):
+                del self.fields[name]
+
+    def clean(self):
+        data = super().clean()
+        product = self.litters.get(data.get("litter") or "")
+        if data.get("amount") and product:
+            self.check_cans(data, product, "", self.instance if self.instance.pk else None)
+        elif data.get("amount") and self.litters:
+            self.add_error("litter", _("Pick the litter."))
+        return data
+
+    def save(self, commit=True):
+        from .supplies import release
+
+        fill = super().save(commit=False)
+        fill.contents = Fill.LITTER
+        if fill.amount is not None:
+            fill.amount = units.to_stored(self.cleaned_data["amount"], self.cleaned_data["unit"], units.MASS)
+        if not fill.pk:
+            fill.logged_by = self.user
+        product = self.litters.get(self.cleaned_data.get("litter") or "")
+        if product:
+            self.use_cans(fill, product)
+        elif fill.pk:
+            release(fill)
+            fill.supply_item = None
+        if commit:
+            fill.save()
+        return fill
 
 
 class MeasurementForm(PerPetForm):
@@ -1224,30 +1425,43 @@ class AccidentContextForm(HouseholdOwnedForm):
 
 
 class ProductForm(HouseholdOwnedForm):
+    """A food or litter in the Pantry (PUP-210): what it is, the size of each bag or can (in the unit it's sold in,
+    which is how it's shown), when to warn, and, when adding it, how many there are."""
+
     size_unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.MASS))
     low_unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.MASS), required=False)
+    count = forms.IntegerField(label=_("How many"), min_value=0, max_value=500, initial=1, required=False)
     show_when = {"low_unit": ("low_by", [Product.AMOUNT])}
 
     class Meta:
         model = Product
         fields = ["name", "brand", "category", "package_size", "low_by", "low_at"]
         widgets = {"category": PillRadioSelect(), "low_by": PillRadioSelect()}
-        labels = {"package_size": _("Usual package size"), "low_by": _("Running low"), "low_at": _("Warn at")}
-        help_texts = {"low_at": _("Packages left (open and in the pantry), or the amount left in them.")}
+        labels = {"category": _("Kind"), "package_size": _("Size of each"), "low_by": _("Running low"),
+                  "low_at": _("Warn at")}
+        help_texts = {"low_at": _("Bags or cans left (open and in the pantry), or the amount left in them.")}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, litter=False, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fieldsets = [{"fields": ["name", "brand", "category", "package_size", "size_unit", "low_by", "low_at",
-                                      "low_unit"], "layout": "default"}]
+        product = self.instance
+        names = ["name", "brand", "category", "package_size", "size_unit", "count", "low_by", "low_at", "low_unit"]
+        if product.pk:
+            names.remove("count")  # the count is set in the Pantry
+            del self.fields["count"]
+        self.fieldsets = [{"fields": names, "layout": "default"}]
+        self.fields["package_size"].required = True
+        self.fields["category"].widget.choices = [c for c in self.fields["category"].choices if c[0] != ""]
         self.fields["low_by"].widget.choices = [c for c in self.fields["low_by"].choices if c[0] != ""]
-        unit = units.unit_for(self.household, "bag")
+        if not product.pk:
+            self.initial.setdefault("category", Product.LITTER if litter else Product.DRY_FOOD)
+        unit = product.unit or units.unit_for(self.household, "bag")
         self.fields["size_unit"].initial = self.fields["low_unit"].initial = unit
-        if self.instance.pk and self.instance.package_size:
-            self.initial["package_size"] = round(units.from_stored(self.instance.package_size, unit, units.MASS), 2)
-        if self.instance.pk and self.instance.low_by == Product.AMOUNT:
-            self.initial["low_at"] = round(units.from_stored(self.instance.low_at, unit, units.MASS), 2)
-        elif self.instance.pk:
-            self.initial["low_at"] = f"{self.instance.low_at:g}"  # 2 cans, not 2.0
+        if product.pk and product.package_size:
+            self.initial["package_size"] = f"{units.from_stored(product.package_size, unit, units.MASS):.6g}"
+        if product.pk and product.low_by == Product.AMOUNT:
+            self.initial["low_at"] = f"{units.from_stored(product.low_at, unit, units.MASS):.6g}"
+        elif product.pk:
+            self.initial["low_at"] = f"{product.low_at:g}"  # 2 cans, not 2.0
 
     def clean(self):
         data = super().clean()
@@ -1256,6 +1470,20 @@ class ProductForm(HouseholdOwnedForm):
         if data.get("low_by") == Product.AMOUNT and data.get("low_at") is not None:
             data["low_at"] = units.to_stored(data["low_at"], data.get("low_unit") or "g", units.MASS)
         return data
+
+    def save(self, commit=True):
+        from .supplies import restock
+
+        product = super().save(commit=False)
+        product.unit = self.cleaned_data.get("size_unit") or product.unit
+        new = not product.pk
+        if commit:
+            product.save()
+            if new and self.cleaned_data.get("count"):
+                restock(product, self.cleaned_data["count"])
+            elif not new:  # a new usual size applies to the ones still unopened
+                product.items.filter(opened=None, finished=None, fills=None).update(size=product.package_size)
+        return product
 
 
 class SupplyItemForm(PetsForm):

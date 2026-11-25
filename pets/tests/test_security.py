@@ -61,8 +61,8 @@ class HouseholdIsolationTests(TestCase):
 
     def test_their_data_is_not_listed(self):
         for kind in ["potty", "walk", "sleep", "fill", "meal", "measurement", "note"]:
-            self.assertNotContains(self.client.get(f"/log/{kind}/"), "Theirs dog", msg_prefix=kind)
-        self.assertNotContains(self.client.get("/pets/setup/"), "Theirs dog")
+            self.assertNotContains(self.client.get(f"/log/{kind}/", follow=True), "Theirs dog", msg_prefix=kind)
+        self.assertNotContains(self.client.get("/pets/settings/"), "Theirs dog")
         self.assertEqual(self.client.get(f"/pets/{self.theirs['pet'].slug}/").status_code, 404)
 
     def test_forms_reject_their_ids(self):
@@ -97,13 +97,13 @@ class HouseholdIsolationTests(TestCase):
         self.mine["pet"].name = '<script>alert("x")</script>'
         self.mine["pet"].save()
         PottyBreak.objects.create(pet=self.mine["pet"], time=timezone.now(), pee=True, notes="<b>hi</b>")
-        for path in ("/pets/", "/log/potty/", "/log/potty/add/", "/pets/setup/"):
+        for path in ("/pets/", "/log/potty/", "/log/potty/add/", "/pets/settings/"):
             body = self.client.get(path).content.decode()
             self.assertNotIn('<script>alert("x")</script>', body, path)
 
     def test_logged_out_users_are_sent_to_login(self):
         self.client.logout()
-        for path in ("/pets/", "/log/potty/", "/log/potty/add/", "/pets/setup/"):
+        for path in ("/pets/", "/log/potty/", "/log/potty/add/", "/pets/settings/"):
             self.assertEqual(self.client.get(path).status_code, 302, path)
         self.assertIn(APIClient().get("/api/v1/pets/").status_code, (401, 403))
 
@@ -156,26 +156,26 @@ class MemberTests(TestCase):
 
     def test_owner_cannot_pull_in_a_stranger(self):
         self.client.force_login(self.mine["user"])
-        response = self.client.post("/pets/setup/members/", {"user": self.theirs["user"].pk, "role": "member"})
+        response = self.client.post("/pets/settings/members/", {"user": self.theirs["user"].pk, "role": "member"})
         self.assertEqual(response.status_code, 403)
         self.assertFalse(Membership.objects.filter(household=self.mine["household"], user=self.theirs["user"]).exists())
-        self.assertNotContains(self.client.get("/pets/setup/members/"), f'<option value="{self.theirs["user"].pk}">')
+        self.assertNotContains(self.client.get("/pets/settings/members/"), f'<option value="{self.theirs["user"].pk}">')
 
     def test_site_admin_can_add_people(self):
         admin = get_user_model().objects.create_superuser("siteadmin", password="x")
         Membership.objects.create(household=self.mine["household"], user=admin, role=Membership.OWNER)
         newcomer = get_user_model().objects.create_user("newcomer", password="x")
         self.client.force_login(admin)
-        self.client.post("/pets/setup/members/", {"user": newcomer.pk, "role": "viewer"})
+        self.client.post("/pets/settings/members/", {"user": newcomer.pk, "role": "viewer"})
         self.assertEqual(Membership.objects.get(user=newcomer).household, self.mine["household"])
 
     def test_owner_can_change_and_remove_members(self):
         helper = get_user_model().objects.create_user("helper", password="x")
         Membership.objects.create(household=self.mine["household"], user=helper, role=Membership.MEMBER)
         self.client.force_login(self.mine["user"])
-        self.client.post("/pets/setup/members/", {"user": helper.pk, "role": "viewer"})
+        self.client.post("/pets/settings/members/", {"user": helper.pk, "role": "viewer"})
         self.assertEqual(Membership.objects.get(user=helper).role, Membership.VIEWER)
-        self.client.post("/pets/setup/members/", {"user": helper.pk, "role": "remove"})
+        self.client.post("/pets/settings/members/", {"user": helper.pk, "role": "remove"})
         self.assertFalse(Membership.objects.filter(user=helper, household=self.mine["household"]).exists())
 
     def test_joining_keeps_a_household_with_data(self):

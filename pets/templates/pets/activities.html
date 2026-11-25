@@ -1,0 +1,26 @@
+{% extends "housetrained/page.html" %}
+{% load i18n %}
+{% block title %}{% trans "Activities" %}{% endblock %}
+{% block breadcrumbs %}
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Activities" %}</li>
+{% endblock %}
+{% block content %}
+    {# Every pet's activity (PUP-217), the same list as the pet page's: All first, then by kind or by pet. #}
+    <h1>{% trans "Activities" %}</h1>
+    {% if pets|length > 1 %}
+        <div class="d-flex flex-wrap gap-1 mb-3">
+            <a class="btn btn-sm {% if not pet %}btn-primary{% else %}btn-outline-light{% endif %}" href="{% url 'pets:activities' %}">{% trans "All pets" %}</a>
+            {% for p in pets %}
+                <a class="btn btn-sm {% if p == pet %}btn-primary{% else %}btn-outline-light{% endif %}" href="{% url 'pets:activities' %}?pet={{ p.slug }}">{{ p.name }}</a>
+            {% endfor %}
+        </div>
+    {% endif %}
+    {% url 'pets:activity-all' as base_url %}
+    {% if pet %}
+        {% with activity_url=base_url|add:"?pet="|add:pet.slug %}
+            {% include "pets/_activity_card.html" with show_pet=False list_height="70vh" hide_title=True %}
+        {% endwith %}
+    {% else %}
+        {% include "pets/_activity_card.html" with activity_url=base_url show_pet=True list_height="70vh" hide_title=True %}
+    {% endif %}
+{% endblock %}

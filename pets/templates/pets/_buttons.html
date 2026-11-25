@@ -36,6 +36,7 @@
                 <a class="dropdown-item" href="{% url 'pets:add' 'puke' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Log puke" %}</a>
                 <a class="dropdown-item" href="{% url 'pets:add' 'measurement' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Add measurement" %}</a>
                 <a class="dropdown-item" href="{% url 'pets:add' 'note' %}{% if pet %}?pet={{ pet.slug }}{% endif %}">{% trans "Add note" %}</a>
+                <a class="dropdown-item" href="{% url 'pets:pantry' %}">{% trans "Pantry" %}</a>
                 {% if pet %}<a class="dropdown-item" href="#" data-arrange>{% trans "Arrange cards" %}</a>
                     <a class="dropdown-item" href="{% url 'pets:edit' 'pet' pet.pk %}?next={{ request.path|urlencode }}">{% trans "Settings" %}</a>{% endif %}
                 {% if a.sleep %}

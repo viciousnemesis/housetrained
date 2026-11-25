@@ -175,7 +175,8 @@ class Importer:
 
     def check(self, row):
         data = self.data_for(row)
-        form = self.kind.form(data, household=self.household, user=self.user)
+        extra = {"importing": True} if self.kind_key == "meal" else {}
+        form = self.kind.form(data, household=self.household, user=self.user, **extra)
         if not form.is_valid():
             known = bool(row.errors)  # an unknown pet or bowl already explains the empty field
             columns = {"pets": "pet", "container": "bowl", "eaten_now": "eaten_right_away", "walker_choice": "walker"}

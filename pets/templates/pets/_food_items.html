@@ -1,0 +1,20 @@
+{% load i18n %}
+{# A food's page (PUP-210): under its settings, how much is left and every bag or can it has had. #}
+<div class="container-fluid pb-5">
+    <div class="card card-dashboard">
+        <div class="card-header">{% blocktrans with what=food.status.nouns|capfirst %}{{ what }}{% endblocktrans %}</div>
+        <ul class="list-group list-group-flush small">
+            {% include "pets/_pantry_row.html" with s=food.status controls=True %}
+            {% for i in food.items %}
+                <a class="list-group-item list-group-item-action d-flex justify-content-between gap-2" href="{% url 'pets:edit' 'supply' i.item.pk %}?next={{ request.path|urlencode }}">
+                    <span>{{ i.size }}</span>
+                    <span class="text-body-secondary text-end">
+                        {% if i.item.finished %}{% trans "finished" %} {{ i.item.finished|date:"M j" }}
+                        {% elif i.item.opened %}{% trans "open since" %} {{ i.item.opened|date:"M j" }} · {{ i.left }} {% trans "left" %} · {{ i.pct_left }}%
+                        {% else %}{% trans "unopened" %}{% endif %}
+                    </span>
+                </a>
+            {% endfor %}
+        </ul>
+    </div>
+</div>

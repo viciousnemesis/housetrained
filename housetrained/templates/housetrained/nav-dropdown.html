@@ -28,20 +28,6 @@
             <div class="collapse navbar-collapse" id="navbar-app">
                 <ul class="navbar-nav me-auto">
 
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false">{% trans "Logs" %}</a>
-                            <div class="dropdown-menu">
-                                <a class="dropdown-item" href="{% url 'pets:list' 'potty' %}"><i class="icon-diaperchange" aria-hidden="true"></i> {% trans "Potty breaks" %}</a>
-                                <a class="dropdown-item" href="{% url 'pets:list' 'walk' %}"><i class="icon-tummytime" aria-hidden="true"></i> {% trans "Walks" %}</a>
-                                {% if pets_has_cats %}<a class="dropdown-item" href="{% url 'pets:list' 'litter' %}"><i class="icon-feeding" aria-hidden="true"></i> {% trans "Litter" %}</a>{% endif %}
-                                <a class="dropdown-item" href="{% url 'pets:list' 'meal' %}"><i class="icon-feeding" aria-hidden="true"></i> {% trans "Meals" %}</a>
-                                <a class="dropdown-item" href="{% url 'pets:list' 'puke' %}"><i class="icon-note" aria-hidden="true"></i> {% trans "Puke" %}</a>
-                                <a class="dropdown-item" href="{% url 'pets:list' 'sleep' %}"><i class="icon-sleep" aria-hidden="true"></i> {% trans "Sleep" %}</a>
-                                <a class="dropdown-item" href="{% url 'pets:list' 'measurement' %}"><i class="icon-weight" aria-hidden="true"></i> {% trans "Measurements" %}</a>
-                                <a class="dropdown-item" href="{% url 'pets:list' 'note' %}"><i class="icon-note" aria-hidden="true"></i> {% trans "Notes" %}</a>
-                                <a class="dropdown-item" href="{% url 'pets:list' 'training' %}"><i class="icon-note" aria-hidden="true"></i> {% trans "Training" %}</a>
-                            </div>
-                        </li>
                         {% if pets_can_edit %}
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false">{% trans "Add" %}</a>
@@ -57,7 +43,10 @@
                             </div>
                         </li>
                         {% endif %}
-                        <li class="nav-item"><a class="nav-link" href="{% url 'pets:setup' %}">{% trans "Setup" %}</a></li>
+                        {# Add, Pantry, Activities, Settings (PUP-217). #}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'pets:pantry' %}">{% trans "Pantry" %}</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'pets:activities' %}">{% trans "Activities" %}</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'pets:settings' %}">{% trans "Settings" %}</a></li>
 
                 </ul>
                 {% if request.user %}

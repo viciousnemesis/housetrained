@@ -16,8 +16,8 @@ EXTERNAL = re.compile(
 
 
 class NothingLeavesTheServerTests(PetTestCase):
-    PAGES = ["/pets/", "/pets/ruby/", "/pets/setup/", "/pets/setup/members/",
-             "/pets/setup/import/", "/pets/notifications/", "/log/potty/", "/log/potty/add/", "/log/walk/add/",
+    PAGES = ["/pets/", "/pets/ruby/", "/pets/settings/", "/pets/settings/members/",
+             "/pets/settings/import/", "/pets/notifications/", "/log/potty/", "/log/potty/add/", "/log/walk/add/",
              "/log/fill/add/", "/log/meal/add/", f"/log/pet/0/", "/user/settings/", "/settings/", "/login/"]
 
     def test_pages_load_nothing_from_elsewhere(self):

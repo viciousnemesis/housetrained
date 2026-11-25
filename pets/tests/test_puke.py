@@ -18,7 +18,7 @@ class PukeTests(PetTestCase):
         self.add(spot_new="Kitchen", context_new="Ate grass", contents="grass")
         p = Puke.objects.get()
         self.assertEqual((p.spot.name, p.context, p.contents), ("Kitchen", ["Ate grass"], "grass"))
-        rows, _more = activity(self.ruby, "puke")
+        rows, _more = activity(self.ruby.household, self.ruby, "puke")
         self.assertEqual([r["summary"] for r in rows], ["Puke, inside (Kitchen) · grass"])
         self.assertEqual(rows[0]["tags"], ["puke"])
 
@@ -28,7 +28,7 @@ class PukeTests(PetTestCase):
         self.assertIsNone(progress.streak(self.ruby))  # no potty breaks at all
         tiles = {label: value for label, value, _sub in insights.today_card(self.ruby)["tiles"]}
         self.assertEqual((tiles["Accidents"], tiles["Puke"]), ("0", "1"))
-        self.assertEqual(activity(self.ruby, "accident")[0], [])
+        self.assertEqual(activity(self.ruby.household, self.ruby, "accident")[0], [])
 
     def test_the_form(self):
         form = self.client.get("/log/puke/add/").context["form"]
@@ -44,7 +44,7 @@ class PukeTests(PetTestCase):
     def test_export_and_import(self):
         AccidentSpot.objects.create(household=self.household, name="Kitchen")
         text = "pet,time,location,found_later,spot,contents\nRuby,2026-10-01 07:10,inside,yes,kitchen,foam\n"
-        upload = lambda confirm: self.client.post("/pets/setup/import/", {"kind": "puke", "csv_text": text,
+        upload = lambda confirm: self.client.post("/pets/settings/import/", {"kind": "puke", "csv_text": text,
                                                                           "confirm": "1"} if confirm else
                                                   {"kind": "puke", "file": SimpleUploadedFile("x.csv", text.encode())})
         self.assertContains(upload(False), "Ready: 1 new row")

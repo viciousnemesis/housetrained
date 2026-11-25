@@ -85,17 +85,8 @@
             <div class="pet-card" data-card="supplies" style="order: 5">{% card_supplies pet low_only=True %}</div>
             <div class="pet-card" data-card="today" style="order: 4">{% card_today pet %}</div>
             <div class="pet-card" data-card="activity" style="order: 2">
-            <div class="card card-dashboard">
-                <div class="card-header">{% trans "All activity" %}</div>
-                <div class="d-flex flex-wrap gap-1 px-2 pt-2" id="activity-filters">
-                    {% for key, label in activity_filters %}
-                        <button type="button" class="btn btn-sm {% if forloop.first %}btn-primary{% else %}btn-outline-light{% endif %} py-0 px-2" data-filter="{{ key }}">{{ label }}</button>
-                    {% endfor %}
-                </div>
-                <div class="list-group list-group-flush small overflow-auto mt-2" style="max-height: 28rem" id="activity" data-url="{% url 'pets:activity' pet.slug %}">
-                    {% include "pets/_activity_items.html" with next_url=request.path %}
-                </div>
-            </div>
+            {% url 'pets:activity' pet.slug as activity_url %}
+            {% include "pets/_activity_card.html" with activity_url=activity_url remember_filter=True %}
             </div>
             <div class="pet-card" data-card="notes" style="order: 9">{% card_notes pet %}</div>
         </div>
@@ -178,86 +169,6 @@
 {% block javascript %}
     <script src="{% static 'pets/vendor/sortable.min.js' %}"></script>
     {% include "pets/_fresh.html" %}
-    <script>
-        // All activity (PUP-143): a filter asks the server (it looks through everything); older entries load as you
-        // scroll to the bottom of the list.
-        (function () {
-            var list = document.getElementById("activity");
-            var chips = document.querySelectorAll("#activity-filters [data-filter]");
-            var filter = "all", page = 0, loading = false;
-            function load(reset) {
-                if (loading) return;
-                loading = true;
-                var url = list.dataset.url + "?filter=" + encodeURIComponent(filter) + "&page=" + (reset ? 0 : page + 1);
-                fetch(url, {credentials: "same-origin"}).then(function (r) { return r.text(); }).then(function (html) {
-                    var more = list.querySelector("[data-more]");
-                    if (more) more.remove();
-                    if (reset) { list.innerHTML = ""; page = 0; list.scrollTop = 0; } else { page += 1; }
-                    list.insertAdjacentHTML("beforeend", html);
-                    // A page that carries on the day the last one ended with doesn't repeat its heading.
-                    var days = {};
-                    list.querySelectorAll(".activity-day").forEach(function (h) {
-                        if (days[h.dataset.day]) h.remove(); else days[h.dataset.day] = true;
-                    });
-                    fold();
-                }).finally(function () { loading = false; check(); });
-            }
-            // Tap a day's heading to fold it away (PUP-179); it stays folded as more loads and across filters.
-            var folded = {};
-            function fold() {
-                var counts = {};
-                list.querySelectorAll("[data-in-day]").forEach(function (row) {
-                    var day = row.dataset.inDay;
-                    counts[day] = (counts[day] || 0) + 1;
-                    row.classList.toggle("d-none", !!folded[day]);
-                });
-                list.querySelectorAll(".activity-day").forEach(function (h) {
-                    var open = !folded[h.dataset.day], n = counts[h.dataset.day] || 0;
-                    h.setAttribute("aria-expanded", open ? "true" : "false");
-                    h.querySelector(".activity-count").textContent = open ? "" : n + (n === 1 ? " entry" : " entries");
-                });
-            }
-            list.addEventListener("click", function (event) {
-                var heading = event.target.closest(".activity-day");
-                if (!heading) return;
-                folded[heading.dataset.day] = !folded[heading.dataset.day];
-                fold();
-                if (heading.getBoundingClientRect().top < list.getBoundingClientRect().top) heading.scrollIntoView({block: "nearest"});
-                check();  // folding can bring "Loading…" into view
-            });
-            // "Loading…" at the end of the list: fetch the next page once it comes into view.
-            var watcher = "IntersectionObserver" in window ? new IntersectionObserver(function (seen) {
-                if (seen.some(function (e) { return e.isIntersecting; })) load(false);
-            }, {root: list, rootMargin: "0px 0px 200px 0px"}) : null;
-            function check() {
-                var more = list.querySelector("[data-more]");
-                if (!more) return;
-                if (watcher) { watcher.disconnect(); watcher.observe(more); }
-                if (!loading && more.getBoundingClientRect().top < list.getBoundingClientRect().bottom + 200) load(false);
-            }
-            function pick(name) {
-                filter = name;
-                chips.forEach(function (chip) {
-                    var on = chip.dataset.filter === name;
-                    chip.classList.toggle("btn-primary", on);
-                    chip.classList.toggle("btn-outline-light", !on);
-                });
-                try { localStorage.setItem("activityFilter", name); } catch (e) {}
-            }
-            chips.forEach(function (chip) {
-                chip.addEventListener("click", function () { pick(chip.dataset.filter); load(true); });
-            });
-            list.addEventListener("scroll", check);
-            var saved = null;
-            try { saved = localStorage.getItem("activityFilter"); } catch (e) {}
-            if (saved && saved !== "all" && document.querySelector('#activity-filters [data-filter="' + saved + '"]')) {
-                pick(saved);
-                load(true);
-            } else {
-                check();
-            }
-        })();
-    </script>
     {% if user.settings.dashboard_refresh_rate %}
         <script type="application/javascript">
             Housetrained.Dashboard.watch('view-pets:pet', {{ user.settings.dashboard_refresh_rate_milliseconds }});

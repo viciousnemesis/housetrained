@@ -7,7 +7,7 @@ import datetime
 
 from django.conf import settings
 from django.db import models
-from django.db.models.signals import post_delete
+from django.db.models.signals import post_delete, pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.text import slugify
@@ -261,17 +261,19 @@ class Container(models.Model):
 
 
 class Product(models.Model):
-    DRY_FOOD, WET_FOOD, TREATS, LITTER, OTHER = "dry_food", "wet_food", "treats", "litter", "other"
+    DRY_FOOD, WET_FOOD, LITTER = "dry_food", "wet_food", "litter"
+    FOODS = [DRY_FOOD, WET_FOOD]
 
     household = models.ForeignKey(Household, on_delete=models.CASCADE, related_name="products")
     name = models.CharField(_("name"), max_length=255)
     brand = models.CharField(_("brand"), max_length=255, blank=True)
     category = models.CharField(
         _("category"), max_length=20,
-        choices=[(DRY_FOOD, _("Dry food")), (WET_FOOD, _("Wet food")), (TREATS, _("Treats")),
-                 (LITTER, _("Litter")), (OTHER, _("Other"))],
+        choices=[(DRY_FOOD, _("Dry food")), (WET_FOOD, _("Wet food")), (LITTER, _("Litter"))],
     )
     package_size = models.FloatField(_("usual package size (g)"), null=True, blank=True)
+    # The unit it was added in (PUP-210): amounts show in it, or in g / oz when less than 1 kg / lb is left.
+    unit = models.CharField(_("unit"), max_length=5, blank=True)
     # Running low (PUP-213): by how many packages are left (open and in the pantry), or by the amount left in them.
     PACKAGES, AMOUNT = "packages", "amount"
     low_by = models.CharField(_("warn by"), max_length=10, default=PACKAGES,
@@ -295,6 +297,8 @@ class SupplyItem(models.Model):
     finished = models.DateField(_("finished"), null=True, blank=True)
     price = models.DecimalField(_("price"), max_digits=10, decimal_places=2, null=True, blank=True)
     pets = models.ManyToManyField(Pet, related_name="supplies", blank=True, verbose_name=_("shared by"))
+    # Someone said it isn't empty yet when the numbers said it was (PUP-210): don't guess Finished for it again.
+    no_guess = models.BooleanField(default=False, editable=False)
 
     class Meta:
         ordering = ["-opened"]
@@ -321,6 +325,13 @@ class Fill(Logged):
     supply_item = models.ForeignKey(
         SupplyItem, on_delete=models.SET_NULL, null=True, blank=True, related_name="fills"
     )
+    # Finished this can / Opened a new can (PUP-210): the bag or can this fill finished (the one it came from, or
+    # the one before when it opened a new one), and how much of the fill came from that one when it took both.
+    finished_item = models.ForeignKey(
+        SupplyItem, on_delete=models.SET_NULL, null=True, blank=True, related_name="finishing_fills", editable=False
+    )
+    spill = models.FloatField(null=True, blank=True, editable=False)
+    opened_new = models.BooleanField(default=False, editable=False)  # this fill opened supply_item
 
     class Meta:
         ordering = ["-time"]
@@ -534,11 +545,15 @@ class Sleep(Logged):
 
 
 class Meal(Logged):
-    """One Log meal entry (PUP-207): what went into the bowls (its fills) and how much was eaten or drunk. Next Walk
-    goes out a set time after eating or drinking. Older meals may have neither fill, or an exact amount."""
+    """One food or the water from Log meal (PUP-207, PUP-216): what went into the bowl (its fill) and how much was
+    eaten or drunk. A food entry uses fill/portion/amount, a water entry water_fill/water_portion/water_amount. Next
+    Walk goes out a set time after eating or drinking. Older entries may have no fill, or an exact amount."""
 
     pet = models.ForeignKey(Pet, on_delete=models.CASCADE, related_name="meals")
     time = models.DateTimeField(_("time"), default=timezone.now)
+    # Each food and the water are their own entry (PUP-216), logged together from one Log meal.
+    FOOD, WATER = "food", "water"
+    kind = models.CharField(_("kind"), max_length=5, default=FOOD, choices=[(FOOD, _("Food")), (WATER, _("Water"))])
     food = models.BooleanField(_("food"), default=True)
     water = models.BooleanField(_("water"), default=False)
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
@@ -558,6 +573,14 @@ class Meal(Logged):
 
     def __str__(self):
         return f"{self.pet} ate at {self.time:%Y-%m-%d %H:%M}"
+
+
+@receiver(pre_delete, sender=Fill)
+def _fill_gives_back_its_cans(sender, instance, **kwargs):
+    """A deleted fill undoes Finished / Opened (PUP-210): the can it finished is open again."""
+    from .supplies import release
+
+    release(instance)
 
 
 @receiver(post_delete, sender=Meal)

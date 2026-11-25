@@ -291,10 +291,10 @@ def setup_steps(pet, user):
         ("quiet", "quiet" in done,
          _("Set your quiet hours (now %(bed)s to %(wake)s): no walks are due in between.") % {
              "bed": fmt_time(_today_at(household.bedtime)), "wake": fmt_time(_today_at(household.wake_time))},
-         reverse("pets:household-edit")),
+         reverse("pets:settings")),
         ("bowls", "bowls" in done or not bowl_warnings([pet]),
          _("Set up %(pet)s's food and water bowls and how much each holds.") % {"pet": pet.name},
-         reverse("pets:setup")),
+         reverse("pets:settings")),
         ("notifications", "notifications" in done or PushSubscription.objects.filter(user=user).exists(),
          _("Turn on reminders on your phone, so you hear when it's time to head out."),
          reverse("pets:notifications")),

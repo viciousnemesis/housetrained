@@ -8,9 +8,11 @@
 {% endblock %}
 {% block content %}
     <div class="small mb-2 pb-1 border-bottom">
-        <span class="me-2"><span class="d-inline-block rounded-circle me-1" style="width:.6rem;height:.6rem;background:#f5d33f"></span>{% trans "Pee inside" %}</span>
+        <span class="me-2"><span class="d-inline-block rounded-circle me-1" style="width:.6rem;height:.6rem;background:#f06e6e"></span>{% trans "Pee inside" %}</span>
         <span class="me-2"><span class="d-inline-block rounded-circle me-1" style="width:.6rem;height:.6rem;background:#a72431"></span>{% trans "Poop inside" %}</span>
-        <span class="me-2"><span class="d-inline-block me-1" style="width:.6rem;height:.6rem;background:#4a90e2"></span>{% trans "Meal" %}</span>
+        <span class="me-2"><span class="d-inline-block me-1" style="width:.6rem;height:.6rem;background:#e67300"></span>{% trans "Dry food" %}</span>
+        <span class="me-2"><span class="d-inline-block me-1" style="width:.6rem;height:.6rem;background:#ffaa5a"></span>{% trans "Wet food" %}</span>
+        <span class="me-2"><span class="d-inline-block me-1" style="width:.6rem;height:.6rem;background:#4a90e2"></span>{% trans "Water" %}</span>
         <span><span class="d-inline-block me-1" style="width:.8rem;height:.6rem;background:#8e6cc8;opacity:.6"></span>{% trans "Sleep" %}</span>
     </div>
     <svg viewBox="0 0 {{ chart.width }} 14" class="w-100 d-block" aria-hidden="true">
@@ -25,7 +27,7 @@
         {% endfor %}
         {% include "pets/cards/_chart_grid.html" %}
         {% for m in meals %}
-            <rect x="{{ m.x }}" y="{{ m.y }}" width="6" height="6" fill="#4a90e2" />
+            <rect x="{{ m.x }}" y="{{ m.y }}" width="6" height="6" fill="{{ m.color }}" />
         {% endfor %}
         {% for dot in dots %}
             <circle cx="{{ dot.x }}" cy="{{ dot.y }}" r="3.5" fill="{{ dot.color }}"><title>{{ dot.label }}</title></circle>

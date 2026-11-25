@@ -1,0 +1,128 @@
+{% load i18n %}
+{{ form.food_info_json|json_script:"can-info" }}
+<script>
+    // Finished this can / Opened a new can (PUP-210). The buttons are always there and tap on and off; until you tap
+    // one, they're picked for you when it's fairly sure: Opened when none is open, both when the meal is more than
+    // what's left (the rest of the old one, the remainder from the new one), Finished when a can's meal takes about
+    // what's left (a bag only once the numbers say it's empty, and never again for a bag you said isn't). The line
+    // under the buttons says what's left and warns when it's running low; its space is kept so nothing moves.
+    (function () {
+        var info = JSON.parse(document.getElementById("can-info").textContent);
+        var T = {
+            finished: "{% trans 'Finished this {n}' %}", opened: "{% trans 'Opened a new {n}' %}",
+            left: "{% trans '{left} left in this {n}.' %}", empty: "{% trans 'Should be empty. Finished?' %}",
+            little: "{% trans 'A little left in this {n}.' %}", noneOpen: "{% trans 'No {n} open: this opens one from the pantry.' %}",
+            noneAtAll: "{% trans 'None open or in the pantry: how many did you buy?' %}",
+            last: "{% trans 'This is the last {n}.' %}", wasLast: "{% trans 'That was the last {n}.' %}",
+            low: "{% trans 'Running low: {count} {ns} left after this one.' %}", add: "{% trans 'Add more' %}"
+        };
+        var fill = function (text, values) {
+            return text.replace(/\{(\w+)\}/g, function (m, k) { return values[k] !== undefined ? values[k] : m; });
+        };
+        info.slots.forEach(function (slot) {
+            var select = document.querySelector("[name='" + slot.food + "']");
+            var boxes = document.querySelectorAll("[name='" + slot.can + "']");
+            if (!select || boxes.length < 2) return;
+            var amount = document.querySelector("[name='" + slot.amount + "']");
+            var unit = document.querySelector("[name='" + slot.unit + "']");
+            var guessed = document.querySelector("[name='" + slot.guessed + "']");
+            var bought = document.getElementById("id_" + slot.bought);
+            var boughtRow = bought && bought.closest(".row.mb-3");
+            var finished = Array.from(boxes).find(function (b) { return b.value === "finished"; });
+            var opened = Array.from(boxes).find(function (b) { return b.value === "opened"; });
+            var label = function (b) { return document.querySelector("label[for='" + b.id + "']"); };
+            var touched = info.editing, wantMore = !!(bought && bought.value);
+            var note = document.createElement("div");
+            note.className = "small mt-2";
+            note.style.minHeight = "3em";
+            finished.closest(".pill-container").after(note);
+            var grams = function () {
+                var v = parseFloat(amount && amount.value);
+                if (isNaN(v)) return null;
+                var u = unit ? unit.value : "g";
+                if (u === "bowls") return info.bowl ? v * info.bowl : null;
+                return info.mass[u] ? v * info.mass[u] : null;
+            };
+            var update = function () {
+                var food = info.foods[select.value], isNew = select.value === "new";
+                var n = food ? food.noun : "{% trans 'can' %}";
+                label(finished).textContent = fill(T.finished, {n: n});
+                label(opened).textContent = fill(T.opened, {n: n});
+                var g = grams();
+                if (!touched) {
+                    var f = false, o = isNew;
+                    if (food && food.left === null) {
+                        o = true;
+                    } else if (food && g !== null && g > 0 && !food.no_guess) {
+                        if (g > food.left) { f = true; o = true; }
+                        else if (g >= (food.can ? 0.9 : 1) * food.left) { f = true; }
+                    }
+                    finished.checked = f;
+                    opened.checked = o;
+                    guessed.value = f ? "1" : "";
+                }
+                var lines = [], warn = null, extra = bought && parseInt(bought.value, 10) || 0;
+                if (food) {
+                    if (food.left === null) lines.push(fill(food.pantry ? T.noneOpen : T.noneAtAll, {n: n}));
+                    else if (food.left <= 0) lines.push(fill(food.no_guess ? T.little : T.empty, {n: n}));
+                    else lines.push(fill(T.left, {left: food.left_text, n: n}));
+                    var packages = food.pantry + extra + (food.left !== null ? 1 : 0);
+                    if (food.left !== null && (finished.checked || opened.checked)) packages -= 1;
+                    if (opened.checked && food.left === null && !food.pantry && !extra) packages = 0;
+                    if (packages <= 0) warn = fill(T.wasLast, {n: n});
+                    else if (packages === 1) warn = fill(T.last, {n: n});
+                    else {
+                        var total = Math.max(food.left || 0, 0) + (food.pantry + extra) * (food.size || 0) - (g || 0);
+                        var low = food.low_by === "packages" ? packages - 1 <= food.low_at : total <= food.low_at;
+                        if (low) warn = fill(T.low, {count: packages - 1, ns: food.nouns});
+                    }
+                }
+                note.textContent = lines.join(" ");
+                if (warn) {
+                    var w = document.createElement("div");
+                    w.className = "text-warning";
+                    w.textContent = warn + " ";
+                    if (bought && !wantMore) {
+                        var b = document.createElement("button");
+                        b.type = "button";
+                        b.className = "btn btn-link btn-sm p-0 align-baseline";
+                        b.textContent = T.add;
+                        b.addEventListener("click", function () { wantMore = true; update(); bought.focus(); });
+                        w.appendChild(b);
+                    }
+                    note.appendChild(w);
+                }
+                var showBought = !!food && (wantMore || (opened.checked && food.left === null && !food.pantry) ||
+                    (opened.checked && food.left !== null && !food.pantry));
+                if (boughtRow) {
+                    boughtRow.classList.toggle("d-none", !showBought);
+                    bought.disabled = !showBought;
+                }
+            };
+            boxes.forEach(function (b) { b.addEventListener("change", function () { touched = true; update(); }); });
+            select.addEventListener("change", function () { if (!info.editing) touched = false; update(); });
+            [amount, unit, bought].forEach(function (el) { if (el) el.addEventListener("input", update); });
+            if (unit) unit.addEventListener("change", update);
+            update();
+        });
+        // + Another food (PUP-216): a second food in the same meal, its own entry when saved.
+        var another = document.querySelector("input[name=another]");
+        var portion = document.getElementById("id_portion");
+        if (another && portion) {
+            var row = portion.closest(".row.mb-3");
+            var toggle = document.createElement("button");
+            toggle.type = "button";
+            toggle.className = "btn btn-outline-light btn-sm mb-3";
+            var text = function () {
+                toggle.textContent = another.value === "1" ? "− {% trans 'Remove the second food' %}" : "+ {% trans 'Another food' %}";
+            };
+            toggle.addEventListener("click", function () {
+                another.value = another.value === "1" ? "" : "1";
+                text();
+                if (window.showWhen) window.showWhen.apply();
+            });
+            text();
+            row.after(toggle);
+        }
+    })();
+</script>

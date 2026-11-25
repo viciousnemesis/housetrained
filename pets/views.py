@@ -23,7 +23,7 @@ from .models import (
     PottyLocation, Product, Puke, Sleep, SupplyItem, TrainingLog, Walk,
 )
 from . import undo
-from .entries import KINDS, LIST_TITLES, activity, for_pet, row
+from .entries import KINDS, LIST_TITLES, activity, activity_filters, for_pet, row
 
 
 @dataclass
@@ -49,13 +49,15 @@ ENTRIES = {
     # Setup
     "pet": Entry(Pet, forms.PetForm, _("Pet"), "household"),
     "container": Entry(Container, forms.ContainerForm, _("Bowl, feeder or litter box"), "household"),
-    "product": Entry(Product, forms.ProductForm, _("Product"), "household"),
-    "supply": Entry(SupplyItem, forms.SupplyItemForm, _("Food source"), "product__household"),
+    # The pantry (PUP-210): a food or litter, and one of its bags or cans.
+    "product": Entry(Product, forms.ProductForm, _("Food"), "household"),
+    "supply": Entry(SupplyItem, forms.SupplyItemForm, _("Bag or can"), "product__household"),
     "spot": Entry(AccidentSpot, forms.AccidentSpotForm, _("Accident spot"), "household"),
     "context": Entry(AccidentContext, forms.AccidentContextForm, _("What was going on"), "household"),
     "location": Entry(PottyLocation, forms.PottyLocationForm, _("Potty location"), "household"),
 }
-SETUP_KINDS = ("pet", "container", "product", "supply", "spot", "context", "location")
+SETUP_KINDS = ("pet", "container", "spot", "context", "location")
+PANTRY_KINDS = ("product", "supply")
 
 
 class HouseholdMixin(LoginRequiredMixin):
@@ -74,7 +76,9 @@ class HouseholdMixin(LoginRequiredMixin):
         if target and url_has_allowed_host_and_scheme(target, {self.request.get_host()}):
             return target
         if self.kwargs.get("kind") in SETUP_KINDS:
-            return reverse("pets:setup")
+            return reverse("pets:settings")
+        if self.kwargs.get("kind") in PANTRY_KINDS:
+            return reverse("pets:pantry")
         pets = list(pets)
         if len(pets) == 1:
             return reverse("pets:pet", args=[pets[0].slug])
@@ -117,37 +121,6 @@ class HouseholdDashboard(HouseholdMixin, TemplateView):
     def get_context_data(self, **kwargs):
         return super().get_context_data(pets=self.household.pets.filter(active=True), household=self.household,
                                         **kwargs)
-
-
-class HouseholdEdit(HouseholdMixin, View):
-    def check(self):
-        if not is_owner(self.request.user, self.household):
-            raise PermissionDenied
-
-    def render_form(self, form):
-        return render(self.request, "pets/form.html", {"form": form, "heading": _("Household settings"), "kind": "household",
-                                                        "setup": True, "cancel_url": reverse("pets:setup")})
-
-    def get(self, request):
-        self.check()
-        form = forms.HouseholdForm(instance=self.household)
-        form.hydrated_fielsets = [{"layout": "default", "layout_attrs": {}, "fields": list(form)}]
-        return self.render_form(form)
-
-    def post(self, request):
-        self.check()
-        form = forms.HouseholdForm(request.POST, instance=self.household)
-        if form.is_valid():
-            household = form.save(commit=False)
-            household.setup_done = sorted(set(household.setup_done or []) | {"quiet"})  # quiet hours seen
-            household.save()
-            messages.success(request, _("Household saved."))
-            target = request.POST.get("next") or request.GET.get("next")
-            if target and url_has_allowed_host_and_scheme(target, {request.get_host()}):
-                return HttpResponseRedirect(target)
-            return HttpResponseRedirect(reverse("pets:setup"))
-        form.hydrated_fielsets = [{"layout": "default", "layout_attrs": {}, "fields": list(form)}]
-        return self.render_form(form)
 
 
 class Members(HouseholdMixin, TemplateView):
@@ -504,10 +477,35 @@ class Resume(LoginRequiredMixin, TemplateView):
     template_name = "pets/resume.html"
 
 
-class Setup(HouseholdMixin, TemplateView):
-    template_name = "pets/setup.html"
+class Settings(HouseholdMixin, TemplateView):
+    """Household settings (PUP-217): the household's own (name, units, quiet hours) right on the page, then what it
+    has: pets, bowls, places. Food and litter live in the Pantry."""
+
+    template_name = "pets/settings.html"
+
+    def household_form(self, data=None):
+        form = forms.HouseholdForm(data, instance=self.household)
+        form.hydrated_fielsets = [{"layout": "default", "layout_attrs": {}, "fields": list(form)}]
+        return form
 
     def post(self, request):
+        if "move" in request.POST:
+            return self.move_pet(request)
+        if not is_owner(request.user, self.household):
+            raise PermissionDenied
+        form = self.household_form(request.POST)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+        household = form.save(commit=False)
+        household.setup_done = sorted(set(household.setup_done or []) | {"quiet"})  # quiet hours seen
+        household.save()
+        messages.success(request, _("Settings saved."))
+        target = request.POST.get("next") or request.GET.get("next")
+        if target and url_has_allowed_host_and_scheme(target, {request.get_host()}):
+            return HttpResponseRedirect(target)
+        return HttpResponseRedirect(reverse("pets:settings"))
+
+    def move_pet(self, request):
         """Move a pet up or down (PUP-211): the order everywhere pets are listed, for the whole household."""
         self.require("change", Pet)
         pets = list(self.household.pets.all())
@@ -519,27 +517,81 @@ class Setup(HouseholdMixin, TemplateView):
                 pets[i], pets[j] = pets[j], pets[i]
             for position, pet in enumerate(pets):
                 Pet.objects.filter(pk=pet.pk).update(position=position)
-        return HttpResponseRedirect(reverse("pets:setup"))
+        return HttpResponseRedirect(reverse("pets:settings"))
 
     def get_context_data(self, **kwargs):
-        from .supplies import display_unit, item_status as status
-
-        unit = display_unit(self.household)
-        bags = SupplyItem.objects.filter(product__household=self.household).select_related("product__household").prefetch_related("pets")
+        owner = is_owner(self.request.user, self.household)
+        if owner:
+            kwargs.setdefault("form", self.household_form())
         return super().get_context_data(
-            household=self.household, is_owner=is_owner(self.request.user, self.household),
+            household=self.household, is_owner=owner,
             pets=self.household.pets.all(),
-            has_cats=self.household.pets.filter(type=Pet.CAT).exists(),
             containers=self.household.containers.prefetch_related("pets"),
-            products=self.household.products.all(),
             spots=self.household.accident_spots.all(),
             contexts=self.household.accident_contexts.all(),
             places=self.household.potty_places.all(),
-            # Food sources and litter sources (PUP-210), each with its own card.
-            source_cards=[(_("Food sources"), False, [status(b, unit) for b in bags if b.product.category != Product.LITTER]),
-                          (_("Litter sources"), True, [status(b, unit) for b in bags if b.product.category == Product.LITTER])],
+            next=self.request.GET.get("next", ""),
             **kwargs,
         )
+
+
+class Pantry(HouseholdMixin, TemplateView):
+    """The pantry (PUP-210): every food and litter with its open bag or can, how many are unopened (- and +, or type
+    the count), and a warning when it's running low. Tap one for its settings and its bags or cans."""
+
+    template_name = "pets/pantry.html"
+
+    def get_context_data(self, **kwargs):
+        from .supplies import product_status
+
+        statuses = [product_status(p) for p in self.household.products.all()]
+        return super().get_context_data(
+            foods=[s for s in statuses if s["product"].category != Product.LITTER],
+            litter=[s for s in statuses if s["product"].category == Product.LITTER],
+            has_cats=self.household.pets.filter(type=Pet.CAT).exists(), **kwargs)
+
+
+class PantryCount(HouseholdMixin, View):
+    """How many of a food are unopened, set straight from the Pantry (PUP-210): - and +, or a typed count for a big
+    buy. Fewer takes away the newest unopened ones."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        from .supplies import pantry, restock
+
+        self.require("change", Product)
+        product = get_object_or_404(Product, household=self.household, pk=pk)
+        try:
+            count = max(0, min(int(request.POST.get("set") or request.POST.get("count") or 0), 500))
+        except ValueError:
+            count = None
+        if count is not None:
+            have = pantry(product).count()
+            if count > have:
+                restock(product, count - have)
+            else:
+                for item in list(pantry(product).filter(fills=None))[::-1][:have - count]:
+                    item.delete()
+        target = request.POST.get("next")
+        if not (target and url_has_allowed_host_and_scheme(target, {request.get_host()})):
+            target = reverse("pets:pantry")
+        return HttpResponseRedirect(f"{target}#food-{product.pk}")
+
+
+class Activities(HouseholdMixin, TemplateView):
+    """Every pet's activity in one list (PUP-217), like the pet page's: All first, then by kind or pet."""
+
+    template_name = "pets/activities.html"
+
+    def get_context_data(self, **kwargs):
+        pet = self.household.pets.filter(slug=self.request.GET.get("pet")).first()
+        filters = activity_filters(self.household, pet)
+        chosen = self.request.GET.get("filter", "all")
+        chosen = chosen if chosen in dict(filters) else "all"
+        recent, more = activity(self.household, pet, chosen)
+        return super().get_context_data(recent=recent, more_activity=more, pet=pet, activity_filters=filters,
+                                        chosen_filter=chosen, pets=self.household.pets.filter(active=True), **kwargs)
 
 
 class PetDashboard(HouseholdMixin, TemplateView):
@@ -548,35 +600,51 @@ class PetDashboard(HouseholdMixin, TemplateView):
     def get_context_data(self, **kwargs):
         pet = get_object_or_404(Pet, household=self.household, slug=self.kwargs["slug"])
         more = [(kind, ENTRIES[kind].title) for kind in ("walk", "sleep", "meal", "measurement", "note")]
-        filters = [("all", _("All")), ("walk", _("Walks")), ("pee", _("Pees")), ("poop", _("Poops")),
-                   ("accident", _("Accidents")), ("puke", _("Puke")), ("meal", _("Meals")), ("sleep", _("Sleep")),
-                   ("measurement", _("Measurements"))]
         from .schedule import setup_steps
 
         steps = setup_steps(pet, self.request.user) if can_edit(self.request.user, self.household) else []
-        recent, more_activity = activity(pet)
+        recent, more_activity = activity(self.household, pet)
         return super().get_context_data(pet=pet, recent=recent, more_activity=more_activity, more_entries=more,
-                                        activity_filters=filters, setup_steps=steps, **kwargs)
+                                        activity_filters=activity_filters(self.household, pet), setup_steps=steps, **kwargs)
 
 
 class ActivityPage(HouseholdMixin, TemplateView):
-    """A page of All activity for the pet page: a filter, or more as you scroll (PUP-143)."""
+    """A page of activity for the pet page or Activities: a filter, or more as you scroll (PUP-143, PUP-217)."""
 
     template_name = "pets/_activity_items.html"
 
     def get_context_data(self, **kwargs):
-        pet = get_object_or_404(Pet, household=self.household, slug=self.kwargs["slug"])
+        pet = None
+        if self.kwargs.get("slug"):
+            pet = get_object_or_404(Pet, household=self.household, slug=self.kwargs["slug"])
+        elif self.request.GET.get("pet"):
+            pet = self.household.pets.filter(slug=self.request.GET["pet"]).first()
         try:
             page = max(int(self.request.GET.get("page", 0)), 0)
         except ValueError:
             page = 0
-        recent, more = activity(pet, self.request.GET.get("filter", "all"), page)
-        return super().get_context_data(recent=recent, more_activity=more, page=page,
-                                        next_url=reverse("pets:pet", args=[pet.slug]), **kwargs)
+        recent, more = activity(self.household, pet, self.request.GET.get("filter", "all"), page)
+        back = reverse("pets:pet", args=[pet.slug]) if self.kwargs.get("slug") else reverse("pets:activities")
+        return super().get_context_data(recent=recent, more_activity=more, page=page, next_url=back,
+                                        show_pet=pet is None, **kwargs)
 
 
 class EntryList(HouseholdMixin, TemplateView):
+    """Training logs, one list. Every other kind is in Activities (PUP-217), filtered to it."""
+
     template_name = "pets/list.html"
+    TO_FILTER = {"walk": "walk", "meal": "food", "fill": "food", "litter": "litter", "puke": "puke", "sleep": "sleep",
+                 "measurement": "measurement", "note": "note"}
+
+    def get(self, request, *args, **kwargs):
+        if kwargs["kind"] != "training":
+            query = {"filter": self.TO_FILTER.get(kwargs["kind"], "all")}
+            if request.GET.get("pet"):
+                query["pet"] = request.GET["pet"]
+            from urllib.parse import urlencode
+
+            return HttpResponseRedirect(reverse("pets:activities") + "?" + urlencode(query))
+        return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         kind = self.kwargs["kind"]
@@ -611,13 +679,24 @@ class EntryView(HouseholdMixin, View):
         )
 
     def form_kwargs(self):
-        """A new food or litter source (PUP-210): Setup's litter card adds with ?for=litter."""
-        return {"litter": self.request.GET.get("for") == "litter"} if self.kind == "supply" else {}
+        """A new food or litter (PUP-210): the Pantry's litter part adds with ?for=litter."""
+        return {"litter": self.request.GET.get("for") == "litter"} if self.kind in PANTRY_KINDS else {}
 
     def render_form(self, form, instance=None):
+        from .supplies import item_status, product_status
+
+        title = self.entry.title
+        if self.kind == "product" and (getattr(form, "litter", False) or (
+                instance and instance.category == Product.LITTER)):
+            title = _("Litter")
+        food = {}
+        if self.kind == "product" and instance:  # a food's page (PUP-210): its bags or cans under its settings
+            food = {"status": product_status(instance),
+                    "items": [item_status(i) for i in instance.items.order_by("finished", "-opened", "pk")]}
         return render(self.request, "pets/form.html", {
             "form": form, "kind": self.kind, "setup": self.kind in SETUP_KINDS, "object": instance,
-            "title": _("Litter source") if getattr(form, "litter", False) else self.entry.title,
+            "pantry": self.kind in PANTRY_KINDS, "food": food,
+            "title": title,
             "ended": bool(self.request.GET.get("ended")), "next": self.request.GET.get("next", ""),
             "cancel_url": self.back_url(
                 self.household.pets.filter(slug=self.request.GET.get("pet")) if not instance else

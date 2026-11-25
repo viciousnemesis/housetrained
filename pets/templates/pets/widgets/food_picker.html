@@ -1,7 +1,7 @@
 {% load i18n %}
 <div class="food-picker position-relative">
     {% include "django/forms/widgets/select.html" %}
-    <button type="button" class="form-select text-start d-none food-picker-button" aria-haspopup="listbox" aria-expanded="false"></button>
+    <button type="button" class="form-select text-start d-none food-picker-button" style="min-height: 3.6rem" aria-haspopup="listbox" aria-expanded="false"></button>
     <div class="food-picker-panel card position-absolute w-100 shadow d-none" style="z-index: 1050">
         <input type="search" class="form-control form-control-sm m-2 w-auto d-none food-picker-search"
                placeholder="{% trans 'Search' %}" aria-label="{% trans 'Search foods' %}" autocomplete="off">
@@ -9,7 +9,7 @@
     </div>
 </div>
 <script>
-    // Food picker (PUP-213): rows built once from the select's options; searching only hides rows, so it stays fast.
+    // Food picker (PUP-210): rows built once from the select's options; searching only hides rows, so it stays fast.
     (function () {
         var box = document.currentScript.previousElementSibling, select = box.querySelector("select");
         var button = box.querySelector(".food-picker-button"), panel = box.querySelector(".food-picker-panel");
@@ -17,13 +17,14 @@
         var rows = [];
         var label = function (option) {
             var detail = option.dataset.detail;
-            return '<span class="me-auto text-truncate"></span>' + (detail ? '<span class="small text-body-secondary ms-3 text-nowrap"></span>' : "");
+            // Name on its own line, what's left below it (PUP-210): a long name is never cut off by the amounts.
+            return '<span class="d-block text-wrap"></span>' + (detail ? '<span class="d-block small text-body-secondary"></span>' : "");
         };
         Array.from(select.options).forEach(function (option) {
             if (option.value === "") return;
             var row = document.createElement("button");
             row.type = "button";
-            row.className = "list-group-item list-group-item-action d-flex align-items-center";
+            row.className = "list-group-item list-group-item-action text-start";
             row.setAttribute("role", "option");
             row.innerHTML = label(option);
             row.children[0].textContent = option.text;
@@ -39,7 +40,6 @@
             if (option && option.value) {
                 button.children[0].textContent = option.text;
                 if (option.dataset.detail) button.children[1].textContent = option.dataset.detail;
-                button.classList.add("d-flex", "align-items-center");
             } else {
                 button.textContent = "{% trans 'Pick a food' %}";
             }
