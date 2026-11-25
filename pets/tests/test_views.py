@@ -275,7 +275,7 @@ class CardTests(PetTestCase):
         PottyBreak.objects.create(pet=self.ruby, time=now, pee=True, location=PottyBreak.OUTSIDE)
         card = insights.accidents_chart(self.ruby)
         self.assertEqual((len(card["dots"]), len(card["meals"])), (1, 2))
-        self.assertEqual(sorted(m["color"] for m in card["meals"]), ["#4a90e2", "#e67300"])  # water blue, food orange
+        self.assertEqual(sorted(m["color"] for m in card["meals"]), ["#4a90e2", "#7fb8f0"])  # water blue, dry food a lighter blue
 
     def test_pet_page_cards_render(self):
         PottyBreak.objects.create(pet=self.ruby, time=timezone.now(), pee=True)

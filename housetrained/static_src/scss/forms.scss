@@ -62,7 +62,7 @@
         display: inline-block;
         border-radius: $btn-border-radius;
         width: auto;
-        padding: 0.25rem 0.5rem;
+        padding: $btn-padding-y-lg $btn-padding-x-lg;  // the same size as Cancel and Delete beside it
         position: relative;
     }
 }

@@ -1450,10 +1450,16 @@ class ProductForm(HouseholdOwnedForm):
             del self.fields["count"]
         self.fieldsets = [{"fields": names, "layout": "default"}]
         self.fields["package_size"].required = True
-        self.fields["category"].widget.choices = [c for c in self.fields["category"].choices if c[0] != ""]
         self.fields["low_by"].widget.choices = [c for c in self.fields["low_by"].choices if c[0] != ""]
-        if not product.pk:
-            self.initial.setdefault("category", Product.LITTER if litter else Product.DRY_FOOD)
+        # Litter isn't a food: a food is dry or wet, and litter has no kind to pick.
+        self.litter = litter = product.category == Product.LITTER if product.pk else litter
+        if litter:
+            names.remove("category")
+            del self.fields["category"]
+            self.instance.category = Product.LITTER
+        else:
+            self.fields["category"].choices = [c for c in self.fields["category"].choices if c[0] in Product.FOODS]
+            self.initial.setdefault("category", product.category if product.pk else Product.DRY_FOOD)
         unit = product.unit or units.unit_for(self.household, "bag")
         self.fields["size_unit"].initial = self.fields["low_unit"].initial = unit
         if product.pk and product.package_size:

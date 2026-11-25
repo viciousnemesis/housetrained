@@ -247,6 +247,17 @@ class PantryTests(PetTestCase):
         page = self.client.get("/pets/pantry/").content.decode()
         self.assertRegex(page, r"Running low:</strong>\s+1 unopened")
 
+    def test_litter_is_not_a_food(self):
+        page = self.client.get("/log/product/add/")
+        self.assertContains(page, "Wet food")
+        self.assertNotContains(page, 'value="litter"')
+        self.assertNotContains(self.client.get("/log/product/add/?for=litter"), 'name="category"')
+        self.client.post("/log/product/add/?for=litter", {"name": "Clay", "package_size": "9", "size_unit": "kg",
+                                                          "count": "1", "low_by": Product.PACKAGES, "low_at": "1"})
+        self.assertEqual(Product.objects.get(name="Clay").category, Product.LITTER)
+        self.assertEqual(self.client.post("/log/product/add/", {"name": "X", "category": Product.LITTER, "package_size": "1",
+                         "size_unit": "kg", "count": "1", "low_by": Product.PACKAGES, "low_at": "1"}).status_code, 200)
+
     def test_a_new_food_with_how_many(self):
         self.client.post("/log/product/add/", {"name": "Kibble", "category": Product.DRY_FOOD, "package_size": "2",
                                                "size_unit": "kg", "count": "3", "low_by": Product.PACKAGES,

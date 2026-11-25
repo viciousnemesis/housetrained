@@ -196,7 +196,7 @@ def accidents_chart(pet):
     for m in Meal.objects.filter(pet=pet, time__gte=since).select_related("fill__supply_item__product", "product"):
         pos = _place(c, m.time)
         if pos:
-            meals.append({"x": pos[0] - 3, "y": pos[1] - 3, "color": HEX[meal_colour(m)]})
+            meals.append({"x": pos[0], "y": pos[1], "color": HEX[meal_colour(m)], "water": m.kind == Meal.WATER})
     for s in pet.sleeps.filter(Q(end__gte=since) | Q(end=None)):
         start, end = timezone.localtime(s.start), timezone.localtime(s.end or timezone.now())
         day = start.date()

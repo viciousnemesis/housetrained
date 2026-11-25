@@ -160,7 +160,7 @@ def row(kind, entry):
 # potties and walks green; accidents and puke reds (pee light, poop dark); food orange (dry deeper, wet lighter);
 # water blue; sleep purple; measurements teal. Shown as a faint tint with a coloured edge.
 COLOURS = {"pee": "143,209,138", "poop": "46,125,50", "accident_pee": "240,110,110", "accident_poop": "167,36,49",
-           "walk": "76,175,80", "dry_food": "230,115,0", "wet_food": "255,170,90", "water": "74,144,226",
+           "walk": "76,175,80", "dry_food": "127,184,240", "wet_food": "184,219,250", "water": "74,144,226",
            "sleep": "142,108,200", "puke": "205,70,60", "nothing": "150,150,150", "measurement": "23,162,184"}
 HEX = {name: "#%02x%02x%02x" % tuple(int(c) for c in rgb.split(",")) for name, rgb in COLOURS.items()}
 
