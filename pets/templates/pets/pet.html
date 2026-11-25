@@ -76,6 +76,7 @@
             <div class="pet-card" data-card="status" style="order: 1">{% card_status pet %}</div>
             <div class="pet-card" data-card="training" style="order: 3">{% card_training pet %}</div>
             <div class="pet-card" data-card="potty_bars" style="order: 6">{% card_potty_bars pet %}</div>
+            <div class="pet-card" data-card="intake" style="order: 6">{% card_intake pet %}</div>
         </div>
         <div class="col-lg-4 pet-col">
             <div class="pet-card" data-card="accidents" style="order: 7">{% card_accidents pet %}</div>
@@ -102,9 +103,9 @@
             var cards = {};
             row.querySelectorAll(".pet-card").forEach(function (c) { cards[c.dataset.card] = c; });
             var defaults = {
-                computer: [["status", "training", "potty_bars"], ["accidents", "measurements"],
+                computer: [["status", "training", "potty_bars", "intake"], ["accidents", "measurements"],
                            ["supplies", "today", "activity", "notes"]],
-                phone: [["status", "activity", "training", "today", "supplies", "potty_bars", "accidents",
+                phone: [["status", "activity", "training", "today", "supplies", "potty_bars", "intake", "accidents",
                          "measurements", "notes"]]
             };
             var wide = window.matchMedia("(min-width: 992px)");

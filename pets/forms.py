@@ -93,7 +93,7 @@ class PetsForm(forms.ModelForm):
     UNIT_OF = {"unit": "amount", "food_unit": "food_added", "water_unit": "water_added", "distance_unit": "distance",
                "weight_unit": "value",
                "length_unit": "value", "bowl_unit": "amount_per_bowl", "new_food_size_unit": "new_food_size",
-               "low_unit": "low_at", "food_unit_2": "food_added_2", "new_food_size_unit_2": "new_food_size_2"}
+               "low_unit": "low_at", "food_unit_second": "food_added_second", "new_food_size_unit_second": "new_food_size_second"}
 
     @property
     def unit_pairs_json(self):
@@ -740,7 +740,9 @@ class MealForm(CanFields, PerPetForm):
     form and one Save; each food and the water become their own entry, which edits on its own. Adding makes the bowl
     fills (the pantry counts those); eating or drinking is what Next Walk goes by."""
 
-    SLOTS = ["", "_2"]  # a second food (+ Another food), for two foods in one meal
+    # A second food (+ Another food), for two foods in one meal. Not "_2": the first food's own options are
+    # id_portion_0, _1, _2…, and a field called portion_2 would share an id with one of them.
+    SLOTS = ["", "_second"]
     water_added = forms.FloatField(label=_("Added to bowl"), required=False, min_value=0)
     water_unit = forms.ChoiceField(label=_("Unit"), choices=units.choices(units.VOLUME) + [(BOWLS, _("bowls"))],
                                    required=False)
@@ -919,8 +921,9 @@ class MealForm(CanFields, PerPetForm):
                                    (["water_added"] if data.get("water_added") else [], True, _("water"))):
             missing = [p.name for p in pets if pet_bowl(p, water) is None] if names else []
             if missing:
-                self.add_error(names[0], _("%(names)s has no %(what)s bowl set up.") % {
-                    "names": ", ".join(missing), "what": what})
+                text = (_("%(names)s has no %(what)s bowl set up.") if len(missing) == 1 else
+                        _("%(names)s have no %(what)s bowl set up."))
+                self.add_error(names[0], text % {"names": ", ".join(missing), "what": what})
         return data
 
     def known_food(self, name):
@@ -992,6 +995,8 @@ class MealForm(CanFields, PerPetForm):
             setattr(meal, field, round(full * share, 1) if full else None)
         elif meal.fill_id or meal.water_fill_id or not meal.pk:
             setattr(meal, field, None)
+        # Ate / drank at this time: only when marked. A bowl nobody marked was eaten some time before the next
+        # fill, so it counts towards the day's amounts (PUP-218) but doesn't move Next walk (PUP-207).
         meal.food = not water and bool(meal.portion or meal.amount)
         meal.water = water and bool(meal.water_portion or meal.water_amount)
 

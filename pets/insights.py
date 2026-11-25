@@ -153,6 +153,74 @@ def potty_bars_card(pet):
             "scrolls": count > VISIBLE_DAYS}
 
 
+def eaten_amount(meal, shares):
+    """How much one food or water entry was: what was marked eaten or drunk, else the whole bowl fill (eaten some
+    time before the next fill), split between the pets the fill was for. None when nothing says how much."""
+    water = meal.kind == Meal.WATER
+    marked = meal.water_amount if water else meal.amount
+    if marked is not None:
+        return marked
+    fill = meal.water_fill if water else meal.fill
+    if fill and fill.amount:
+        return fill.amount / shares.get(fill.pk, 1)
+    return None
+
+
+def amounts_by_day(pet, since, until=None):
+    """Dry food, wet food and water per day: what each entry says was eaten or drunk, else its whole bowl fill
+    (shared between the pets it was for). The Food & Water card and Today's Eaten both count this way."""
+    from collections import Counter, defaultdict
+
+    from .entries import _product
+    from .models import Product
+
+    meals = Meal.objects.filter(pet=pet, time__gte=since)
+    if until:
+        meals = meals.filter(time__lte=until)
+    meals = list(meals
+                 .select_related("fill__supply_item__product", "water_fill", "product"))
+    fills = [m.fill_id for m in meals if m.fill_id] + [m.water_fill_id for m in meals if m.water_fill_id]
+    # A bowl filled for two pets: each had half of it.
+    shares = Counter(Meal.objects.filter(fill_id__in=fills).values_list("fill_id", flat=True)) + Counter(
+        Meal.objects.filter(water_fill_id__in=fills).values_list("water_fill_id", flat=True))
+    by_day = defaultdict(lambda: {"dry": 0.0, "wet": 0.0, "water": 0.0})
+    for m in meals:
+        amount = eaten_amount(m, shares)
+        if not amount:
+            continue
+        if m.kind == Meal.WATER:
+            key = "water"
+        else:
+            product = _product(m)
+            key = "wet" if product and product.category == Product.WET_FOOD else "dry"
+        by_day[timezone.localtime(m.time).date()][key] += amount
+    return by_day
+
+
+def intake_card(pet):
+    """Food and water per day (PUP-218), the same days as Potty Breaks: dry and wet food in one bar, water in its
+    own, each scaled to its busiest day."""
+    today = timezone.localdate()
+    count = history_days(pet)
+    by_day = amounts_by_day(pet, window_start(count))
+    household = pet.household
+    days = []
+    for i in range(count):
+        date = today - datetime.timedelta(days=i)
+        d = by_day[date]
+        food = d["dry"] + d["wet"]
+        days.append({"label": history_label(date, today), "dry": d["dry"], "wet": d["wet"], "water": d["water"],
+                     "food_text": units.show(food, "mass", household) if food else "",
+                     "water_text": units.show(d["water"], "volume", household) if d["water"] else ""})
+    food_peak = max([d["dry"] + d["wet"] for d in days] + [1])
+    water_peak = max([d["water"] for d in days] + [1])
+    for d in days:
+        d["dry_pct"], d["wet_pct"] = d["dry"] / food_peak * 100, d["wet"] / food_peak * 100
+        d["water_pct"] = d["water"] / water_peak * 100
+    return {"days": days, "empty": not by_day, "scrolls": count > VISIBLE_DAYS,
+            "legend": [(HEX["dry_food"], _("Dry food")), (HEX["wet_food"], _("Wet food")), (HEX["water"], _("Water"))]}
+
+
 # --- Day x hour charts ---------------------------------------------------------------------
 def _x(dt):
     local = timezone.localtime(dt)
@@ -267,8 +335,9 @@ def today_card(pet, now=None):
     walks = list(pet.walks.filter(start__gte=today, start__lte=now))
     walk_time = sum(((w.end or now) - w.start for w in walks), datetime.timedelta())
     breaks = potty(pet, today, until=now)
-    meals = Meal.objects.filter(pet=pet, food=True, time__gte=today, time__lte=now)
-    eaten = meals.aggregate(s=Sum("amount"))["s"]
+    meals = Meal.objects.filter(pet=pet, kind=Meal.FOOD, time__gte=today, time__lte=now)
+    day = amounts_by_day(pet, today, now).get(timezone.localdate(now))
+    eaten = day and day["dry"] + day["wet"]
     pees, poops = sum(b.pee for b in breaks), sum(b.poop for b in breaks)
     accidents, count = sum(1 for b in breaks if is_accident(b)), meals.values("time").distinct().count()  # two foods at once: one meal
     return {"tiles": [

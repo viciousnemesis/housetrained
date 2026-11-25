@@ -1,0 +1,48 @@
+{% extends "pets/cards/_base.html" %}
+{% load i18n %}
+{% block header %}
+    {% trans "Food & Water" %}
+{% endblock %}
+{% block title %}
+    {% if empty %}{% trans "None" %}{% endif %}
+{% endblock %}
+{% block content %}
+    {# Eaten and drunk per day (PUP-218), the same days and look as Potty Breaks. A bowl nobody marked is counted #}
+    {# as all eaten, shared between the pets it was for. #}
+    <div class="small mb-2 pb-1 border-bottom">
+        {% for color, label in legend %}
+            <span class="me-3 text-nowrap d-inline-block"><span class="d-inline-block rounded-1 me-1" style="width:.8rem;height:.8rem;background:{{ color }}"></span>{{ label }}</span>
+        {% endfor %}
+    </div>
+    {% if empty %}
+        <p class="small text-body-secondary mb-0">{% trans "No food or water logged yet. Log a meal to see how much is eaten and drunk each day." %}</p>
+    {% else %}
+    <div class="d-flex gap-2 small text-body-secondary pb-1 border-bottom{% if scrolls %} pe-3{% endif %}">
+        <div class="text-end flex-shrink-0" style="width: 4.75rem">{% trans "Day" %}</div>
+        <div style="flex: 1 1 0; min-width: 0">{% trans "Ate" %}</div>
+        <div style="flex: 1 1 0; min-width: 0">{% trans "Drank" %}</div>
+    </div>
+    <div class="overflow-auto{% if scrolls %} pe-3{% endif %}" style="max-height: calc(14 * 1.9rem)">
+    {% for d in days %}
+        <div class="d-flex align-items-center gap-2" style="margin-top: .5rem">
+            <div class="small text-nowrap text-end flex-shrink-0" style="width: 4.75rem">{{ d.label }}</div>
+            <div class="position-relative" style="flex: 1 1 0; min-width: 0">
+                <div class="progress bg-transparent" style="height: 1.4rem">
+                    {% if d.dry %}<div class="progress-bar" style="width: {{ d.dry_pct|safe }}%; background: {{ legend.0.0 }}"></div>{% endif %}
+                    {% if d.wet %}<div class="progress-bar" style="width: {{ d.wet_pct|safe }}%; background: {{ legend.1.0 }}"></div>{% endif %}
+                </div>
+                {# Amounts on a dark tag: readable on any bar and off its end. #}
+                {% if d.food_text %}<span class="position-absolute top-50 translate-middle-y small px-1 text-nowrap rounded-1" style="left: .25rem; background: rgba(0,0,0,.6); color: #fff">{{ d.food_text }}</span>{% endif %}
+            </div>
+            <div class="position-relative" style="flex: 1 1 0; min-width: 0">
+                <div class="progress bg-transparent" style="height: 1.4rem">
+                    {% if d.water %}<div class="progress-bar" style="width: {{ d.water_pct|safe }}%; background: {{ legend.2.0 }}"></div>{% endif %}
+                </div>
+                {% if d.water_text %}<span class="position-absolute top-50 translate-middle-y small px-1 text-nowrap rounded-1" style="left: .25rem; background: rgba(0,0,0,.6); color: #fff">{{ d.water_text }}</span>{% endif %}
+            </div>
+        </div>
+    {% endfor %}
+    </div>
+    <div class="small text-body-secondary mt-2">{% trans "A bowl nobody marked as part-eaten counts as all eaten, shared between the pets it was for." %}</div>
+    {% endif %}
+{% endblock %}

@@ -52,11 +52,11 @@ class LogMealTests(PetTestCase):
         kibble = Product.objects.create(household=self.household, name="Kibble", category=Product.DRY_FOOD,
                                         package_size=2000)
         bag = SupplyItem.objects.create(product=kibble, size=2000, opened=timezone.localdate())
-        self.log(food_added="60", food_unit="g", food=self.bag.product_id, another="1", food_2=kibble.pk,
-                 food_added_2="40", food_unit_2="g", portion_2="1.0")
+        self.log(food_added="60", food_unit="g", food=self.bag.product_id, another="1", food_second=kibble.pk,
+                 food_added_second="40", food_unit_second="g", portion_second="1.0")
         self.assertEqual(sorted((m.fill.supply_item.pk, m.fill.amount) for m in Meal.objects.all()),
                          sorted([(self.bag.pk, 60), (bag.pk, 40)]))
-        self.log(food_added="60", food_unit="g", food=self.bag.product_id, food_2=kibble.pk, food_added_2="40")
+        self.log(food_added="60", food_unit="g", food=self.bag.product_id, food_second=kibble.pk, food_added_second="40")
         self.assertEqual(Meal.objects.count(), 3)  # no second food unless + Another food was pressed
 
     def test_the_food_starts_on_the_bag_used_last_time(self):
@@ -385,3 +385,43 @@ class PantryTests(PetTestCase):
 def local_later(text):
     """A datetime-local value an hour on."""
     return (datetime.datetime.fromisoformat(text) + datetime.timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")
+
+
+class IntakeTests(PetTestCase):
+    """Food & Water per day (PUP-218): what was marked eaten, else the whole fill shared between its pets."""
+
+    def test_eaten_and_drunk_per_day(self):
+        from pets.insights import intake_card
+
+        bowl = Container.objects.create(household=self.household, name="Bowl", kind=Container.FOOD_BOWL)
+        now = timezone.now()
+        fill = Fill.objects.create(container=bowl, contents=Fill.FOOD, amount=100, time=now)
+        Meal.objects.create(pet=self.ruby, time=now, fill=fill)  # not marked: the bowl, shared with Rex
+        Meal.objects.create(pet=self.rex, time=now, fill=fill)
+        Meal.objects.create(pet=self.ruby, time=now, amount=30)  # marked eaten
+        water = Fill.objects.create(container=bowl, contents=Fill.WATER, amount=200, time=now)
+        Meal.objects.create(pet=self.ruby, time=now, kind=Meal.WATER, food=False, water_fill=water)
+        today = intake_card(self.ruby)["days"][0]
+        self.assertEqual((today["dry"], today["water"], today["food_text"], today["water_text"]),
+                         (80, 200, "80 g", "200 ml"))
+        self.assertContains(self.client.get("/pets/ruby/"), "Food & Water")
+        from pets.insights import today_card
+        self.assertIn(("Eaten", "80 g", ""), today_card(self.ruby)["tiles"])  # Today agrees with the card
+
+
+class FormIdTests(PetTestCase):
+    """No two elements on a form share an id: the page's scripts find fields by id, and a clash hid the first food's
+    Eaten buttons (portion_2 against portion's third option)."""
+
+    def test_every_add_form_has_unique_ids(self):
+        import re
+        from collections import Counter
+
+        from pets.views import ENTRIES
+
+        for kind in ENTRIES:
+            page = self.client.get(f"/log/{kind}/add/")
+            if page.status_code != 200:
+                continue
+            ids = Counter(re.findall(r'\sid="([^"]+)"', page.content.decode()))
+            self.assertEqual([i for i, n in ids.items() if n > 1], [], kind)

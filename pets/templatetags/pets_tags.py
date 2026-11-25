@@ -24,6 +24,7 @@ for _name, _builder in (
     ("status", insights.status_card),
     ("today", insights.today_card),
     ("potty_bars", insights.potty_bars_card),
+    ("intake", insights.intake_card),
     ("accidents", insights.accidents_chart),
     ("measurements", insights.measurements_card),
     ("notes", insights.notes_card),
