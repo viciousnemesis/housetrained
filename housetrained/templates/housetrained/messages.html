@@ -1,10 +1,15 @@
 {% load i18n %}
 {% block messages %}
     {% if messages %}
-        {# Messages float over the page (PUP-215), so closing one doesn't shift the page. Success ones go by #}
-        {# themselves after 10 seconds, like Undo; warnings and errors stay until closed. #}
-        <div class="position-fixed start-50 translate-middle-x px-2 d-flex flex-column gap-2"
-             style="top: 4.5rem; z-index: 1080; width: min(36rem, 100%)">
+        {# Messages float over the page (PUP-215), so closing one doesn't shift the page, at the bottom like the #}
+        {# training Undo, clear of the walk and log buttons at the top. On a form they sit above the Save bar. #}
+        {# Success ones go by themselves after 10 seconds, like Undo; warnings and errors stay until closed. #}
+        <style>
+            .page-messages { bottom: 1rem; }
+            @media (max-width: 767.98px) { body:has(.submit-primary) .page-messages { bottom: 4.5rem; } }
+        </style>
+        <div class="page-messages position-fixed start-50 translate-middle-x px-2 d-flex flex-column gap-2"
+             style="z-index: 1080; width: min(36rem, 100%)">
         {% for message in messages %}
             <div class="alert alert-{{ message.level_tag }} alert-dismissible fade show shadow mb-0"
                  role="alert" data-level="{{ message.level_tag }}">
