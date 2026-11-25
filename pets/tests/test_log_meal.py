@@ -228,6 +228,25 @@ class PantryTests(PetTestCase):
             items[0].save()
         return items
 
+    def test_edit_or_delete_a_food_from_the_pantry(self):
+        items = self.stock(2)
+        meal = Meal.objects.create(pet=self.ruby, time=timezone.now(), amount=60, product=self.cans)
+        page = self.client.get("/pets/pantry/")
+        self.assertContains(page, f'href="/log/product/{self.cans.pk}/?next=/pets/pantry/"')
+        self.assertContains(page, ">Edit</a>")
+        self.assertContains(self.client.get(f"/log/product/{self.cans.pk}/"), "Delete Wet Food and its 2 cans?")
+        self.client.post(f"/log/product/{self.cans.pk}/delete/", {"next": "/pets/pantry/"})
+        self.assertFalse(Product.objects.exists() or SupplyItem.objects.filter(pk=items[0].pk).exists())
+        meal.refresh_from_db()  # the meal stays, just without its food
+        self.assertIsNone(meal.product)
+
+    def test_running_low_says_how_many(self):
+        self.cans.low_by, self.cans.low_at = Product.PACKAGES, 1
+        self.cans.save()
+        self.stock(1, opened=False)
+        page = self.client.get("/pets/pantry/").content.decode()
+        self.assertRegex(page, r"Running low:</strong>\s+1 unopened")
+
     def test_a_new_food_with_how_many(self):
         self.client.post("/log/product/add/", {"name": "Kibble", "category": Product.DRY_FOOD, "package_size": "2",
                                                "size_unit": "kg", "count": "3", "low_by": Product.PACKAGES,

@@ -60,7 +60,8 @@
         </form>
         {% if object %}
             <form id="remove-entry" method="post" action="{% url 'pets:delete' kind object.pk %}"
-                  {% if not ended %}onsubmit="return confirm('{% trans "Delete this entry? This cannot be undone." %}')"{% endif %}>
+                  {% if kind == "product" %}{% with n=object.items.count %}onsubmit="return confirm('{% filter escapejs %}{% if n == 1 %}{% blocktrans with name=object noun=food.status.noun %}Delete {{ name }} and its {{ n }} {{ noun }}? Meals logged with it are kept. This cannot be undone.{% endblocktrans %}{% else %}{% blocktrans with name=object noun=food.status.nouns %}Delete {{ name }} and its {{ n }} {{ noun }}? Meals logged with it are kept. This cannot be undone.{% endblocktrans %}{% endif %}{% endfilter %}')"{% endwith %}
+                  {% elif not ended %}onsubmit="return confirm('{% trans "Delete this entry? This cannot be undone." %}')"{% endif %}>
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ next }}">
             </form>

@@ -18,14 +18,15 @@
         {% if not s.packages %}
             {% trans "None left." %}
         {% else %}
-            {% if not controls %}{% blocktrans count n=s.pantry %}{{ n }} unopened{% plural %}{{ n }} unopened{% endblocktrans %}{% endif %}
-            {% if s.days_left is not None %}{% if not controls %} · {% endif %}~{{ s.days_left }} {% trans "days left" %} ({% trans "runs out around" %} {{ s.runs_out|date:"M j" }}), {{ s.per_day }}/{% trans "day" %}{% endif %}
+            {% if not controls or s.low %}{% blocktrans count n=s.pantry %}{{ n }} unopened{% plural %}{{ n }} unopened{% endblocktrans %}{% endif %}
+            {% if s.days_left is not None %}{% if not controls or s.low %} · {% endif %}~{{ s.days_left }} {% trans "days left" %} ({% trans "runs out around" %} {{ s.runs_out|date:"M j" }}), {{ s.per_day }}/{% trans "day" %}{% endif %}
         {% endif %}
     </div>
     {% if controls and pets_can_edit %}
         <form class="d-flex align-items-center gap-2 mt-2" method="post" action="{% url 'pets:pantry-count' s.product.pk %}">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.path }}">
+            {% if not editing %}<a class="btn btn-outline-light btn-sm" href="{% url 'pets:edit' 'product' s.product.pk %}?next={{ request.path|urlencode }}">{% trans "Edit" %}</a>{% endif %}
             <span class="me-auto">{% trans "Unopened" %}</span>
             <button class="btn btn-outline-light btn-sm" type="submit" name="set" value="{{ s.pantry|add:'-1' }}" {% if not s.pantry %}disabled{% endif %} aria-label="{% trans 'One less' %}">−</button>
             <input class="form-control form-control-sm text-center" style="width: 4.5rem" type="number" min="0" max="500" name="count" value="{{ s.pantry }}"
